@@ -261,12 +261,18 @@ timeGenerator = function(seq,nAct,theta){
 }
   
  
-GatherPreprocessingDF = function(formula){
-  # depEvents : dependent events
+GatherPreprocessingDF = function(formula,seqTime,nodes=actDfnodes,matrix = net0){
   # formula : string formula with the effects for the model
-
+  
+  netEvents = defineNetwork(nodes = actDfnodes,matrix=net0) |>
+      linkEvents(changeEvents = seqTime, nodes = actDfnodes)
+    
+  depEvents = defineDependentEvents(seqTime, nodes = actDfnodes, defaultNetwork = netEvents)
+  
+  formGather = paste("depEvents ~",formula,sep="")
+  
   dataProcessed <- GatherPreprocessing(
-    as.formula(formula),
+    as.formula(formGather),
     model = "DyNAM", subModel = "choice",
     progress = FALSE
   )
@@ -379,14 +385,14 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula){
     seqTime=seq
     #seqTime = data.frame("time"=timeGenerator(seq,nAct,theta),seq)
 
-    netEvents = defineNetwork(nodes = actDfnodes,matrix=net0) |>
-      linkEvents(changeEvents = seqTime, nodes = actDfnodes)
+    # netEvents = defineNetwork(nodes = actDfnodes,matrix=net0) |>
+    #  linkEvents(changeEvents = seqTime, nodes = actDfnodes)
 
-    depEvents = defineDependentEvents(seqTime, nodes = actDfnodes, defaultNetwork = netEvents)
+    #depEvents = defineDependentEvents(seqTime, nodes = actDfnodes, defaultNetwork = netEvents)
     
     
-    formGather = paste("depEvents ~",formula,sep="")
-    listExpandedDF = GatherPreprocessingDF(formGather)
+    #formGather = paste("depEvents ~",formula,sep="")
+    listExpandedDF = GatherPreprocessingDF(formula,seqTime,nodes=actDfnodes,matrix = net0)
 
     # LogLikelihood computation -------------
     logLik = c(logLik,logLikelihood(listExpandedDF,beta))
@@ -454,6 +460,7 @@ net1=Xstate
 theta0=data.frame("Crea"=parmsCrea,"Del"=parmsDel)
 beta0=data.frame("Crea"=parmsChoiceCrea,"Del"=parmsChoiceDel)
 formula = "indeg + outdeg + recip + inertia"
+
 likelihood = EMAlgorithm(net0,net1,theta0,beta0,formula)
 
 
