@@ -303,6 +303,3 @@ sapply(storeParam$mod2Del,mean)
 which(storeParam$mod1Crea$recip< (-6))
 which(storeParam$mod2Crea$recip< (-6))
 
-which(storeParam$mod1Del$recip< (-3))
-which(storeParam$mod2Del$recip< (-3))
-
