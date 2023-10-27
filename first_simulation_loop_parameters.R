@@ -24,7 +24,7 @@ parmsDel <- c(log(nSimDel / endTime / (nAct-4))) #indegree and outdegree of ego
 parmsChoiceCrea <- c(1,0.05,0.1) #reciprocity, indegree, outdegree of alter (reciprocity positiva para creacion/ negativa eliminacion)
 parmsChoiceDel <- c(-1,-0.05,-0.1)     
 
-n = 100
+n = 1000
 storeParam = list(
   "mod1Crea"=data.frame("indeg"=numeric(n), "outdeg"=numeric(n), "recip"=numeric(n)),
   "mod2Crea"=data.frame("indeg"=numeric(n), "outdeg"=numeric(n), "recip"=numeric(n)),
@@ -242,8 +242,11 @@ for(i in 1:n){
 str(storeParam)
 str(repeatedAction)
 table(sapply(repeatedAction,nrow))
-sapply(repeatedAction,function(x) table(x$n))
+aux = sapply(repeatedAction,function(x) table(x$n))
 
+summary(sapply(aux, "[",  1))
+summary(sapply(aux, "[",  2))
+summary(sapply(aux, "[",  3))
 
 
 par(mfrow=c(1,2))
