@@ -24,7 +24,7 @@ parmsDel <- c(log(nSimDel / endTime / (nAct-4))) #indegree and outdegree of ego
 parmsChoiceCrea <- c(1,0.05,0.1) #reciprocity, indegree, outdegree of alter (reciprocity positiva para creacion/ negativa eliminacion)
 parmsChoiceDel <- c(-1,-0.05,-0.1)     
 
-n = 1000
+n = 100
 storeParam = list(
   "mod1Crea"=data.frame("indeg"=numeric(n), "outdeg"=numeric(n), "recip"=numeric(n)),
   "mod2Crea"=data.frame("indeg"=numeric(n), "outdeg"=numeric(n), "recip"=numeric(n)),
@@ -40,8 +40,12 @@ for(i in 1:n){
     Xstate = s501
     rownames(Xstate) = dimnames(s501)[[2]]
     
+    initState = Xstate
+    
     XAux <- cbind(colSums(Xstate),rowSums(Xstate))
     dimnames(XAux) <- list(actDf,c("indeg","outdeg"))
+    
+    XAuxInit = XAux
     
     X <- cbind("intercept"=rep(1,nrow(XAux)))
     
@@ -69,6 +73,7 @@ for(i in 1:n){
     #events = data.frame(time=numeric(200),label=character(200))|>as.list()
     
     while (time < endTime) {
+      stop = FALSE
       cat("event:", event, "time:", time, "\r")
       timeEventCrea <- rexp(1, sumRateCrea)
       timeEventDel <- rexp(1, sumRateDel)
@@ -78,12 +83,25 @@ for(i in 1:n){
         timeEvent = timeEventCrea
         
         # The nodes that are available to create a tie are those with an outdeg < nAct
-        isAvailable <-XAux[,"outdeg"]<(nAct-1)
+        isAvailable <-XAux[,"outdeg"]<(nAct-1) & XAuxInit[,"outdeg"]<(nAct-1)
         sender <- sample(sum(isAvailable), 1, prob = expXbCrea[isAvailable] / sumRateCrea)
         labSender <- actDf[isAvailable][sender]
         
         # The nodes that are available to receive a tie are: 
-        isAvailableChoice = which(Xstate[labSender,]==0 & actDf != labSender)
+        isAvailableChoice = which(Xstate[labSender,]==0 & actDf != labSender & initState[labSender,]==0)
+        counter=0
+        
+        while(length(isAvailableChoice)<1){ #redraw sender
+          counter = counter +1
+          if(counter>length(isAvailable)){stop =TRUE; break}
+          isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 & !actDf==labSender
+          sender <- sample(sum(isAvailable), 1, prob = expXbDel[!(rownames(XAux) %in% labSender)][isAvailable] / sumRateDel)
+          labSender <- actDf[isAvailable][sender]
+          isAvailableChoice = which(Xstate[labSender,]==0 & actDf != labSender & initState[labSender,]==0)
+        }
+        if(stop) next
+       
+        
         choiceSet <- Xchoice[labSender,isAvailableChoice,]
         expUtil <- exp(choiceSet %*% parmsChoiceCrea) 
         receiver <- sample(length(isAvailableChoice), 1, prob = expUtil / sum(expUtil))
@@ -113,12 +131,25 @@ for(i in 1:n){
         # In this case, we have a deletion event
         timeEvent = timeEventDel
         # The nodes that are available to delete a tie are those with an outdeg > 0
-        isAvailable <-XAux[,"outdeg"]>0
+        isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 
         sender <- sample(sum(isAvailable), 1, prob = expXbDel[isAvailable] / sumRateDel)
         labSender <- actDf[isAvailable][sender]
         
         # The nodes that are available to break a tie with sender are: 
-        isAvailableChoice = which(Xstate[labSender,]==1) 
+        isAvailableChoice = which(Xstate[labSender,]==1 & initState[labSender,]==1)
+        
+        counter=0
+        while(length(isAvailableChoice)<1){ #redraw sender
+          counter = counter +1
+          if(counter>length(isAvailable)){stop =TRUE; break}
+          isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 & !actDf==labSender
+          sender <- sample(sum(isAvailable), 1, prob = expXbDel[!(rownames(XAux) %in% labSender)][isAvailable] / sumRateDel)
+          labSender <- actDf[isAvailable][sender]
+          isAvailableChoice = which(Xstate[labSender,]==1 & initState[labSender,]==1)
+        }
+        if(stop) next
+        
+        
         choiceSet <- Xchoice[labSender,isAvailableChoice,]
         expUtil <- exp(choiceSet %*% parmsChoiceDel) 
         receiver <- sample(length(isAvailableChoice), 1, prob = expUtil / sum(expUtil))
@@ -274,3 +305,4 @@ which(storeParam$mod2Crea$recip< (-6))
 
 which(storeParam$mod1Del$recip< (-3))
 which(storeParam$mod2Del$recip< (-3))
+
