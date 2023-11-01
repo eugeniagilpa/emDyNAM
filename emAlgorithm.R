@@ -261,15 +261,16 @@ timeGenerator = function(seq,nAct,theta){
 }
   
  
-GatherPreprocessingDF = function(formula){
+GatherPreprocessingDF = function(formula, envir = new.env()){
   # formula : string formula with the effects for the model
   
-  formGather = paste("depEvents ~",formula,sep="")
+  formGather <- paste("depEvents ~", formula, sep = "")
   
   dataProcessed <- GatherPreprocessing(
     as.formula(formGather),
     model = "DyNAM", subModel = "choice",
-    progress = FALSE
+    progress = FALSE,
+    envir = envir
   )
   namesEffects <- dataProcessed$namesEffects
   nEvents <- length(dataProcessed$n_candidates)
@@ -370,24 +371,37 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
   # Creation of permutations
   permut = permute(sequence, nmax = 5)
   
-  for (i in 10){ # TO DO: change this to nmax or to condition with while.
+  for (i in seq_len(10)){ # TO DO: change this to nmax or to condition with while.
   logLik = c()
   betaCreaDF = c()
   betaDelDF = c()
   
       for(seq in permut){
         
+        envirPrepro <- new.env()
         # GatherPreprocessing ----------------
-        seq$time = seq(1,nrow(seq))
-        seqTime=seq
+        seq$time <- seq(1,nrow(seq))
+        envirPrepro$seqTime <- seq
+        envirPrepro$actDfnodes <- actDfnodes
+        envirPrepro$net0 <- net0
         #seqTime = data.frame("time"=timeGenerator(seq,nAct,theta),seq)
-    
-        netEvents = defineNetwork(nodes = actDfnodes,matrix=net0) |>
-         linkEvents(changeEvents = seqTime, nodes = actDfnodes)
-    
-        depEvents = defineDependentEvents(seqTime, nodes = actDfnodes, defaultNetwork = netEvents)
         
-        listExpandedDF = GatherPreprocessingDF(formula)
+        
+        
+        local(
+          {
+            netEvents = defineNetwork(nodes = actDfnodes,matrix=net0) |>
+              linkEvents(changeEvents = seqTime, nodes = actDfnodes)
+            
+            depEvents = defineDependentEvents(
+              seqTime, nodes = actDfnodes, defaultNetwork = netEvents
+            )
+            
+          },
+          envirPrepro
+        )
+        
+        listExpandedDF = GatherPreprocessingDF(formula, envir = envirPrepro)
     
         # LogLikelihood computation -------------
         logLik = c(logLik,logLikelihood(listExpandedDF,beta))
@@ -498,7 +512,7 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
       }  
   }
   
-  
+  return(logLik)
 }
    
 
