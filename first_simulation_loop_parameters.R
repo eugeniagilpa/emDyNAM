@@ -12,6 +12,9 @@ library(RSiena)
 endTime <- 30
 nSimCrea <- 59 # from s501 and s502 data, number of ties created between t_0 and t_1
 nSimDel <- 56 # from s501 and s502 data, number of ties deleted between t_0 and t_1
+repeatAllowed = FALSE
+
+
 
 actDf <-dimnames(s501)[[2]]
 nAct <- length(actDf)
@@ -24,7 +27,7 @@ parmsDel <- c(log(nSimDel / endTime / (nAct-4))) #indegree and outdegree of ego
 parmsChoiceCrea <- c(1,0.05,0.1) #reciprocity, indegree, outdegree of alter (reciprocity positiva para creacion/ negativa eliminacion)
 parmsChoiceDel <- c(-1,-0.05,-0.1)     
 
-n = 100
+n = 1000
 storeParam = list(
   "mod1Crea"=data.frame("indeg"=numeric(n), "outdeg"=numeric(n), "recip"=numeric(n)),
   "mod2Crea"=data.frame("indeg"=numeric(n), "outdeg"=numeric(n), "recip"=numeric(n)),
@@ -35,240 +38,342 @@ storeParam = list(
 repeatedAction = list()
 
 for(i in 1:n){
-    # simulate DyNAM ------------------------------------------------------
-    # Xstate = matrix(0L, nrow=nAct, ncol=nAct)#Xstate=s501
-    Xstate = s501
-    rownames(Xstate) = dimnames(s501)[[2]]
-    
-    initState = Xstate
-    
-    XAux <- cbind(colSums(Xstate),rowSums(Xstate))
-    dimnames(XAux) <- list(actDf,c("indeg","outdeg"))
-    
-    XAuxInit = XAux
-    
-    X <- cbind("intercept"=rep(1,nrow(XAux)))
-    
-    # Xchoice[sender, receiver, effect]
-    Xchoice <- array(
-      c(t(Xstate),
-        matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
-        matrix(XAux[,"outdeg"],nrow=nAct,ncol=nAct,byrow=TRUE)),
-      dim = c(nAct, nAct, 3),
-      dimnames = list(actDf, actDf, c( "recip", "indeg","outdeg"))
-    )
-    
-    # initial info
-    expXbCrea <- exp(X %*% parmsCrea)
-    sumRateCrea <- sum(expXbCrea)
-    expXbDel <- exp(X %*% parmsDel)
-    sumRateDel <- sum(expXbDel)
-
-    # init simulation:
-    time <- 0
-    events <- NULL
-    supportConstrain <- list()
-    event <- 0L
-    receiver <- 0L
-    #events = data.frame(time=numeric(200),label=character(200))|>as.list()
-    
-    while (time < endTime) {
-      stop = FALSE
-      cat("event:", event, "time:", time, "\r")
-      timeEventCrea <- rexp(1, sumRateCrea)
-      timeEventDel <- rexp(1, sumRateDel)
-    
-      if(timeEventCrea < timeEventDel){
-        # In this case, we have a creation event
-        timeEvent = timeEventCrea
+        # simulate DyNAM ------------------------------------------------------
+        # Xstate = matrix(0L, nrow=nAct, ncol=nAct)#Xstate=s501
+        Xstate = s501
+        rownames(Xstate) = dimnames(s501)[[2]]
         
-        # The nodes that are available to create a tie are those with an outdeg < nAct
-        isAvailable <-XAux[,"outdeg"]<(nAct-1) & XAuxInit[,"outdeg"]<(nAct-1)
-        sender <- sample(sum(isAvailable), 1, prob = expXbCrea[isAvailable] / sumRateCrea)
-        labSender <- actDf[isAvailable][sender]
+        initState = Xstate
         
-        # The nodes that are available to receive a tie are: 
-        isAvailableChoice = which(Xstate[labSender,]==0 & actDf != labSender & initState[labSender,]==0)
-        counter=0
+        XAux <- cbind(colSums(Xstate),rowSums(Xstate))
+        dimnames(XAux) <- list(actDf,c("indeg","outdeg"))
         
-        while(length(isAvailableChoice)<1){ #redraw sender
-          counter = counter +1
-          if(counter>length(isAvailable)){stop =TRUE; break}
-          isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 & !actDf==labSender
-          sender <- sample(sum(isAvailable), 1, prob = expXbDel[!(rownames(XAux) %in% labSender)][isAvailable] / sumRateDel)
-          labSender <- actDf[isAvailable][sender]
-          isAvailableChoice = which(Xstate[labSender,]==0 & actDf != labSender & initState[labSender,]==0)
-        }
-        if(stop) next
-       
+        XAuxInit = XAux
         
-        choiceSet <- Xchoice[labSender,isAvailableChoice,]
-        expUtil <- exp(choiceSet %*% parmsChoiceCrea) 
-        receiver <- sample(length(isAvailableChoice), 1, prob = expUtil / sum(expUtil))
-        labReceiver <- names(isAvailableChoice)[receiver]
+        X <- cbind("intercept"=rep(1,nrow(XAux)))
         
-        time <- time + timeEvent
-        event <- event + 1L
-        events <- rbind(
-          events,
-          data.frame(
-            time = time,
-            sender = labSender,
-            receiver = labReceiver,
-            replace = 1,
-            timeElapse = timeEvent
-          )
+        # Xchoice[sender, receiver, effect]
+        Xchoice <- array(
+          c(t(Xstate),
+            matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+            matrix(XAux[,"outdeg"],nrow=nAct,ncol=nAct,byrow=TRUE)),
+          dim = c(nAct, nAct, 3),
+          dimnames = list(actDf, actDf, c( "recip", "indeg","outdeg"))
         )
-        supportConstrain[[event]]= isAvailableChoice
-        Xstate[labSender,labReceiver]=1
-        XAux[labSender,"outdeg"] = XAux[labSender,"outdeg"]+1
-        XAux[labReceiver,"indeg"] = XAux[labReceiver,"indeg"]+1
-        Xchoice[labReceiver,labSender,"recip"] = 1
-        Xchoice[,labReceiver,"indeg"] = Xchoice[,labReceiver,"indeg"]+1
-        Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]+1
         
-      }else{
-        # In this case, we have a deletion event
-        timeEvent = timeEventDel
-        # The nodes that are available to delete a tie are those with an outdeg > 0
-        isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 
-        sender <- sample(sum(isAvailable), 1, prob = expXbDel[isAvailable] / sumRateDel)
-        labSender <- actDf[isAvailable][sender]
+        # initial info
+        expXbCrea <- exp(X %*% parmsCrea)
+        sumRateCrea <- sum(expXbCrea)
+        expXbDel <- exp(X %*% parmsDel)
+        sumRateDel <- sum(expXbDel)
         
-        # The nodes that are available to break a tie with sender are: 
-        isAvailableChoice = which(Xstate[labSender,]==1 & initState[labSender,]==1)
+        # init simulation:
+        time <- 0
+        events <- NULL
+        supportConstrain <- list()
+        event <- 0L
+        receiver <- 0L
+        #events = data.frame(time=numeric(200),label=character(200))|>as.list()
         
-        counter=0
-        while(length(isAvailableChoice)<1){ #redraw sender
-          counter = counter +1
-          if(counter>length(isAvailable)){stop =TRUE; break}
-          isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 & !actDf==labSender
-          sender <- sample(sum(isAvailable), 1, prob = expXbDel[!(rownames(XAux) %in% labSender)][isAvailable] / sumRateDel)
-          labSender <- actDf[isAvailable][sender]
-          isAvailableChoice = which(Xstate[labSender,]==1 & initState[labSender,]==1)
+        cat("Iteration: ",i,"\n")
+        
+        if(repeatAllowed){
+             while (time < endTime) {
+          stop = FALSE
+          cat("event:", event, "time:", time, "\r")
+          timeEventCrea <- rexp(1, sumRateCrea)
+          timeEventDel <- rexp(1, sumRateDel)
+          
+          if(timeEventCrea < timeEventDel){
+            # In this case, we have a creation event
+            timeEvent = timeEventCrea
+            
+            # The nodes that are available to create a tie are those with an outdeg < nAct
+            isAvailable <-XAux[,"outdeg"]<(nAct-1)
+            sender <- sample(sum(isAvailable), 1, prob = expXbCrea[isAvailable] / sumRateCrea)
+            labSender <- actDf[isAvailable][sender]
+            
+            # The nodes that are available to receive a tie are: 
+            isAvailableChoice = which(Xstate[labSender,]==0 & actDf != labSender )
+            choiceSet <- Xchoice[labSender,isAvailableChoice,]
+            expUtil <- exp(choiceSet %*% parmsChoiceCrea) 
+            receiver <- sample(length(isAvailableChoice), 1, prob = expUtil / sum(expUtil))
+            labReceiver <- names(isAvailableChoice)[receiver]
+            
+            time <- time + timeEvent
+            event <- event + 1L
+            events <- rbind(
+              events,
+              data.frame(
+                time = time,
+                sender = labSender,
+                receiver = labReceiver,
+                replace = 1,
+                timeElapse = timeEvent
+              )
+            )
+            supportConstrain[[event]]= isAvailableChoice
+            Xstate[labSender,labReceiver]=1
+            XAux[labSender,"outdeg"] = XAux[labSender,"outdeg"]+1
+            XAux[labReceiver,"indeg"] = XAux[labReceiver,"indeg"]+1
+            Xchoice[labReceiver,labSender,"recip"] = 1
+            Xchoice[,labReceiver,"indeg"] = Xchoice[,labReceiver,"indeg"]+1
+            Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]+1
+            
+          }else{
+            # In this case, we have a deletion event
+            timeEvent = timeEventDel
+            # The nodes that are available to delete a tie are those with an outdeg > 0
+            isAvailable <-XAux[,"outdeg"]>0 
+            sender <- sample(sum(isAvailable), 1, prob = expXbDel[isAvailable] / sumRateDel)
+            labSender <- actDf[isAvailable][sender]
+            
+            # The nodes that are available to break a tie with sender are: 
+            isAvailableChoice = which(Xstate[labSender,]==1 )
+            choiceSet <- Xchoice[labSender,isAvailableChoice,]
+            expUtil <- exp(choiceSet %*% parmsChoiceDel) 
+            receiver <- sample(length(isAvailableChoice), 1, prob = expUtil / sum(expUtil))
+            labReceiver <- names(isAvailableChoice)[receiver]
+            
+            time <- time + timeEvent
+            event <- event + 1L
+            events <- rbind(
+              events,
+              data.frame(
+                time = time,
+                sender = labSender,
+                receiver = labReceiver,
+                replace = 0,
+                timeElapse = timeEvent
+              )
+            )
+            supportConstrain[[event]]= isAvailableChoice
+            Xstate[labSender,labReceiver]=0
+            XAux[labSender,"outdeg"] = XAux[labSender,"outdeg"]-1
+            XAux[labReceiver,"indeg"] = XAux[labReceiver,"indeg"]-1
+            Xchoice[labReceiver,labSender,"recip"] = 0
+            Xchoice[,labReceiver,"indeg"] = Xchoice[,labReceiver,"indeg"]-1
+            Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]-1
+            
+          }
         }
-        if(stop) next
-        
-        
-        choiceSet <- Xchoice[labSender,isAvailableChoice,]
-        expUtil <- exp(choiceSet %*% parmsChoiceDel) 
-        receiver <- sample(length(isAvailableChoice), 1, prob = expUtil / sum(expUtil))
-        labReceiver <- names(isAvailableChoice)[receiver]
-        
-        time <- time + timeEvent
-        event <- event + 1L
-        events <- rbind(
-          events,
-          data.frame(
-            time = time,
-            sender = labSender,
-            receiver = labReceiver,
-            replace = 0,
-            timeElapse = timeEvent
-          )
-        )
-        supportConstrain[[event]]= isAvailableChoice
-        Xstate[labSender,labReceiver]=0
-        XAux[labSender,"outdeg"] = XAux[labSender,"outdeg"]-1
-        XAux[labReceiver,"indeg"] = XAux[labReceiver,"indeg"]-1
-        Xchoice[labReceiver,labSender,"recip"] = 0
-        Xchoice[,labReceiver,"indeg"] = Xchoice[,labReceiver,"indeg"]-1
-        Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]-1
-        
-      }
-    }
-    
-    ### repeated events -----------------------------------------------------
-    tt = table(events$sender,events$receiver)
-    t = which(tt>1,arr.ind=TRUE)
-    repeatedAction[[i]] = data.frame("sender"=rownames(tt)[t[,1]],
-                                     "receiver"=colnames(tt)[t[,2]],
-                                     "n"=tt[t])
-    
-    ### goldfish --------------------------------------------------------------
-    actDfnodes <- data.frame(label=actDf,present = TRUE)
-    actDfnodes <- defineNodes(actDfnodes) 
-    
-    eventsMod <- events[, -5]
-    
-    initState <- s501
-    dimnames(initState) <- list(actDfnodes$label, actDfnodes$label)
-    
-    netEvents <- defineNetwork(nodes = actDfnodes,matrix=initState) |>
-                 linkEvents(changeEvents = eventsMod, nodes = actDfnodes)
-    
-    depEventsCrea <- defineDependentEvents(
-      eventsMod[eventsMod$replace == 1,],
-      nodes = actDfnodes, 
-      defaultNetwork = netEvents
-      )
-    depEventsDel <- defineDependentEvents(
-      eventsMod[eventsMod$replace == 0,],
-      nodes = actDfnodes, 
-      defaultNetwork = netEvents
-      )
-    
-    supportConstrainCrea <- supportConstrain[eventsMod$replace == 1]
-    supportConstrainDel <- supportConstrain[eventsMod$replace == 0]
   
-    modTest1 <- estimate(
-      depEventsCrea ~ indeg(netEvents, weighted = FALSE) +
-        outdeg(netEvents, weighted = FALSE) +
-        recip(netEvents),
-      model = "DyNAM", subModel = "choice",
-      estimationInit = list(
-        startTime = 0,
-        opportunitiesList = supportConstrainCrea,
-        returnIntervalLogL = TRUE,
-        returnEventProbabilities = TRUE
-      ),
-      progress = FALSE
-    )
-    storeParam$mod1Crea[i,] = coef(modTest1)
-    
-    modTest2 <- estimate(
-      depEventsCrea ~ indeg + outdeg + recip + inertia,
-      model = "DyNAM", subModel = "choice",
-      estimationInit = list(
-        startTime = 0,
-        fixedParameters = c(NA, NA, NA, -20),
-        returnIntervalLogL = TRUE,
-        returnEventProbabilities = TRUE
-      ),
-      progress = FALSE
-    )
-    storeParam$mod2Crea[i,] = coef(modTest2)
-    
-    
-    modTest3 <- estimate(
-      depEventsDel ~ indeg(netEvents, weighted = FALSE) +
-        outdeg(netEvents, weighted = FALSE) +
-        recip(netEvents),
-      model = "DyNAM", subModel = "choice",
-      estimationInit = list(
-        startTime = 0,
-        opportunitiesList = supportConstrainDel,
-        returnIntervalLogL = TRUE,
-        returnEventProbabilities = TRUE
-      ),
-      progress = FALSE
-    )
-    storeParam$mod1Del[i,] = coef(modTest3)
-    
-    modTest4 <- estimate(
-      depEventsDel ~ indeg + outdeg + recip + inertia,
-      model = "DyNAM", subModel = "choice",
-      estimationInit = list(
-        startTime = 0,
-        fixedParameters = c(NA, NA, NA, 20),
-        returnIntervalLogL = TRUE,
-        returnEventProbabilities = TRUE
-      ),
-      progress = FALSE
-    )
-    storeParam$mod2Del[i,] = coef(modTest4)
-}
+        }else{
+             while (time < endTime) {
+            stop = FALSE
+            cat("event:", event, "time:", time, "\r")
+            timeEventCrea <- rexp(1, sumRateCrea)
+            timeEventDel <- rexp(1, sumRateDel)
+          
+            if(timeEventCrea < timeEventDel){
+              # In this case, we have a creation event
+              timeEvent = timeEventCrea
+              
+              # The nodes that are available to create a tie are those with an outdeg < nAct
+              isAvailable <-XAux[,"outdeg"]<(nAct-1) & XAuxInit[,"outdeg"]<(nAct-1)
+              sender <- sample(sum(isAvailable), 1, prob = expXbCrea[isAvailable] / sumRateCrea)
+              labSender <- actDf[isAvailable][sender]
+              
+              # The nodes that are available to receive a tie are: 
+              isAvailableChoice = which(Xstate[labSender,]==0 & actDf != labSender & initState[labSender,]==0)
+              counter=0
+              
+              while(length(isAvailableChoice)<1){ #redraw sender
+                counter = counter +1
+                if(counter>length(isAvailable)){stop =TRUE; break}
+                isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 & !actDf==labSender
+                sender <- sample(sum(isAvailable), 1, prob = expXbDel[!(rownames(XAux) %in% labSender)][isAvailable] / sumRateDel)
+                labSender <- actDf[isAvailable][sender]
+                isAvailableChoice = which(Xstate[labSender,]==0 & actDf != labSender & initState[labSender,]==0)
+              }
+              if(stop) next
+             
+              
+              choiceSet <- Xchoice[labSender,isAvailableChoice,]
+              expUtil <- exp(choiceSet %*% parmsChoiceCrea) 
+              receiver <- sample(length(isAvailableChoice), 1, prob = expUtil / sum(expUtil))
+              labReceiver <- names(isAvailableChoice)[receiver]
+              
+              time <- time + timeEvent
+              event <- event + 1L
+              events <- rbind(
+                events,
+                data.frame(
+                  time = time,
+                  sender = labSender,
+                  receiver = labReceiver,
+                  replace = 1,
+                  timeElapse = timeEvent
+                )
+              )
+              supportConstrain[[event]]= isAvailableChoice
+              Xstate[labSender,labReceiver]=1
+              XAux[labSender,"outdeg"] = XAux[labSender,"outdeg"]+1
+              XAux[labReceiver,"indeg"] = XAux[labReceiver,"indeg"]+1
+              Xchoice[labReceiver,labSender,"recip"] = 1
+              Xchoice[,labReceiver,"indeg"] = Xchoice[,labReceiver,"indeg"]+1
+              Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]+1
+              
+            }else{
+              # In this case, we have a deletion event
+              timeEvent = timeEventDel
+              # The nodes that are available to delete a tie are those with an outdeg > 0
+              isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 
+              sender <- sample(sum(isAvailable), 1, prob = expXbDel[isAvailable] / sumRateDel)
+              labSender <- actDf[isAvailable][sender]
+              
+              # The nodes that are available to break a tie with sender are: 
+              isAvailableChoice = which(Xstate[labSender,]==1 & initState[labSender,]==1)
+              
+              counter=0
+              while(length(isAvailableChoice)<1){ #redraw sender
+                counter = counter +1
+                if(counter>length(isAvailable)){stop =TRUE; break}
+                isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 & !actDf==labSender
+                sender <- sample(sum(isAvailable), 1, prob = expXbDel[!(rownames(XAux) %in% labSender)][isAvailable] / sumRateDel)
+                labSender <- actDf[isAvailable][sender]
+                isAvailableChoice = which(Xstate[labSender,]==1 & initState[labSender,]==1)
+              }
+              if(stop) next
+              
+              
+              choiceSet <- Xchoice[labSender,isAvailableChoice,]
+              expUtil <- exp(choiceSet %*% parmsChoiceDel) 
+              receiver <- sample(length(isAvailableChoice), 1, prob = expUtil / sum(expUtil))
+              labReceiver <- names(isAvailableChoice)[receiver]
+              
+              time <- time + timeEvent
+              event <- event + 1L
+              events <- rbind(
+                events,
+                data.frame(
+                  time = time,
+                  sender = labSender,
+                  receiver = labReceiver,
+                  replace = 0,
+                  timeElapse = timeEvent
+                )
+              )
+              supportConstrain[[event]]= isAvailableChoice
+              Xstate[labSender,labReceiver]=0
+              XAux[labSender,"outdeg"] = XAux[labSender,"outdeg"]-1
+              XAux[labReceiver,"indeg"] = XAux[labReceiver,"indeg"]-1
+              Xchoice[labReceiver,labSender,"recip"] = 0
+              Xchoice[,labReceiver,"indeg"] = Xchoice[,labReceiver,"indeg"]-1
+              Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]-1
+              
+            }
+          }
+          
+        }
 
+  
+  ### repeated events -----------------------------------------------------
+  tt = table(events$sender,events$receiver)
+  t = which(tt>1,arr.ind=TRUE)
+  repeatedAction[[i]] = data.frame("sender"=rownames(tt)[t[,1]],
+                                   "receiver"=colnames(tt)[t[,2]],
+                                   "n"=tt[t])
+  
+  ### goldfish --------------------------------------------------------------
+  actDfnodes <- data.frame(label=actDf,present = TRUE)
+  actDfnodes <- defineNodes(actDfnodes) 
+  
+  eventsMod <- events[, -5]
+  
+  initState <- s501
+  dimnames(initState) <- list(actDfnodes$label, actDfnodes$label)
+  
+  initNet <- defineNetwork(nodes = actDfnodes, matrix = initState)
+  
+  netEvents <- defineNetwork(nodes = actDfnodes,matrix=initState) |>
+    linkEvents(changeEvents = eventsMod, nodes = actDfnodes)
+  
+  depEventsCrea <- defineDependentEvents(
+    eventsMod[eventsMod$replace == 1,],
+    nodes = actDfnodes, 
+    defaultNetwork = netEvents
+  )
+  depEventsDel <- defineDependentEvents(
+    eventsMod[eventsMod$replace == 0,],
+    nodes = actDfnodes, 
+    defaultNetwork = netEvents
+  )
+  
+  supportConstrainCrea <- supportConstrain[eventsMod$replace == 1]
+  supportConstrainDel <- supportConstrain[eventsMod$replace == 0]
+  
+  modTest1 <- estimate(
+    depEventsCrea ~ indeg(netEvents, weighted = FALSE) +
+      outdeg(netEvents, weighted = FALSE) +
+      recip(netEvents),
+    model = "DyNAM", subModel = "choice",
+    estimationInit = list(
+      startTime = 0,
+      opportunitiesList = supportConstrainCrea,
+      returnIntervalLogL = TRUE,
+      returnEventProbabilities = TRUE
+    ),
+    progress = FALSE
+  )
+  storeParam$mod1Crea[i,] = coef(modTest1)
+  
+  modTest2 <- estimate(
+    depEventsCrea ~ indeg + outdeg + recip + inertia + tie(initState),
+    model = "DyNAM", subModel = "choice",
+    estimationInit = list(
+      startTime = 0,
+      fixedParameters = c(NA, NA, NA, -20,-20),
+      returnIntervalLogL = TRUE,
+      returnEventProbabilities = TRUE
+    ),
+    progress = FALSE
+  )
+  storeParam$mod2Crea[i,] = coef(modTest2)
+  
+  
+  modTest3 <- estimate(
+    depEventsDel ~ indeg(netEvents, weighted = FALSE) +
+      outdeg(netEvents, weighted = FALSE) +
+      recip(netEvents),
+    model = "DyNAM", subModel = "choice",
+    estimationInit = list(
+      startTime = 0,
+      opportunitiesList = supportConstrainDel,
+      returnIntervalLogL = TRUE,
+      returnEventProbabilities = TRUE
+    ),
+    progress = FALSE
+  )
+  storeParam$mod1Del[i,] = coef(modTest3)
+  
+  # modTest4 <- estimate(
+  #   depEventsDel ~ indeg + outdeg + recip + inertia(netEvents,transformFun = \(x) ifelse(x==0,1,0)), # apply invertion of inertia
+  #   model = "DyNAM", subModel = "choice",
+  #   estimationInit = list(
+  #     startTime = 0,
+  #     fixedParameters = c(NA, NA, NA, -20), # set to -20
+  #     returnIntervalLogL = TRUE,
+  #     returnEventProbabilities = TRUE
+  #   ),
+  #   progress = FALSE
+  # )
+  
+  modTest4 <- estimate(
+    depEventsDel~ indeg + outdeg + recip + inertia + tie(initState),
+    model = "DyNAM", subModel = "choice",
+    estimationInit = list(
+      startTime = 0,
+      fixedParameters = c(NA, NA, NA, 20, 20),
+      returnIntervalLogL = TRUE,
+      returnEventProbabilities = TRUE
+    ),
+    progress = FALSE
+  )
+  
+  storeParam$mod2Del[i,] = coef(modTest4)
+  
+}
 
 str(storeParam)
 str(repeatedAction)
@@ -295,8 +400,13 @@ hist(storeParam$mod1Del$recip,main="Mod1 deletion, recip")
 hist(storeParam$mod2Del$recip,main="Mod2 deletion, recip")
 
 sapply(storeParam$mod1Crea,median)
-sapply(storeParam$mod2Crea,mean)
+sapply(storeParam$mod2Crea,median)
 sapply(storeParam$mod1Del,median)
+sapply(storeParam$mod2Del,median)
+
+sapply(storeParam$mod1Crea,mean)
+sapply(storeParam$mod2Crea,mean)
+sapply(storeParam$mod1Del,mean)
 sapply(storeParam$mod2Del,mean)
 
 
