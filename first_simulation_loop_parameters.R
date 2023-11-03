@@ -319,7 +319,7 @@ for(i in 1:n){
   storeParam$mod1Crea[i,] = coef(modTest1)
   
   modTest2 <- estimate(
-    depEventsCrea ~ indeg + outdeg + recip + inertia + tie(initState),
+    depEventsCrea ~ indeg + outdeg + recip + inertia + tie(initNet),
     model = "DyNAM", subModel = "choice",
     estimationInit = list(
       startTime = 0,
@@ -360,7 +360,7 @@ for(i in 1:n){
   # )
   
   modTest4 <- estimate(
-    depEventsDel~ indeg + outdeg + recip + inertia + tie(initState),
+    depEventsDel~ indeg + outdeg + recip + inertia + tie(initNet),
     model = "DyNAM", subModel = "choice",
     estimationInit = list(
       startTime = 0,
