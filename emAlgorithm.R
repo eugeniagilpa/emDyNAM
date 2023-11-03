@@ -26,42 +26,45 @@ parmsDel <- c(log(nSimDel / endTime / (nAct-4))) #indegree and outdegree of ego
 parmsChoiceCrea <- c(1,0.05,0.1) #reciprocity, indegree, outdegree of alter (reciprocity positiva para creacion/ negativa eliminacion)
 parmsChoiceDel <- c(-1,-0.05,-0.1)     
 
-  # simulate DyNAM ------------------------------------------------------
-  # Xstate = matrix(0L, nrow=nAct, ncol=nAct)#Xstate=s501
+# simulate DyNAM ------------------------------------------------------
+# Xstate = matrix(0L, nrow=nAct, ncol=nAct)#Xstate=s501
   
-  Xstate = s501
-  rownames(Xstate) = dimnames(s501)[[2]]
-  initState = Xstate
+Xstate = s501
+rownames(Xstate) = dimnames(s501)[[2]]
+initState = Xstate
   
-  XAux <- cbind(colSums(Xstate),rowSums(Xstate))
-  dimnames(XAux) <- list(actDf,c("indeg","outdeg"))
+XAux <- cbind(colSums(Xstate),rowSums(Xstate))
+dimnames(XAux) <- list(actDf,c("indeg","outdeg"))
+
+XAuxInit = XAux
   
-  X <- cbind("intercept"=rep(1,nrow(XAux)))
+X <- cbind("intercept"=rep(1,nrow(XAux)))
   
-  # Xchoice[sender, receiver, effect]
-  Xchoice <- array(
-    c(t(Xstate),
-      matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
-      matrix(XAux[,"outdeg"],nrow=nAct,ncol=nAct,byrow=TRUE)),
-    dim = c(nAct, nAct, 3),
-    dimnames = list(actDf, actDf, c( "recip", "indeg","outdeg"))
-  )
+# Xchoice[sender, receiver, effect]
+Xchoice <- array(
+  c(t(Xstate),
+    matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+    matrix(XAux[,"outdeg"],nrow=nAct,ncol=nAct,byrow=TRUE)),
+  dim = c(nAct, nAct, 3),
+  dimnames = list(actDf, actDf, c( "recip", "indeg","outdeg"))
+)
   
-  # initial info
-  expXbCrea <- exp(X %*% parmsCrea)
-  sumRateCrea <- sum(expXbCrea)
-  expXbDel <- exp(X %*% parmsDel)
-  sumRateDel <- sum(expXbDel)
+# initial info
+expXbCrea <- exp(X %*% parmsCrea)
+sumRateCrea <- sum(expXbCrea)
+expXbDel <- exp(X %*% parmsDel)
+sumRateDel <- sum(expXbDel)
   
-  # init simulation:
-  time <- 0
-  events <- NULL
-  supportConstrain <- list()
-  event <- 0L
-  receiver <- 0L
-  #events = data.frame(time=numeric(200),label=character(200))|>as.list()
+# init simulation:
+time <- 0
+events <- NULL
+supportConstrain <- list()
+event <- 0L
+receiver <- 0L
+#events = data.frame(time=numeric(200),label=character(200))|>as.list()
   
-  while (time < endTime) {
+while (time < endTime) {
+    stop = FALSE
     cat("event:", event, "time:", time, "\r")
     timeEventCrea <- rexp(1, sumRateCrea)
     timeEventDel <- rexp(1, sumRateDel)
@@ -71,13 +74,25 @@ parmsChoiceDel <- c(-1,-0.05,-0.1)
       timeEvent = timeEventCrea
       
       # The nodes that are available to create a tie are those with an outdeg < nAct
-      isAvailable <-XAux[,"outdeg"]<(nAct-1) # añadir condiciones para tener en cuenta repeticion de eventos
+      isAvailable <-XAux[,"outdeg"]<(nAct-1) & XAuxInit[,"outdeg"]<(nAct-1)
       sender <- sample(sum(isAvailable), 1, prob = expXbCrea[isAvailable] / sumRateCrea)
       labSender <- actDf[isAvailable][sender]
       
-      # The nodes that are available to receibe a tie are: 
-      isAvailableChoice = which(Xstate[labSender,]==0  & actDf != labSender) #acutalizar dependiendo de events
-      #isAvailableChoice = which(Xstate[labSender,]==0 & initState[labSender,]==0 & actDf != labSender) #acutalizar dependiendo de events
+      # The nodes that are available to receive a tie are: 
+      isAvailableChoice = which(Xstate[labSender,]==0 & actDf != labSender & initState[labSender,]==0)
+      counter=0
+      
+      while(length(isAvailableChoice)<1){ #redraw sender
+        counter = counter +1
+        if(counter>length(isAvailable)){stop =TRUE; break}
+        isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 & !actDf==labSender
+        sender <- sample(sum(isAvailable), 1, prob = expXbDel[!(rownames(XAux) %in% labSender)][isAvailable] / sumRateDel)
+        labSender <- actDf[isAvailable][sender]
+        isAvailableChoice = which(Xstate[labSender,]==0 & actDf != labSender & initState[labSender,]==0)
+      }
+      if(stop) next
+      
+      
       choiceSet <- Xchoice[labSender,isAvailableChoice,]
       expUtil <- exp(choiceSet %*% parmsChoiceCrea) 
       receiver <- sample(length(isAvailableChoice), 1, prob = expUtil / sum(expUtil))
@@ -107,13 +122,25 @@ parmsChoiceDel <- c(-1,-0.05,-0.1)
       # In this case, we have a deletion event
       timeEvent = timeEventDel
       # The nodes that are available to delete a tie are those with an outdeg > 0
-      isAvailable <-XAux[,"outdeg"]>0 # meter condicion para tener en cuenta repeticiones (out/ind initial states)
+      isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 
       sender <- sample(sum(isAvailable), 1, prob = expXbDel[isAvailable] / sumRateDel)
       labSender <- actDf[isAvailable][sender]
       
       # The nodes that are available to break a tie with sender are: 
-      isAvailableChoice = which(Xstate[labSender,]==1)
-      #isAvailableChoice = which(Xstate[labSender,]==1 & initState[labSender,]==1) 
+      isAvailableChoice = which(Xstate[labSender,]==1 & initState[labSender,]==1)
+      
+      counter=0
+      while(length(isAvailableChoice)<1){ #redraw sender
+        counter = counter +1
+        if(counter>length(isAvailable)){stop =TRUE; break}
+        isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 & !actDf==labSender
+        sender <- sample(sum(isAvailable), 1, prob = expXbDel[!(rownames(XAux) %in% labSender)][isAvailable] / sumRateDel)
+        labSender <- actDf[isAvailable][sender]
+        isAvailableChoice = which(Xstate[labSender,]==1 & initState[labSender,]==1)
+      }
+      if(stop) next
+      
+      
       choiceSet <- Xchoice[labSender,isAvailableChoice,]
       expUtil <- exp(choiceSet %*% parmsChoiceDel) 
       receiver <- sample(length(isAvailableChoice), 1, prob = expUtil / sum(expUtil))
@@ -138,35 +165,9 @@ parmsChoiceDel <- c(-1,-0.05,-0.1)
       Xchoice[labReceiver,labSender,"recip"] = 0
       Xchoice[,labReceiver,"indeg"] = Xchoice[,labReceiver,"indeg"]-1
       Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]-1
-      
     }
   }
-  
-  
-  ### goldfish --------------------------------------------------------------
-  actDfnodes <- data.frame(label=actDf,present = TRUE)
-  actDfnodes <- defineNodes(actDfnodes) 
-  
-  eventsMod <- events[, -5]
-  
-  initState <- s501
-  dimnames(initState) <- list(actDfnodes$label, actDfnodes$label)
-  
-  netEvents <- defineNetwork(nodes = actDfnodes,matrix=initState) |>
-    linkEvents(changeEvents = eventsMod, nodes = actDfnodes)
-  
-  depEventsCrea <- defineDependentEvents(
-    eventsMod[eventsMod$replace == 1,],
-    nodes = actDfnodes, 
-    defaultNetwork = netEvents
-  )
-  depEventsDel <- defineDependentEvents(
-    eventsMod[eventsMod$replace == 0,],
-    nodes = actDfnodes, 
-    defaultNetwork = netEvents
-  )
 
-  
   
 # Setup of the EM algorithm ---------------
   
@@ -313,8 +314,8 @@ GatherPreprocessingDF = function(formula, envir = new.env()){
     expandedDFDeletion = subset(expandedDF,event %in% deletion_events & inertia_netEvents == 1)
   
     listExpandedDF = list(
-    expandedDFCreation = expandedDFCreation[,!names(expandedDFCreation) %in% c("inertia_netEvents", "sender")],
-    expandedDFDeletion = expandedDFDeletion[,!names(expandedDFDeletion) %in% c("inertia_netEvents", "sender")])
+    expandedDFCreation = expandedDFCreation[,!names(expandedDFCreation) %in% c("inertia_netEvents", "tie_net0","sender")],
+    expandedDFDeletion = expandedDFDeletion[,!names(expandedDFDeletion) %in% c("inertia_netEvents", "tie_net0","sender")])
     
   return(listExpandedDF)
 }  
@@ -369,15 +370,14 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
   sequence = EMPreprocessing(net0,net1)
   
   # Creation of permutations
-  permut = permute(sequence, nmax = 5)
+  permut = permute(sequence, nmax = 100)
   
-  for (i in seq_len(10)){ # TO DO: change this to nmax or to condition with while.
+  for (i in seq_len(2)){ # TO DO: change this to nmax or to condition with while.
   logLik = c()
   betaCreaDF = c()
   betaDelDF = c()
   
       for(seq in permut){
-        
         envirPrepro <- new.env()
         # GatherPreprocessing ----------------
         seq$time <- seq(1,nrow(seq))
@@ -390,13 +390,14 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
         
         local(
           {
+            actDfnodes <- defineNodes(data.frame(label=colnames(net0)))
+            
             netEvents = defineNetwork(nodes = actDfnodes,matrix=net0) |>
               linkEvents(changeEvents = seqTime, nodes = actDfnodes)
             
             depEvents = defineDependentEvents(
               seqTime, nodes = actDfnodes, defaultNetwork = netEvents
             )
-            
           },
           envirPrepro
         )
@@ -408,7 +409,6 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
         
             if(!hard.em){ # In case of using Soft-EM, we compute and store the parameters of 
                           # sequence
-                  
                   depEventsCrea <- defineDependentEvents(
                     seqTime[seqTime$replace == 1,],
                     nodes = actDfnodes, 
@@ -430,7 +430,7 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
                     model = "DyNAM", subModel = "choice",
                     estimationInit = list(
                       startTime = 0,
-                      fixedParameters = c(NA, NA, NA, -20),
+                      fixedParameters = c(NA, NA, NA, -20,-20),
                       returnIntervalLogL = TRUE,
                       returnEventProbabilities = TRUE
                     ),
@@ -444,7 +444,7 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
                     model = "DyNAM", subModel = "choice",
                     estimationInit = list(
                       startTime = 0,
-                      fixedParameters = c(NA, NA, NA, 20),
+                      fixedParameters = c(NA, NA, NA, 20, 20),
                       returnIntervalLogL = TRUE,
                       returnEventProbabilities = TRUE
                     ),
@@ -482,7 +482,7 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
           model = "DyNAM", subModel = "choice",
           estimationInit = list(
             startTime = 0,
-            fixedParameters = c(NA, NA, NA, -20),
+            fixedParameters = c(NA, NA, NA, -20, -20),
             returnIntervalLogL = TRUE,
             returnEventProbabilities = TRUE
           ),
@@ -496,7 +496,7 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
           model = "DyNAM", subModel = "choice",
           estimationInit = list(
             startTime = 0,
-            fixedParameters = c(NA, NA, NA, 20),
+            fixedParameters = c(NA, NA, NA, 20, 20),
             returnIntervalLogL = TRUE,
             returnEventProbabilities = TRUE
           ),
@@ -512,7 +512,7 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
       }  
   }
   
-  return(logLik)
+  return(list(logLik,beta))
 }
    
 
@@ -521,11 +521,12 @@ net0=s501
 rownames(net0)=colnames(net0)
 net1=Xstate
 theta0=data.frame("Crea"=parmsCrea,"Del"=parmsDel)
-beta0=data.frame("Crea"=parmsChoiceCrea,"Del"=parmsChoiceDel)
-formula = "indeg + outdeg + recip + inertia"
+beta0=data.frame("Crea"=c(0,0,0),"Del"=c(0,0,0))
+formula = "indeg + outdeg + recip + inertia + tie(net0)"
+actDfnodes <- defineNodes(data.frame(label=colnames(net0)))
 
 likelihood = EMAlgorithm(net0,net1,theta0,beta0,formula)
 
-
+likelihood
 
 
