@@ -264,7 +264,7 @@ timeGenerator = function(seq,nAct,theta){
  
 GatherPreprocessingDF = function(formula, envir = new.env()){
   # formula : string formula with the effects for the model
-  
+   #browser()
   formGather <- paste("depEvents ~", formula, sep = "")
   
   dataProcessed <- GatherPreprocessing(
@@ -370,7 +370,8 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
   sequence = EMPreprocessing(net0,net1)
   
   # Creation of permutations
-  permut = permute(sequence, nmax = 100)
+  permut = permute(sequence, nmax = 5)
+  
   
   for (i in seq_len(2)){ # TO DO: change this to nmax or to condition with while.
   logLik = c()
@@ -378,6 +379,8 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
   betaDelDF = c()
   
       for(seq in permut){
+        
+        #browser()
         envirPrepro <- new.env()
         # GatherPreprocessing ----------------
         seq$time <- seq(1,nrow(seq))
@@ -390,8 +393,6 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
         
         local(
           {
-            actDfnodes <- defineNodes(data.frame(label=colnames(net0)))
-            
             netEvents = defineNetwork(nodes = actDfnodes,matrix=net0) |>
               linkEvents(changeEvents = seqTime, nodes = actDfnodes)
             
@@ -406,18 +407,20 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
     
         # LogLikelihood computation -------------
         logLik = c(logLik,logLikelihood(listExpandedDF,beta))
-        
+
             if(!hard.em){ # In case of using Soft-EM, we compute and store the parameters of 
                           # sequence
                   depEventsCrea <- defineDependentEvents(
                     seqTime[seqTime$replace == 1,],
                     nodes = actDfnodes, 
-                    defaultNetwork = netEvents
+                    defaultNetwork = netEvents,
+                    envir = envirPrepro
                   )
                   depEventsDel <- defineDependentEvents(
                     seqTime[seqTime$replace == 0,],
                     nodes = actDfnodes, 
-                    defaultNetwork = netEvents
+                    defaultNetwork = netEvents,
+                    envir = envirPrepro
                   )
                   
                   supportConstrainCrea <- supportConstrain[seqTime$replace == 1]
@@ -458,18 +461,20 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
         # For the maximum value, we perform goldfish to estimate the parameters and update beta
         seqMax = permut[[which.max(logLik)]]
         seqMax$time = seq(1,nrow(seqMax))
-        netEvents = defineNetwork(nodes = actDfnodes,matrix=net0) |>
+        netEvents = defineNetwork(nodes = actDfnodes,matrix=net0, envir=envirPrepro) |>
           linkEvents(changeEvents = seqMax, nodes = actDfnodes)
         
         depEventsCrea <- defineDependentEvents(
           seqMax[seqMax$replace == 1,],
           nodes = actDfnodes, 
-          defaultNetwork = netEvents
+          defaultNetwork = netEvents,
+          envir = envirPrepro
         )
         depEventsDel <- defineDependentEvents(
           seqMax[seqMax$replace == 0,],
           nodes = actDfnodes, 
-          defaultNetwork = netEvents
+          defaultNetwork = netEvents,
+          envir = envirPrepro
         )
         
         supportConstrainCrea <- supportConstrain[seqMax$replace == 1]
@@ -523,7 +528,7 @@ net1=Xstate
 theta0=data.frame("Crea"=parmsCrea,"Del"=parmsDel)
 beta0=data.frame("Crea"=c(0,0,0),"Del"=c(0,0,0))
 formula = "indeg + outdeg + recip + inertia + tie(net0)"
-actDfnodes <- defineNodes(data.frame(label=colnames(net0)))
+#actDfnodes <- defineNodes(data.frame(label=colnames(net0)))
 
 likelihood = EMAlgorithm(net0,net1,theta0,beta0,formula)
 
