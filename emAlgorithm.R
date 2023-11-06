@@ -264,7 +264,7 @@ timeGenerator = function(seq,nAct,theta){
  
 GatherPreprocessingDF = function(formula, envir = new.env()){
   # formula : string formula with the effects for the model
-   #browser()
+  # browser()
   formGather <- paste("depEvents ~", formula, sep = "")
   
   dataProcessed <- GatherPreprocessing(
@@ -370,7 +370,7 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
   sequence = EMPreprocessing(net0,net1)
   
   # Creation of permutations
-  permut = permute(sequence, nmax = 5)
+  permut = permute(sequence, nmax = 100)
   
   
   for (i in seq_len(2)){ # TO DO: change this to nmax or to condition with while.
@@ -414,13 +414,11 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
                     seqTime[seqTime$replace == 1,],
                     nodes = actDfnodes, 
                     defaultNetwork = netEvents,
-                    envir = envirPrepro
                   )
                   depEventsDel <- defineDependentEvents(
                     seqTime[seqTime$replace == 0,],
                     nodes = actDfnodes, 
                     defaultNetwork = netEvents,
-                    envir = envirPrepro
                   )
                   
                   supportConstrainCrea <- supportConstrain[seqTime$replace == 1]
@@ -456,30 +454,42 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
                   betaDelDF = rbind(betaDelDF,coef(modDel))
         }
       }
-  
+    #browser()
       if(hard.em){
         # For the maximum value, we perform goldfish to estimate the parameters and update beta
         seqMax = permut[[which.max(logLik)]]
         seqMax$time = seq(1,nrow(seqMax))
-        netEvents = defineNetwork(nodes = actDfnodes,matrix=net0, envir=envirPrepro) |>
-          linkEvents(changeEvents = seqMax, nodes = actDfnodes)
         
-        depEventsCrea <- defineDependentEvents(
-          seqMax[seqMax$replace == 1,],
-          nodes = actDfnodes, 
-          defaultNetwork = netEvents,
-          envir = envirPrepro
+        envirMax <- new.env()
+        # GatherPreprocessing ----------------
+        envirMax$seqMax <- seqMax
+        envirMax$actDfnodes <- actDfnodes
+        envirMax$net0 <- net0
+        #seqTime = data.frame("time"=timeGenerator(seq,nAct,theta),seq)
+        
+        local(
+          {
+            netEvents = defineNetwork(nodes = actDfnodes,matrix=net0) |>
+              linkEvents(changeEvents = seqMax, nodes = actDfnodes)
+            
+            depEventsCrea <- defineDependentEvents(
+              seqMax[seqMax$replace == 1,],
+              nodes = actDfnodes, 
+              defaultNetwork = netEvents
+            )
+            
+            depEventsDel <- defineDependentEvents(
+              seqMax[seqMax$replace == 0,],
+              nodes = actDfnodes, 
+              defaultNetwork = netEvents
+            )
+            
+            supportConstrainCrea <- supportConstrain[seqMax$replace == 1]
+            supportConstrainDel <- supportConstrain[seqMax$replace == 0]
+          },
+          envirMax
         )
-        depEventsDel <- defineDependentEvents(
-          seqMax[seqMax$replace == 0,],
-          nodes = actDfnodes, 
-          defaultNetwork = netEvents,
-          envir = envirPrepro
-        )
-        
-        supportConstrainCrea <- supportConstrain[seqMax$replace == 1]
-        supportConstrainDel <- supportConstrain[seqMax$replace == 0]
-        
+      
         
         formCrea = paste("depEventsCrea ~",formula,sep="")
         modCrea <- estimate(
@@ -491,10 +501,11 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
             returnIntervalLogL = TRUE,
             returnEventProbabilities = TRUE
           ),
-          progress = FALSE
+          progress = FALSE,
+          envir = envirMax
         )
         beta$Crea = coef(modCrea)
-        
+
         formDel = paste("depEventsDel ~",formula,sep="")
         modDel <- estimate(
           as.formula(formDel),
@@ -505,7 +516,8 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
             returnIntervalLogL = TRUE,
             returnEventProbabilities = TRUE
           ),
-          progress = FALSE
+          progress = FALSE,
+          envir = envirMax
         )
         beta$Del = coef(modDel)
       }
@@ -516,7 +528,6 @@ EMAlgorithm = function(net0,net1,theta0,beta0,formula,hard.em = TRUE){
         beta$Del = apply(betaDelDF,2,weigthed.mean,weights)
       }  
   }
-  
   return(list(logLik,beta))
 }
    
