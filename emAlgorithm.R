@@ -373,7 +373,8 @@ hardEMAlgorithm = function(net0,net1,theta0,beta0,formula){
     }
     
       # For the maximum value, we perform goldfish to estimate the parameters and update beta
-      seqMax = permut[[which.max(logLik)]]
+      index.max = sample(which(logLik==max(logLik)),1)
+      seqMax = permut[[index.max]]
       seqMax$time = seq(1,nrow(seqMax))
       
       envirMaxCrea <- new.env()
@@ -470,13 +471,15 @@ softEMAlgorithm = function(net0,net1,theta0,beta0,formula){
   sequence = EMPreprocessing(net0,net1)
   
   # Creation of permutations
-  permut = permute(sequence, nmax = 5)
+  permut = permute(sequence, nmax = 1000)
   
   
   betaCreaDF = c()
   betaDelDF = c()
-  
+    i = 0
       for(seq in permut){
+        i = i+1
+        if(!i%%100) cat("sequence ",i,"\n")
         envirPrepro <- new.env()
         envirPreproCrea <- new.env()
         envirPreproDel <- new.env()
@@ -572,14 +575,19 @@ softEMAlgorithm = function(net0,net1,theta0,beta0,formula){
   
   diff = 1000
   index = 0
-  while (diff>1e-2){ # TO DO: change this to nmax or to condition with while.
+  while (diff>1e-3){ # TO DO: change this to nmax or to condition with while.
     logLik = c()
     index = index +1
+    cat("Index: ",index,"\n")
+    cat("Diff: ", diff,"\n")
     if (index > 1000){
       cat("No convergence\n")
       break
     }
+    i=0
     for(seq in permut){
+      i = i+1
+      if(!i%%100) cat("Sequence: ", i,"\n")
       envirPrepro <- new.env()
       seq$time <- seq(1,nrow(seq))
       envirPrepro$seqTime <- seq
@@ -622,8 +630,7 @@ beta0=data.frame("Crea"=c(0,0,0),"Del"=c(0,0,0))
 formula = "indeg + outdeg + recip + inertia + tie(net0)"
 #actDfnodes <- defineNodes(data.frame(label=colnames(net0)))
 time1 = Sys.time()
-likelihood = softEMAlgorithm(net0,net1,theta0,beta0,formula)
+likelihood =softEMAlgorithm(net0,net1,theta0,beta0,formula)
 Sys.time() - time1
 #likelihood
-
 
