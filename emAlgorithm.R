@@ -8,6 +8,8 @@ library(mlogit)
 library(RSiena)
 library(matrixStats)
 library(stats)
+library(foreach)
+library(doParallel)
 
 set.seed(123)
 
@@ -322,10 +324,21 @@ logLikelihood = function(listExpandedDF, beta){
   
 }
 
-
+# Rubin's rule for weighted data -------------
+rubinsRule = function(x,se,w){
+  # x : values of the parameters 
+  # se : standard errors of the parameters
+  # w : values of the weights
+  # returns the value of the averaged mean and the standard error
+  x_mean = apply(x,2,weighted.mean,w)
+  v_within = apply(se^2,2,weighted.mean,w)
+  v_between = apply((sweep(x,2,x_mean))^2,2,weighted.mean,w)
+  se_total = sqrt(v_within+(1+1/length(w))*v_between)
+  return(list(mean = x_mean, se = se_total))
+}
 
 # EM algorithm --------------------
-hardEMAlgorithm = function(net0,net1,theta0,beta0,formula){
+hardEMAlgorithm = function(net0,net1,theta0,beta0,formula,nmax = 5){
   # net0 : network matrix in initial state
   # net1: network matrix in final state
   # theta0 : initial parameters for sender (list of creation and deletion with 
@@ -346,7 +359,7 @@ hardEMAlgorithm = function(net0,net1,theta0,beta0,formula){
   sequence = EMPreprocessing(net0,net1)
   
   # Creation of permutations
-  permut = permute(sequence, nmax = 5)
+  permut = permute(sequence, nmax = nmax)
   
   for(seq in permut){
       envirPrepro <- new.env()
@@ -451,7 +464,7 @@ hardEMAlgorithm = function(net0,net1,theta0,beta0,formula){
 
 
 
-softEMAlgorithm = function(net0,net1,theta0,beta0,formula){
+softEMAlgorithm = function(net0,net1,theta0,beta0,formula,nmax = 10){
   # net0 : network matrix in initial state
   # net1: network matrix in final state
   # theta0 : initial parameters for sender (list of creation and deletion with 
@@ -471,11 +484,13 @@ softEMAlgorithm = function(net0,net1,theta0,beta0,formula){
   sequence = EMPreprocessing(net0,net1)
   
   # Creation of permutations
-  permut = permute(sequence, nmax = 1000)
+  permut = permute(sequence, nmax = nmax)
   
   
   betaCreaDF = c()
   betaDelDF = c()
+  seCreaDF = c()
+  seDelDF = c()
     i = 0
       for(seq in permut){
         i = i+1
@@ -554,6 +569,8 @@ softEMAlgorithm = function(net0,net1,theta0,beta0,formula){
                     envir = envirPreproCrea
                   )
           betaCreaDF = rbind(betaCreaDF,coef(modCrea))
+          seCreaDF = rbind(seCreaDF, modCrea$standardErrors[modCrea$standardErrors>0])      
+          
                   
           formDel = paste("depEventsDel ~",formula,sep="")
           modDel <- estimate(
@@ -569,13 +586,13 @@ softEMAlgorithm = function(net0,net1,theta0,beta0,formula){
                     envir = envirPreproDel
                   )
             betaDelDF = rbind(betaDelDF,coef(modDel))
-                  
+            seDelDF = rbind(seDelDF, modDel$standardErrors[modDel$standardErrors>0])      
         
       }
   
   diff = 1000
   index = 0
-  while (diff>1e-3){ # TO DO: change this to nmax or to condition with while.
+  while (diff>1e-4){ # TO DO: change this to nmax or to condition with while.
     logLik = c()
     index = index +1
     cat("Index: ",index,"\n")
@@ -609,15 +626,16 @@ softEMAlgorithm = function(net0,net1,theta0,beta0,formula){
       logLik = c(logLik,logLikelihood(listExpandedDF,beta))
     }
     weights = exp(logLik)/sum(logLik)
-    betaCreaAux = apply(betaCreaDF,2,weighted.mean,weights)
-    betaDelAux = apply(betaDelDF,2,weighted.mean,weights)
-    diff= sqrt(norm(as.matrix(beta$Crea-betaCreaAux))^2+norm(as.matrix(beta$Del-betaDelAux))^2)
+    betaCreaAux = rubinsRule(betaCreaDF,seCreaDF,weights)
+    betaDelAux = rubinsRule(betaDelDF,seDelDF,weights)
+    diff= sqrt(norm(as.matrix(beta$Crea-betaCreaAux$mean))^2+norm(as.matrix(beta$Del-betaDelAux$mean))^2)
     
-    beta$Crea = betaCreaAux
-    beta$Del = betaDelAux
+    beta$Crea = betaCreaAux$mean
+    beta$Del = betaDelAux$mean
   }
   
-  return(list("logLik" = logLik,"beta" = beta,"betaCrea" = betaCreaDF,"betaDel" = betaDelDF))
+  return(list("logLik" = logLik,"beta" = beta,"betaCrea" = betaCreaDF,"betaDel" = betaDelDF,"index" = index,
+              "diff" = diff))
 }
    
 
@@ -630,7 +648,7 @@ beta0=data.frame("Crea"=c(0,0,0),"Del"=c(0,0,0))
 formula = "indeg + outdeg + recip + inertia + tie(net0)"
 #actDfnodes <- defineNodes(data.frame(label=colnames(net0)))
 time1 = Sys.time()
-likelihood =softEMAlgorithm(net0,net1,theta0,beta0,formula)
+likelihood =softEMAlgorithm(net0,net1,theta0,beta0,formula,nmax = 50)
 Sys.time() - time1
-#likelihood
+likelihood$beta
 
