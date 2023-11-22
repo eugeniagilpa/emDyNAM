@@ -14,20 +14,21 @@ library(doParallel)
 set.seed(123)
 
 # Single simulation ------------------------
-endTime <- 30
+endTime <- 100
 nSimCrea <- 59 # from s501 and s502 data, number of ties created between t_0 and t_1
 nSimDel <- 56 # from s501 and s502 data, number of ties deleted between t_0 and t_1
 
 actDf <-dimnames(s501)[[2]]
 nAct <- length(actDf)
 
+
 # parameters = c(log(nSim/endTime/avgActors),...), avgActors = actors that can create/delete ties in t_0 
 parmsCrea <- c(log(nSimCrea / endTime / nAct )) #indegree and outdegree of ego
 parmsDel <- c(log(nSimDel / endTime / (nAct-4))) #indegree and outdegree of ego
 # there are 4 actors with no ties, so no deletion is possible
 
-parmsChoiceCrea <- c(1,0.05,0.1) #reciprocity, indegree, outdegree of alter (reciprocity positiva para creacion/ negativa eliminacion)
-parmsChoiceDel <- c(-1,-0.05,-0.1)     
+parmsChoiceCrea <- c(3,0,0,2) #reciprocity, indegree, outdegree, transitivity of alter (reciprocity positiva para creacion/ negativa eliminacion)
+parmsChoiceDel <- c(-1,0,0,-2)     
 
 # simulate DyNAM ------------------------------------------------------
 # Xstate = matrix(0L, nrow=nAct, ncol=nAct)#Xstate=s501
@@ -47,9 +48,10 @@ X <- cbind("intercept"=rep(1,nrow(XAux)))
 Xchoice <- array(
   c(t(Xstate),
     matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
-    matrix(XAux[,"outdeg"],nrow=nAct,ncol=nAct,byrow=TRUE)),
-  dim = c(nAct, nAct, 3),
-  dimnames = list(actDf, actDf, c( "recip", "indeg","outdeg"))
+    matrix(XAux[,"outdeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+    Xstate%*%Xstate),
+  dim = c(nAct, nAct, 4),
+  dimnames = list(actDf, actDf, c( "recip", "indeg","outdeg","trans"))
 )
 
 # initial info
@@ -117,9 +119,18 @@ while (time < endTime) {
     Xstate[labSender,labReceiver]=1
     XAux[labSender,"outdeg"] = XAux[labSender,"outdeg"]+1
     XAux[labReceiver,"indeg"] = XAux[labReceiver,"indeg"]+1
-    Xchoice[labReceiver,labSender,"recip"] = 1
-    Xchoice[,labReceiver,"indeg"] = Xchoice[,labReceiver,"indeg"]+1
-    Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]+1
+    # Xchoice[labReceiver,labSender,"recip"] = 1
+    # Xchoice[,labReceiver,"indeg"] = Xchoice[,labReceiver,"indeg"]+1
+    # Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]+1
+    
+    Xchoice <- array(
+      c(t(Xstate),
+        matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+        matrix(XAux[,"outdeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+        Xstate%*%Xstate),
+      dim = c(nAct, nAct, 4),
+      dimnames = list(actDf, actDf, c( "recip", "indeg","outdeg","trans"))
+    )
     
   }else{
     # In this case, we have a deletion event
@@ -165,9 +176,19 @@ while (time < endTime) {
     Xstate[labSender,labReceiver]=0
     XAux[labSender,"outdeg"] = XAux[labSender,"outdeg"]-1
     XAux[labReceiver,"indeg"] = XAux[labReceiver,"indeg"]-1
-    Xchoice[labReceiver,labSender,"recip"] = 0
-    Xchoice[,labReceiver,"indeg"] = Xchoice[,labReceiver,"indeg"]-1
-    Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]-1
+    # Xchoice[labReceiver,labSender,"recip"] = 0
+    # Xchoice[,labReceiver,"indeg"] = Xchoice[,labReceiver,"indeg"]-1
+    # Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]-1
+    
+    Xchoice <- array(
+      c(t(Xstate),
+        matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+        matrix(XAux[,"outdeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+        Xstate%*%Xstate),
+      dim = c(nAct, nAct, 4),
+      dimnames = list(actDf, actDf, c( "recip", "indeg","outdeg","trans"))
+    )
+    
   }
 }
 
@@ -201,11 +222,11 @@ supportConstrainDel <- supportConstrain[eventsMod$replace == 0]
 
 
 modTest2 <- estimate(
-  depEventsCrea ~ indeg + outdeg + recip + inertia + tie(initNet),
+  depEventsCrea ~ indeg + outdeg + recip + trans + inertia + tie(initNet),
   model = "DyNAM", subModel = "choice",
   estimationInit = list(
     startTime = 0,
-    fixedParameters = c(NA, NA, NA, -20,-20),
+    fixedParameters = c(NA, NA, NA, NA, -20, -20),
     returnIntervalLogL = TRUE,
     returnEventProbabilities = TRUE
   ),
@@ -214,11 +235,11 @@ modTest2 <- estimate(
 
 
 modTest4 <- estimate(
-  depEventsDel~ indeg + outdeg + recip + inertia + tie(initNet),
+  depEventsDel~ indeg + outdeg + recip + trans + inertia + tie(initNet),
   model = "DyNAM", subModel = "choice",
   estimationInit = list(
     startTime = 0,
-    fixedParameters = c(NA, NA, NA, 20, 20),
+    fixedParameters = c(NA, NA, NA, NA, 20, 20),
     returnIntervalLogL = TRUE,
     returnEventProbabilities = TRUE
   ),
@@ -226,4 +247,6 @@ modTest4 <- estimate(
 )
 
 
-save(modTest2, modTest4, initState, Xstate, events,file = "simulationData.RData")
+coefOriginal = list(creation = parmsChoiceCrea ,deletion = parmsChoiceDel)
+
+save(modTest2, modTest4, coefOriginal, initState, Xstate, events,file = "simulationData.RData")
