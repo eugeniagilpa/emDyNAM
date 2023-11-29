@@ -11,10 +11,18 @@ library(stats)
 library(foreach)
 library(doParallel)
 
-set.seed(123)
+library(ggraph)
+library(migraph)
+
+set.seed(1)
 
 # Single simulation ------------------------
-endTime <- 100
+endTime <- 200
+
+parmsChoiceCrea <- c(0.6,0,0,0) #indegree, outdegree,reciprocity, transitivity of alter (reciprocity positiva para creacion/ negativa eliminacion)
+parmsChoiceDel <- c(-1,0,0,0)     
+
+  
 nSimCrea <- 59 # from s501 and s502 data, number of ties created between t_0 and t_1
 nSimDel <- 56 # from s501 and s502 data, number of ties deleted between t_0 and t_1
 
@@ -23,12 +31,10 @@ nAct <- length(actDf)
 
 
 # parameters = c(log(nSim/endTime/avgActors),...), avgActors = actors that can create/delete ties in t_0 
-parmsCrea <- c(log(nSimCrea / endTime / nAct )) #indegree and outdegree of ego
-parmsDel <- c(log(nSimDel / endTime / (nAct-4))) #indegree and outdegree of ego
+parmsCrea <- c(log(nSimCrea / 20 / nAct )) #indegree and outdegree of ego
+parmsDel <- c(log(nSimDel / 20 / (nAct-4))) #indegree and outdegree of ego
 # there are 4 actors with no ties, so no deletion is possible
 
-parmsChoiceCrea <- c(3,0,0,2) #reciprocity, indegree, outdegree, transitivity of alter (reciprocity positiva para creacion/ negativa eliminacion)
-parmsChoiceDel <- c(-1,0,0,-2)     
 
 # simulate DyNAM ------------------------------------------------------
 # Xstate = matrix(0L, nrow=nAct, ncol=nAct)#Xstate=s501
@@ -46,9 +52,9 @@ X <- cbind("intercept"=rep(1,nrow(XAux)))
 
 # Xchoice[sender, receiver, effect]
 Xchoice <- array(
-  c(t(Xstate),
-    matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+  c(matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
     matrix(XAux[,"outdeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+    t(Xstate),
     Xstate%*%Xstate),
   dim = c(nAct, nAct, 4),
   dimnames = list(actDf, actDf, c( "recip", "indeg","outdeg","trans"))
@@ -66,10 +72,13 @@ events <- NULL
 supportConstrain <- list()
 event <- 0L
 receiver <- 0L
+num_event <- 0
 #events = data.frame(time=numeric(200),label=character(200))|>as.list()
 
 while (time < endTime) {
+# while (num_event < tot_events + 1){
   stop = FALSE
+  
   cat("event:", event, "time:", time, "\r")
   timeEventCrea <- rexp(1, sumRateCrea)
   timeEventDel <- rexp(1, sumRateDel)
@@ -89,7 +98,7 @@ while (time < endTime) {
     
     while(length(isAvailableChoice)<1){ #redraw sender
       counter = counter +1
-      if(counter>length(isAvailable)){stop =TRUE; break}
+      if(counter>sum(isAvailable)){stop =TRUE; break}
       isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 & !actDf==labSender
       sender <- sample(sum(isAvailable), 1, prob = expXbDel[!(rownames(XAux) %in% labSender)][isAvailable] / sumRateDel)
       labSender <- actDf[isAvailable][sender]
@@ -124,14 +133,14 @@ while (time < endTime) {
     # Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]+1
     
     Xchoice <- array(
-      c(t(Xstate),
-        matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+      c(matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
         matrix(XAux[,"outdeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+        t(Xstate),
         Xstate%*%Xstate),
       dim = c(nAct, nAct, 4),
-      dimnames = list(actDf, actDf, c( "recip", "indeg","outdeg","trans"))
+      dimnames = list(actDf, actDf, c("indeg","outdeg","recip","trans"))
     )
-    
+    num_event = num_event+1
   }else{
     # In this case, we have a deletion event
     timeEvent = timeEventDel
@@ -146,7 +155,7 @@ while (time < endTime) {
     counter=0
     while(length(isAvailableChoice)<1){ #redraw sender
       counter = counter +1
-      if(counter>length(isAvailable)){stop =TRUE; break}
+      if(counter>sum(isAvailable)){stop =TRUE; break}
       isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 & !actDf==labSender
       sender <- sample(sum(isAvailable), 1, prob = expXbDel[!(rownames(XAux) %in% labSender)][isAvailable] / sumRateDel)
       labSender <- actDf[isAvailable][sender]
@@ -181,18 +190,18 @@ while (time < endTime) {
     # Xchoice[,labSender,"outdeg"] = Xchoice[,labSender,"outdeg"]-1
     
     Xchoice <- array(
-      c(t(Xstate),
-        matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+      c(matrix(XAux[,"indeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
         matrix(XAux[,"outdeg"],nrow=nAct,ncol=nAct,byrow=TRUE),
+        t(Xstate),
         Xstate%*%Xstate),
       dim = c(nAct, nAct, 4),
-      dimnames = list(actDf, actDf, c( "recip", "indeg","outdeg","trans"))
+      dimnames = list(actDf, actDf, c( "indeg","outdeg","recip","trans"))
     )
-    
+    num_event = num_event+1
   }
 }
 
-
+events
 actDfnodes <- data.frame(label=actDf,present = TRUE)
 actDfnodes <- defineNodes(actDfnodes) 
 
@@ -245,6 +254,27 @@ modTest4 <- estimate(
   ),
   progress = FALSE
 )
+
+
+
+
+
+# The network at the beginning
+callNetworkBgn <- as.matrix(netEvents)
+autographr(callNetworkBgn, labels = FALSE, layout = "fr")
+
+callNetworkHlf <- as.matrix(netEvents,time = 100)
+autographr(callNetworkHlf, labels = FALSE, layout = "fr")
+
+
+callNetworkEnd <- as.matrix(netEvents,time = 200)
+autographr(callNetworkEnd, labels = FALSE, layout = "fr")
+
+table(as.matrix(netEvents))
+table(as.matrix(netEvents, time = 200))
+
+
+
 
 
 coefOriginal = list(creation = parmsChoiceCrea ,deletion = parmsChoiceDel)
