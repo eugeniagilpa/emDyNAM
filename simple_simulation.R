@@ -89,6 +89,7 @@ while (time < endTime) {
     
     # The nodes that are available to create a tie are those with an outdeg < nAct
     isAvailable <-XAux[,"outdeg"]<(nAct-1) & XAuxInit[,"outdeg"]<(nAct-1)
+    if(sum(isAvailable)<1) next
     sender <- sample(sum(isAvailable), 1, prob = expXbCrea[isAvailable] / sumRateCrea)
     labSender <- actDf[isAvailable][sender]
     
@@ -146,6 +147,7 @@ while (time < endTime) {
     timeEvent = timeEventDel
     # The nodes that are available to delete a tie are those with an outdeg > 0
     isAvailable <-XAux[,"outdeg"]>0 & XAuxInit[,"outdeg"]>0 
+    if(sum(isAvailable)<1) next
     sender <- sample(sum(isAvailable), 1, prob = expXbDel[isAvailable] / sumRateDel)
     labSender <- actDf[isAvailable][sender]
     
