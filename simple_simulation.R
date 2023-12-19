@@ -13,6 +13,21 @@ library(doParallel)
 
 library(ggraph)
 library(migraph)
+library(igraph)
+
+# # Generate a random graph with 20 nodes and probability of an edge between any two nodes as 0.2
+# g <- erdos.renyi.game(50, 0.1, directed = FALSE)
+# 
+# # Plot the graph
+# plot(g, vertex.label = 1:50, vertex.size = 15, vertex.color = "skyblue", edge.color = "gray")
+# 
+# graph.density(g)
+#  
+# 
+# num_edges <- sum(s501)/2
+# n <- nrow(s501)
+# total_possible_edges <- n*(n-1)/2
+# density_value <- num_edges / total_possible_edges
 
 set.seed(1)
 

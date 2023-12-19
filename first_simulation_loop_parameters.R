@@ -6,6 +6,7 @@ library(pixiedust)
 library(survival)
 library(mlogit)
 library(RSiena)
+library(pastecs)
 
 # Start of the loop to store the values of parameters
 # Simulation parameters
@@ -383,33 +384,4 @@ aux = sapply(repeatedAction,function(x) table(x$n))
 summary(sapply(aux, "[",  1))
 summary(sapply(aux, "[",  2))
 summary(sapply(aux, "[",  3))
-
-
-par(mfrow=c(1,2))
-hist(storeParam$mod1Crea$indeg,main="Mod1 creation, indeg")
-hist(storeParam$mod2Crea$indeg,main="Mod2 creation,indeg")
-hist(storeParam$mod1Del$indeg,main="Mod1 deletion, indeg")
-hist(storeParam$mod2Del$indeg,main="Mod2 deletion, indeg")
-hist(storeParam$mod1Crea$outdeg,main="Mod1 creation, outdeg")
-hist(storeParam$mod2Crea$outdeg,main="Mod2 creation,outdeg")
-hist(storeParam$mod1Del$outdeg,main="Mod1 deletion, outdeg")
-hist(storeParam$mod2Del$outdeg,main="Mod2 deletion, outdeg")
-hist(storeParam$mod1Crea$recip,main="Mod1 creation, recip")
-hist(storeParam$mod2Crea$recip,main="Mod2 creation,recip")
-hist(storeParam$mod1Del$recip,main="Mod1 deletion, recip")
-hist(storeParam$mod2Del$recip,main="Mod2 deletion, recip")
-
-sapply(storeParam$mod1Crea,median)
-sapply(storeParam$mod2Crea,median)
-sapply(storeParam$mod1Del,median)
-sapply(storeParam$mod2Del,median)
-
-sapply(storeParam$mod1Crea,mean)
-sapply(storeParam$mod2Crea,mean)
-sapply(storeParam$mod1Del,mean)
-sapply(storeParam$mod2Del,mean)
-
-
-which(storeParam$mod1Crea$recip< (-6))
-which(storeParam$mod2Crea$recip< (-6))
 
