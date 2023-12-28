@@ -13,7 +13,7 @@ library(doParallel)
 library(parallel)
   
 # Setup of the EM algorithm ---------------
-EMPreprocessing = function(X0, X1){
+EMPreprocessing = function(X0,X1){
   # Function that preprocess the network matrixes
   # X0 : initial network matrix (row, col names must be actor names)
   # X1 : final network matrix (row, col names must be actor names)
