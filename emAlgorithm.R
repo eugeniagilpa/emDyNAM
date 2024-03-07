@@ -11,6 +11,7 @@ library(stats)
 library(foreach)
 library(doParallel)
 library(parallel)
+library(usethis)
   
 # Setup of the EM algorithm ---------------
 EMPreprocessing = function(X0,X1){
