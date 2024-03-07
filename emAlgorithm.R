@@ -970,7 +970,7 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
     
     betaCreaAux = rubinsRule(betaCreaDF,seCreaDF,weights)
     betaDelAux = rubinsRule(betaDelDF,seDelDF,weights)
-    diff= sqrt(norm(as.matrix(beta$Crea-betaCreaAux$mean))^2+norm(as.matrix(beta$Del-betaDelAux$mean))^2)
+    #diff= sqrt(norm(as.matrix(beta$Crea-betaCreaAux$mean))^2+norm(as.matrix(beta$Del-betaDelAux$mean))^2)
     
     betaNew$Crea = betaCreaAux$mean
     betaNew$Del = betaDelAux$mean
@@ -985,6 +985,7 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
     deltaQ = deltaQ(logLikPrev,logLikCur,weights)
     lowerBound = deltaQ - 1.644854*ase
     
+    diff = deltaQ + 1.644854*ase
     
     
     if(lowerBoud<0){
