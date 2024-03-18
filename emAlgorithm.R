@@ -322,6 +322,28 @@ deltaQ = function(loglikPrev, loglikCur, w){
   return(deltaQ)  
 }
 
+
+
+# MCMC -------------------------------------
+
+MCMC = function(seq){
+  
+}
+
+MCMC_MC = function(indexCore,splitIndicesPerCore,permut = permut){
+  
+  indicesCore = splitIndicesPerCore[[indexCore]]
+  resMCMC = vector("list",length(indicesCore))
+  for(i in seq_along(indicesCore)){
+    resMCMC[[i]] = MCMC(permut[[indicesCore[[i]]]])
+  }
+  
+  return(resMCMC)
+}
+
+
+
+
 # EM algorithm --------------------
 hardEMAlgorithm = function(net0,net1,theta0,beta0,formula,nmax = 5){
   # net0 : network matrix in initial state
@@ -710,11 +732,11 @@ softEMAlgorithmMC = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
   og_permut = aux_permut[order(as.numeric(row.names(aux_permut))),]
   aux_names = lapply(lapply(permut,row.names),as.numeric)
   
-  return(list("logLik" = logLik,"beta" = beta,"se" = se,"betaCrea" = betaCreaDF,"betaDel" = betaDelDF,"index" = index,
+  return(list("logLik" = logLik,"beta" = beta,"se" = se,"index" = index,
               "diff" = diff,"og_permut" =og_permut, "permut"=aux_names,"betaCreaDF" = betaCreaDF,"betaDelDF"=betaDelDF))
 }
 
-# softEMAlgorithmMC(nmax=4,net0,net1,theta0,beta0,formula,num_cores=1)
+# s = softEMAlgorithmMC(nmax=10,net0,net1,theta0,beta0,formula,num_cores=1)
    
 
 softEMAlgorithmForEach = function(net0,net1,theta0,beta0,formula,nmax = 10){
@@ -924,10 +946,11 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
   sequence = EMPreprocessing(net0,net1)
   
   # Creation of permutations
-  permut = permute(sequence, nmax = nmax)
+  permut_OG = permute(sequence, nmax = nmax)
+  
   # permut[[nmax+1]]=events[,2:4]
   
-  splitIndicesPerCore = splitIndices(length(permut),num_cores)
+  splitIndicesPerCore = splitIndices(length(permut_OG),num_cores)
   cl =  makeCluster(num_cores)
   on.exit(stopCluster(cl))
   clusterExport(cl, c("net0","actDfnodes","nAct"))
@@ -937,6 +960,17 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
   clusterExport(cl, list("softEMAlgorithm","EMPreprocessing", "GatherPreprocessingDF",
                          "hardEMAlgorithm","logLikelihood","permute","rubinsRule",
                          "parameters","timeGenerator","logLikelihood"))
+  
+  
+  
+  #clusterExport(cl, list("softEMAlgorithm","EMPreprocessing", "GatherPreprocessingDF",
+   #                      "hardEMAlgorithm","logLikelihood","permute","rubinsRule",
+    #                     "parameters","timeGenerator","logLikelihood","MCMC"))
+  
+  #permut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = permut_OG,
+                      #  splitIndicesPerCore=splitIndicesPerCore) 
+  
+  permut=permut_OG
   resPar = clusterApply(cl,seq_along(splitIndicesPerCore),parametersMC,permut = permut,
                         splitIndicesPerCore=splitIndicesPerCore,actDfnodes.=actDfnodes,
                         net0.=net0,formula.=formula) 
@@ -980,19 +1014,20 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
                             splitIndicesPerCore=splitIndicesPerCore,
                             beta=betaNew,actDfnodes=actDfnodes,net0=net0,formula=formula)
     
-    sigmaHat = sigmaHat(nmax,logLikPrev,logLikCur,weights)
+    w = rep(1,length(logLikPrev))/length(logLikPrev)
+    sigmaHat = sigmaHat(nmax,logLikPrev,logLikCur,w)
     ase = sqrt(sigmaHat/nmax)
-    deltaQ = deltaQ(logLikPrev,logLikCur,weights)
+    deltaQ = deltaQ(logLikPrev,logLikCur,w)
     lowerBound = deltaQ - 1.644854*ase
     
-    diff = deltaQ + 1.644854*ase
+    
     
     
     if(lowerBoud<0){
       # Estimator is not accepted, new point must be sampled
       # sample(...)
       # nmax = nmax+1
-      # permut = ......
+      # permut = 
       resPar = clusterApply(cl,seq_along(splitIndicesPerCore),parametersMC,permut = permut,
                             splitIndicesPerCore=splitIndicesPerCore,actDfnodes.=actDfnodes,
                             net0.=net0,formula.=formula) 
@@ -1011,17 +1046,23 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
     }else{
       # Update of the paremeter, next iteration
       index = index +1
-      logLikPrev = logLikCur
+      diff = deltaQ + 1.644854*ase
       
       
       beta = betaNew
       se$Crea = betaCreaAux$se
       se$Del = betaDelAux$se
       
+      # Update on the permutations -> new MCMC
+      #permut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = permut_OG,
+                            #  splitIndicesPerCore=splitIndicesPerCore) 
+      logLikPrev = clusterApply(cl,seq_along(splitIndicesPerCore),logLikelihoodMC,permut = permut,
+                                splitIndicesPerCore=splitIndicesPerCore,
+                                beta=beta,actDfnodes=actDfnodes,net0=net0,formula=formula) 
+      logLikPrev = unlist(logLikPrev)
+      
     }
     
-    # Update (criterio from ERGMs)
-    # .... TO BE DONE
     
   }
   
@@ -1029,11 +1070,10 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
   og_permut = aux_permut[order(as.numeric(row.names(aux_permut))),]
   aux_names = lapply(lapply(permut,row.names),as.numeric)
   
-  return(list("logLik" = logLik,"beta" = beta,"se" = se,"betaCrea" = betaCreaDF,"betaDel" = betaDelDF,"index" = index,
+  return(list("logLik" = logLik,"beta" = beta,"se" = se,"index" = index,
               "diff" = diff,"og_permut" =og_permut, "permut"=aux_names,"betaCreaDF" = betaCreaDF,"betaDelDF"=betaDelDF))
 }
 
-# softEMAlgorithmMC(nmax=4,net0,net1,theta0,beta0,formula,num_cores=1)
 
 
 
@@ -1221,3 +1261,6 @@ save(results,file = filename)
 # round(stat.desc(recipD,basic = F),3)
 
 
+
+
+                        
