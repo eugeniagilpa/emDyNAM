@@ -966,11 +966,11 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
   sequence = EMPreprocessing(net0,net1)
   
   # Creation of permutations
-  permut_OG = permute(sequence, nmax = nmax)
+  permut = permute(sequence, nmax = nmax)
   
   # permut[[nmax+1]]=events[,2:4]
   
-  splitIndicesPerCore = splitIndices(length(permut_OG),num_cores)
+  splitIndicesPerCore = splitIndices(length(permut),num_cores)
   cl =  makeCluster(num_cores)
   on.exit(stopCluster(cl))
   clusterExport(cl, c("net0","actDfnodes","nAct"))
@@ -987,10 +987,10 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
    #                      "hardEMAlgorithm","logLikelihood","permute","rubinsRule",
     #                     "parameters","timeGenerator","logLikelihood","MCMC",¨burnIn"))
   
-  #permut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = permut_OG, 
+  #permut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = permut, 
                       #  beta=beta,splitIndicesPerCore=splitIndicesPerCore) 
   
-  permut=permut_OG
+
   resPar = clusterApply(cl,seq_along(splitIndicesPerCore),parametersMC,permut = permut,
                         splitIndicesPerCore=splitIndicesPerCore,actDfnodes.=actDfnodes,
                         net0.=net0,formula.=formula) 
@@ -1047,7 +1047,8 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
       # Estimator is not accepted, new point must be sampled
       # sample(...)
       # nmax = nmax+1
-      # permut = 
+      # perumt = c(permut,MCMC(newpermut))
+      
       resPar = clusterApply(cl,seq_along(splitIndicesPerCore),parametersMC,permut = permut,
                             splitIndicesPerCore=splitIndicesPerCore,actDfnodes.=actDfnodes,
                             net0.=net0,formula.=formula) 
@@ -1074,7 +1075,7 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
       se$Del = betaDelAux$se
       
       # Update on the permutations -> new MCMC
-      #permut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = permut_OG,
+      #permut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = permut,
                             # beta=beta, splitIndicesPerCore=splitIndicesPerCore) 
       logLikPrev = clusterApply(cl,seq_along(splitIndicesPerCore),logLikelihoodMC,permut = permut,
                                 splitIndicesPerCore=splitIndicesPerCore,
