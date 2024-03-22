@@ -1038,7 +1038,7 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
     sigmaHat = sigmaHat(nmax,logLikPrev,logLikCur,w)
     ase = sqrt(sigmaHat/nmax)
     deltaQ = deltaQ(logLikPrev,logLikCur,w)
-    lowerBound = deltaQ - 1.644854*ase
+    lowerBound = deltaQ - 1.281552*ase # 80%
     
     
     
@@ -1046,7 +1046,7 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
     if(lowerBoud<0){
       # Estimator is not accepted, new point must be sampled
       # sample(...)
-      # nmax = nmax+1
+      # nmax = nmax+(nmax/2)
       # perumt = c(permut,MCMC(newpermut))
       
       resPar = clusterApply(cl,seq_along(splitIndicesPerCore),parametersMC,permut = permut,
@@ -1067,7 +1067,7 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
     }else{
       # Update of the paremeter, next iteration
       index = index +1
-      diff = deltaQ + 1.644854*ase
+      diff = deltaQ + 1.644854*ase #90%
       
       
       beta = betaNew
@@ -1075,8 +1075,17 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
       se$Del = betaDelAux$se
       
       # Update on the permutations -> new MCMC
-      #permut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = permut,
-                            # beta=beta, splitIndicesPerCore=splitIndicesPerCore) 
+      errType2 = 0.8
+      m_start = sigmaHat^2*(1.281552+qnorm(errType2))^2/deltaQ^2
+      
+      if(m_start > nmax){
+        nmax = m_start
+        perumt = MCMC(c(permut,(newpermut)))
+      }else{
+       permut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = permut,
+                             beta=beta, splitIndicesPerCore=splitIndicesPerCore) 
+      }                      
+                            
       logLikPrev = clusterApply(cl,seq_along(splitIndicesPerCore),logLikelihoodMC,permut = permut,
                                 splitIndicesPerCore=splitIndicesPerCore,
                                 beta=beta,actDfnodes=actDfnodes,net0=net0,formula=formula) 
