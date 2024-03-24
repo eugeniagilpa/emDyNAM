@@ -11,6 +11,7 @@ library(stats)
 library(foreach)
 library(doParallel)
 library(parallel)
+library(dplyr)
 
 # Setup of the EM algorithm ---------------
 EMPreprocessing = function(X0,X1){
@@ -322,41 +323,92 @@ deltaQ = function(loglikPrev, loglikCur, w){
   return(deltaQ)  
 }
 
+# MCMC auxiliar functions --------------------
+
+getKelMeMatrix = function(seq,actDfnodes){
+  seq = cbind(seq,"row" = as.integer(rownames(seq)))
+  actDfnodes=actDfnodes$label
+  
+  auxDf = lapply(actDfnodes,function(x) lapply(actDfnodes, function(i) subset(seq,subset=(sender== x & receiver==i))))
+  
+  for(i in 1:length(actDfnodes)){
+    for(j in 1:length(actDfnodes)){
+      if(nrow(auxDf[[i]][[j]])>0){
+        auxDf[[i]][[j]]$row = as.integer(auxDf[[i]][[j]]$row)
+        auxDf[[i]][[j]]$rowDiff =c(0,diff(auxDf[[i]][[j]]$row))
+      }
+    }
+  }
+  
+  
+  
+  Kel_g1 = matrix(0,nrow=length(actDfnodes),ncol=length(actDfnodes)) # Notation from Johan´s paper, sum for l greater than 1
+  Kel_ge1 = matrix(0,nrow=length(actDfnodes),ncol=length(actDfnodes)) # Notation from Johan´s paper, sum for l greater or equal than 1
+  
+  for(i in 1:nrow(Kel_g1)){
+    for(j in 1:ncol(Kel_g1)){
+      if(nrow(auxDf[[i]][[j]])>0){
+        Kel_ge1[i,j] = nrow(auxDf[[i]][[j]][auxDf[[i]][[j]]$rowDiff!=1,])
+        vector = auxDf[[i]][[j]]$rowDiff
+        not_1_indices <- which(vector != 1)
+        shifted_vector <- c(vector[-1], NA)
+        Kel_g1[i,j] = sum(vector[-length(vector)] != 1 & shifted_vector[-1] == 1)
+      }
+    }
+  }
+  Kel_g1[is.na(Kel_g1)]=0
+  
+  me = sapply(auxDf,function(x) sapply(x,nrow))
+  
+  return(list(Kel_g1 = Kel_g1, Kel_ge1 = Kel_ge1, me = me))
+}
 
 
 # MCMC -------------------------------------
 
 
-burnIn = function(seq,beta){
+burnIn = function(seq,beta,H,actDfnodes){
   #burn in for MCMC (to be done only once to change all sequences)
   
 }
 
-MCMC = function(seq,burn_in){
+MCMC = function(seq,burn_in,H,actDfnodes){
+  # Compute initial quatities: 
+  pShort = pAug = 0.4
+  pPerm = 0.2
   
+ 
+  Kel = getKelMeMatrix(seq,actDfnodes)$Kel
+  me = getKelMeMatrix(seq,actDfnodes)$me
+  
+  
+  
+  for(i in 1:500){ # TO DO: Take only changes every 10 steps or so
+  
+  if(length(seq)==H){
+    pShort = 0
+    pAug = pAug/(pAug+pPerm)
+    pPerm = pPerm/(pAug+pPerm)
+    
+  }
+    
   # Choose a change
-  
-  
   # Choose a pair
-  
-  
   # Choose a pair of positions
-  
-  
   # Accept or reject change
-  
+  }
 }
 
-MCMC_MC = function(indexCore,splitIndicesPerCore,permut = permut,beta=beta, burnIn = TRUE){
+MCMC_MC = function(indexCore,splitIndicesPerCore,permut = permut,beta=beta, burnIn = TRUE, H = H,actDfnodes=actDfnodes){
   
   indicesCore = splitIndicesPerCore[[indexCore]]
   resMCMC = vector("list",length(indicesCore))
   
-  if(burnIn) {burn_in = burnIn(permut[[1]],beta)}
+  if(burnIn) {burn_in = burnIn(permut[[1]],beta,H,actDfnodes)}
   
   
   for(i in seq_along(indicesCore)){
-    resMCMC[[i]] = MCMC(permut[[indicesCore[[i]]]],burn_in)
+    resMCMC[[i]] = MCMC(permut[[indicesCore[[i]]]],burn_in,H,actDfnodes)
   }
   
   return(resMCMC)
@@ -487,8 +539,6 @@ hardEMAlgorithm = function(net0,net1,theta0,beta0,formula,nmax = 5){
     
   return(list("logLik" = modCrea$logLikelihood+modDel$logLikelihood,"beta" = beta))
 }
-
-
 softEMAlgorithm = function(net0,net1,theta0,beta0,formula,nmax = 10){
   # net0 : network matrix in initial state
   # net1: network matrix in final state
@@ -666,13 +716,6 @@ softEMAlgorithm = function(net0,net1,theta0,beta0,formula,nmax = 10){
   return(list("logLik" = logLik,"beta" = beta,"se" = se,"betaCrea" = betaCreaDF,"betaDel" = betaDelDF,"index" = index,
               "diff" = diff))
 }
-
-
-
-
-
-
-
 softEMAlgorithmMC = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
   # net0 : network matrix in initial state
   # net1: network matrix in final state
@@ -756,10 +799,7 @@ softEMAlgorithmMC = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
   return(list("logLik" = logLik,"beta" = beta,"se" = se,"index" = index,
               "diff" = diff,"og_permut" =og_permut, "permut"=aux_names,"betaCreaDF" = betaCreaDF,"betaDelDF"=betaDelDF))
 }
-
 # s = softEMAlgorithmMC(nmax=10,net0,net1,theta0,beta0,formula,num_cores=1)
-   
-
 softEMAlgorithmForEach = function(net0,net1,theta0,beta0,formula,nmax = 10){
   # net0 : network matrix in initial state
   # net1: network matrix in final state
@@ -965,7 +1005,7 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
   row.names(se) = row.names(beta)
   # Creation of sequence of events from initial data
   sequence = EMPreprocessing(net0,net1)
-  
+  H = length(sequence) # Humming distance
   # Creation of permutations
   permut = permute(sequence, nmax = nmax)
   
@@ -986,10 +1026,12 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
   
   clusterExport(cl, list("softEMAlgorithm","EMPreprocessing", "GatherPreprocessingDF",
                         "hardEMAlgorithm","logLikelihood","permute","rubinsRule",
-                         "parameters","timeGenerator","logLikelihood","MCMC","burnIn"))
+                         "parameters","timeGenerator","logLikelihood","MCMC","burnIn",
+                        "getKelMatrix","getmeMatrix"))
   
   permut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = permut, 
-                        beta=beta,splitIndicesPerCore=splitIndicesPerCore, burnIn =TRUE) 
+                        beta=beta,splitIndicesPerCore = splitIndicesPerCore, burnIn = TRUE,
+                        H = H,actDfnodes=actDfnodes) 
   
 
   resPar = clusterApply(cl,seq_along(splitIndicesPerCore),parametersMC,permut = permut,
@@ -1048,7 +1090,8 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
       # Estimator is not accepted, new point must be sampled
       newpermut = permute(sequence, nmax = nmax/2)
       newpermut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = newpermut, 
-                            beta=beta,splitIndicesPerCore=splitIndicesPerCore, burnIn = FALSE) 
+                            beta=beta,splitIndicesPerCore=splitIndicesPerCore, burnIn = FALSE,
+                            H = H,actDfnodes=actDfnodes) 
       nmax = nmax+(nmax/2)
       permut = c(permut,newpermut)
       
@@ -1088,7 +1131,8 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
       }
       
        permut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = permut,
-                             beta=beta, splitIndicesPerCore=splitIndicesPerCore, burnIn = TRUE) 
+                             beta=beta, splitIndicesPerCore=splitIndicesPerCore, burnIn = TRUE,
+                             H = H,actDfnodes=actDfnodes) 
                          
                             
       logLikPrev = clusterApply(cl,seq_along(splitIndicesPerCore),logLikelihoodMC,permut = permut,
