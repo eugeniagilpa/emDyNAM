@@ -11,7 +11,6 @@ library(stats)
 library(foreach)
 library(doParallel)
 library(parallel)
-library(dplyr)
 
 # Setup of the EM algorithm ---------------
 EMPreprocessing = function(X0,X1){
@@ -341,7 +340,6 @@ getKelMeMatrix = function(seq,actDfnodes){
   }
   
   
-  
   Kel_g1 = matrix(0,nrow=length(actDfnodes),ncol=length(actDfnodes)) # Notation from Johan´s paper, sum for l greater than 1
   Kel_ge1 = matrix(0,nrow=length(actDfnodes),ncol=length(actDfnodes)) # Notation from Johan´s paper, sum for l greater or equal than 1
   
@@ -378,9 +376,13 @@ MCMC = function(seq,burn_in,H,actDfnodes){
   pPerm = 0.2
   
  
-  Kel = getKelMeMatrix(seq,actDfnodes)$Kel
+  Kel_g1 = getKelMeMatrix(seq,actDfnodes)$Kel_g1
+  Kel_ge1 = getKelMeMatrix(seq,actDfnodes)$Kel_ge1
+  gammaEminus = choose(Kel_ge1,2) + Kel_g1
+  gammaMinus = sum(gammaEminus)
   me = getKelMeMatrix(seq,actDfnodes)$me
-  
+  gammaEplus = choose(nrow(seq)-me+2,2)   
+  gammaPlus = sum(gammaEplus)
   
   
   for(i in 1:500){ # TO DO: Take only changes every 10 steps or so
