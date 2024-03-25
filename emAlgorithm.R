@@ -428,18 +428,9 @@ MCMC = function(seq,burn_in,H,actDfnodes){
                      seq[(place):m,])
       
       nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
-      
-      if(length(isBefore1)>0) {
-        replaceOG = as.integer(seq[1:(place1-1),"replace"][max(isBefore1)])
-        newseq[nEdges,"replace"] = seq(replaceOG,(replaceOG+length(nEdges)-1)) %% 2
-      }else{
-        newseq[nEdges,"replace"] = seq(1,(1+length(nEdges)-1)) %% 2
-      }
-      
-      
-      
-      
-      
+      initAction = as.integer(seq[which(seq$sender==sender & seq$receiver==receiver),"replace"][1])
+      newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
+      newseq$row = seq(1,nrow(newseq))
       
       # if(length(isBefore)>0) {
       #   if(seq[max(isBefore),"replace"]=="0"){ 
@@ -460,10 +451,10 @@ MCMC = function(seq,burn_in,H,actDfnodes){
       #                  c(paste("V",sender,sep=""),paste("V",receiver,sep=""),0,place+1),
       #                  seq[(place):m,])
       # }
-      newseq[(place+2):(m+2),]$row = as.integer(newseq[(place+2):(m+2),]$row)+2
+      # newseq[(place+2):(m+2),]$row = as.integer(newseq[(place+2):(m+2),]$row)+2
       
       
-    }else if(typeA == "diff"){
+    }else if(type == "diff"){
       # Choose thow places separated at least from one tie different than e
       place1 = sample(m, size=1)
       place2 = sample(c(1:place1-2,place1+2:m),size=1)
@@ -483,13 +474,8 @@ MCMC = function(seq,burn_in,H,actDfnodes){
                      c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place2+2),
                      seq[(place2):m,])
       nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
-      
-      if(length(isBefore1)>0) {
-          replaceOG = as.integer(seq[1:(place1-1),"replace"][max(isBefore1)])
-          newseq[nEdges,"replace"] = seq(replaceOG,(replaceOG+length(nEdges)-1)) %% 2
-      }else{
-        newseq[nEdges,"replace"] = seq(1,(1+length(nEdges)-1)) %% 2
-      }
+      initAction = as.integer(seq[which(seq$sender==sender & seq$receiver==receiver),"replace"][1])
+      newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
       newseq$row = seq(1,nrow(newseq))
       
     
@@ -521,10 +507,25 @@ MCMC = function(seq,burn_in,H,actDfnodes){
     e2 = sample(tieNames[tieNames!=e1],size=1, prob=probVec2[names(probVec)!=e1])
     
     # After getting the edge identifier, select at random e1 and e2 from all the runs
+    sender1 = paste("V",strsplit(e1,"V")[[1]][2],sep="")
+    receiver1 = paste("V",strsplit(e1,"V")[[1]][3],sep="")
+    place1 = as.integer(sample(seq[seq$sender==sender1 & seq$receiver==receiver1,]$row,size=1))
+    sender2 = paste("V",strsplit(e2,"V")[[1]][2],sep="")
+    receiver2 = paste("V",strsplit(e2,"V")[[1]][3],sep="")
+    place2 = as.integer(sample(seq[seq$sender==sender2 & seq$receiver==receiver2,]$row,size=1))
+    auxRow = seq[place1,]
+    newseq = seq
+    newseq[place1,] = newseq[place2,]
+    newseq[place2,] = auxRow
+    rm(auxRow)
     
-    
-    newSeq
-    
+    nEdges = which(newseq$sender==sender1 & newseq$receiver==receiver1)
+    initAction = as.integer(seq[which(seq$sender==sender1 & seq$receiver==receiver1),"replace"][1])
+    newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
+    nEdges = which(newseq$sender==sender2 & newseq$receiver==receiver2)
+    initAction = as.integer(seq[which(seq$sender==sender2 & seq$receiver==receiver2),"replace"][1])
+    newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
+
   }
   
     
