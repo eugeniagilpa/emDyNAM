@@ -361,6 +361,158 @@ getKelMeMatrix = function(seq,actDfnodes){
 }
 
 
+stepAugment = function(seq,tieNames,gammaEplus,gammaPlus,m,me){
+  # Choose element to be inserted:
+  e = sample(tieNames,size=1, prob=as.vector(t(gammaEplus/gammaPlus)))
+  
+  # Choose to augment in the same e-run or different ones
+  sender = as.integer(strsplit(e,"V")[[1]][2])
+  receiver = as.integer(strsplit(e,"V")[[1]][3])
+  p = (m-me[sender,receiver]+1)/gammaEplus[sender,receiver]
+  typeA = sample(c("same","diff"),size=1,prob=c(p,1-p))
+  
+  
+  
+  if(typeA == "same"){
+    place = sample(m, size=1)
+    
+    newseq = rbind(seq[1:(place-1),],
+                   c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place),
+                   c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place+1),
+                   seq[(place):m,])
+    
+    nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
+    initAction = as.integer(seq[which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep="")),"replace"][1])
+    if(is.na(initAction)) {initAction=1}
+    newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
+    newseq$row = seq(1,nrow(newseq))
+    
+    pDoStep = (gammaEplus[sender,receiver]/gammaPlus) * p * (1/m)
+    
+  }else if(typeA == "diff"){
+    # Choose thow places separated at least from one tie different than e
+    place1 = sample(m, size=1)
+    place2 = sample(c(1:place1-2,place1+2:m),size=1)
+    if(place1>place2){
+      aux=place1
+      place1=place2
+      place2=aux
+      rm(aux)
+    }
+    
+    newseq = rbind(seq[1:(place1-1),],
+                   c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place1+1),
+                   seq[(place1):(place2-1),],
+                   c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place2+2),
+                   seq[(place2):m,])
+    nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
+    initAction = as.integer(seq[which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep="")),"replace"][1])
+    if(is.na(initAction)) {initAction=1}
+    newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
+    newseq$row = seq(1,nrow(newseq))
+    place = c(place1,place2)
+    
+    pDoStep = (gammaEplus[sender,receiver]/gammaPlus) * (1-p) * (1/m)*(1/(m-3))
+    
+  }
+  
+  return(list(newseq=newseq,sender=paste("V",sender,sep=""),receiver=paste("V",receiver,sep=""),place = place,typeA=typeA,
+              pDoStep = pDoStep))
+}
+
+stepShort = function(seq,tieNames,gammaEminus,gammaMinus,m,me,auxDf){
+  # Choose element to be deleted:
+  e = sample(tieNames,size=1, prob=as.vector(t(gammaEminus/gammaMinus))) 
+  
+  # Choose to remove from the same e-run or from two distinct e-runs
+  sender = as.integer(strsplit(e,"V")[[1]][2])
+  receiver = as.integer(strsplit(e,"V")[[1]][3])
+  p = Kel_g1[sender,receiver]/gammaEminus[sender,receiver]
+  typeS = sample(c("same","diff"),size=1,prob=c(p,1-p))
+  
+  # Get auxiliar variables with indexes for the runs
+  auxDfE = auxDf[[sender]][[receiver]]
+  indexNo1 = which(auxDfE$rowDiff!=1)
+  auxDfE$run = rep(0,nrow(auxDfE))
+  run=1
+  for(i in 1:(length(indexNo1)-1)){
+    auxDfE$run[indexNo1[i]:indexNo1[i+1]]= run
+    run=run+1
+  }
+  auxDfE$run[indexNo1[length(indexNo1)]:nrow(auxDfE)]=run
+  rm(run)
+  
+  
+  if(typeS=="same"){
+    # Choose the e-runs of more than 1 element, select one and delete the first 2 elements.
+    sampleRun = sample(which(table(auxDfE$run)>1),size=1)
+    indexSampleRun = auxDfE$row[auxDfE$run==sampleRun][1:2]
+    
+    newseq = seq[-(indexSampleRun),]
+    newseq$row = 1:nrow(newseq)
+    
+    place = list(sampleRun=sampleRun, indexSampleRun= indexSampleRun)
+    
+    pDoStep = (gammaEminus[sender,receiver]/gammaMinus) * p * (1/length(unique(auxDfE$run)))
+    
+  }else if(typeS=="diff"){
+    # Choose two different e-runs, and delete the first element of each one of them
+    sampleRun = sample(table(auxDfE$run),size=2,replace=FALSE)
+    indexSampleRun = c(auxDfE$row[auxDfE$run==sampleRun[1]][1],auxDfE$row[auxDfE$run==sampleRun[2]][1])
+    
+    newseq = seq[-(indexSampleRun),]
+    newseq$row = 1:nrow(newseq)
+    
+    # now we have to fix the replaceOG
+    nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
+    initAction = as.integer(seq[which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep="")),"replace"][1])
+    newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
+    
+    place = list(sampleRun=sampleRun, indexSampleRun= indexSampleRun)
+    pDoStep = (gammaEminus[sender,receiver]/gammaMinus) * (1-p) * (1/length(unique(auxDfE$run)))*(1/(length(unique(auxDfE$run))-1))
+  }
+  
+  return(list(newseq=newseq,sender=paste("V",sender,sep=""),receiver=paste("V",receiver,sep=""),place = place,typeS=typeS,
+              pDoStep = pDoStep, auxDfE = auxDfE))
+}
+
+stepPerm = function(seq,tieNames,m,me){
+  # Choose elements to be permuted:
+  probVec = as.vector(t(me/m))
+  probVec2 = as.vector(t(me/(m-me)))
+  names(probVec) = tieNames
+  e1 = sample(tieNames,size=1, prob=probVec)
+  e2 = sample(tieNames[tieNames!=e1],size=1, prob=probVec2[names(probVec)!=e1])
+  
+  # After getting the edge identifier, select at random e1 and e2 from all the runs
+  sender1 = paste("V",strsplit(e1,"V")[[1]][2],sep="")
+  receiver1 = paste("V",strsplit(e1,"V")[[1]][3],sep="")
+  place1 = as.integer(sample(seq[seq$sender==sender1 & seq$receiver==receiver1,]$row,size=1))
+  sender2 = paste("V",strsplit(e2,"V")[[1]][2],sep="")
+  receiver2 = paste("V",strsplit(e2,"V")[[1]][3],sep="")
+  place2 = as.integer(sample(seq[seq$sender==sender2 & seq$receiver==receiver2,]$row,size=1))
+  auxRow = seq[place1,]
+  newseq = seq
+  newseq[place1,] = newseq[place2,]
+  newseq[place2,] = auxRow
+  rm(auxRow)
+  
+  
+  nEdges = which(newseq$sender==sender1 & newseq$receiver==receiver1)
+  initAction = as.integer(seq[which(seq$sender==sender1 & seq$receiver==receiver1),"replace"][1])
+  newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
+  nEdges = which(newseq$sender==sender2 & newseq$receiver==receiver2)
+  initAction = as.integer(seq[which(seq$sender==sender2 & seq$receiver==receiver2),"replace"][1])
+  newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
+  
+  pDoStep = probVec[e1] * probVec2[e2] * (1/nrow(seq[seq$sender==sender1 & seq$receiver==receiver1,])) * (1/nrow(seq[seq$sender==sender2 & seq$receiver==receiver2,]))
+  
+  return(list(newseq=newseq,sender=c(sender1,sender2),receiver=c(receiver1,receiver2),place = c(place1,place2),
+              pDoStep = pDoStep))
+}
+  
+
+
 # MCMC -------------------------------------
 
 
@@ -381,184 +533,40 @@ MCMC = function(seq,burn_in,H,actDfnodes){
   tieNames = sapply(actDfnodes,function(x) sapply(actDfnodes, function(i) paste(x,i,sep="")))
   tieNames = as.vector(tieNames)
   
+  
+  getKelMeMatrix = getKelMeMatrix(seq,actDfnodes)
+  Kel_g1 = getKelMeMatrix$Kel_g1
+  Kel_ge1 = getKelMeMatrix$Kel_ge1
+  gammaEminus = choose(Kel_ge1,2) + Kel_g1
+  gammaMinus = sum(gammaEminus)
+  me = getKelMeMatrix$me
+  gammaEplus = choose(nrow(seq)-me+2,2)   
+  gammaPlus = sum(gammaEplus)
+  m = nrow(seq)
+  auxDf = getKelMeMatrix$auxDf
+  
   for(i in 1:500){ # TO DO: Take only changes every 10 steps or so
   
-  # First step: choose a type of change: Type 1: augmentation, type 2: shortening, type 3: permutation
-  if(length(seq)==H){
-    type = sample(c(1,2,3),size=1,prob=c(pAug/(pAug+pPerm),0,pPerm/(pAug+pPerm))) 
-  }else{
-    type = sample(c(1,2,3),size=1,prob=c(pAug,pShort,pPerm)) 
-  }
-    
-  # Now, compute aux. functions and probabilities
-    getKelMeMatrix = getKelMeMatrix(seq,actDfnodes)
-    Kel_g1 = getKelMeMatrix$Kel_g1
-    Kel_ge1 = getKelMeMatrix$Kel_ge1
-    gammaEminus = choose(Kel_ge1,2) + Kel_g1
-    gammaMinus = sum(gammaEminus)
-    me = getKelMeMatrix$me
-    gammaEplus = choose(nrow(seq)-me+2,2)   
-    gammaPlus = sum(gammaEplus)
-    m = nrow(seq)
-    auxDf = getKelMeMatrix$auxDf
-    #tieNamesInSeq = tieNames[tieNames %in% paste(seq$sender,seq$receiver,sep="")] # No need for this quantity, probs = 0.
-    
-    
-  if(type == 1){ # Augmentation
-    # Choose element to be inserted:
-    e = sample(tieNames,size=1, prob=as.vector(t(gammaEplus/gammaPlus)))
-    
-    # Choose to augment in the same e-run or different ones
-    sender = as.integer(strsplit(e,"V")[[1]][2])
-    receiver = as.integer(strsplit(e,"V")[[1]][3])
-    p = (m-me[sender,receiver]+1)/gammaEplus[sender,receiver]
-    typeA = sample(c("same","diff"),size=1,prob=c(p,1-p))
-    
-    if(typeA == "same"){
-      # Choose a place in the sequence and insert (sender,receiver) two times
-      place = sample(m, size=1)
-      
-      # Now check if there is a place where the pair (sender,receiver) has appeared before
-      isBefore = which(seq[1:(place-1),"sender"]==paste("V",sender,sep="") & 
-                         seq[1:(place-1),"receiver"]==paste("V",receiver,sep=""))
-      
-      newseq = rbind(seq[1:(place-1),],
-                     c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place),
-                     c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place+1),
-                     seq[(place):m,])
-      
-      nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
-      initAction = as.integer(seq[which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep="")),"replace"][1])
-      newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
-      newseq$row = seq(1,nrow(newseq))
-      
-      # if(length(isBefore)>0) {
-      #   if(seq[max(isBefore),"replace"]=="0"){ 
-      #     newseq = rbind(seq[1:(place-1),],
-      #                    c(paste("V",sender,sep=""),paste("V",receiver,sep=""),1,place),
-      #                    c(paste("V",sender,sep=""),paste("V",receiver,sep=""),0,place+1),
-      #                    seq[(place):m,])
-      #   }
-      #   else{
-      #     newseq = rbind(seq[1:(place-1),],
-      #                    c(paste("V",sender,sep=""),paste("V",receiver,sep=""),0,place),
-      #                    c(paste("V",sender,sep=""),paste("V",receiver,sep=""),1,place+1),
-      #                    seq[(place):m,])
-      #   }
-      # }else{
-      #   newseq = rbind(seq[1:(place-1),],
-      #                  c(paste("V",sender,sep=""),paste("V",receiver,sep=""),1,place),
-      #                  c(paste("V",sender,sep=""),paste("V",receiver,sep=""),0,place+1),
-      #                  seq[(place):m,])
-      # }
-      # newseq[(place+2):(m+2),]$row = as.integer(newseq[(place+2):(m+2),]$row)+2
-      
-      
-    }else if(type == "diff"){
-      # Choose thow places separated at least from one tie different than e
-      place1 = sample(m, size=1)
-      place2 = sample(c(1:place1-2,place1+2:m),size=1)
-        if(place1>place2){
-          aux=place1
-          place1=place2
-          place2=aux
-          rm(aux)
-        }
-      
-      isBefore1 = which(seq[1:(place1-1),"sender"]==paste("V",sender,sep="") & 
-                         seq[1:(place1-1),"receiver"]==paste("V",receiver,sep=""))
-      
-      newseq = rbind(seq[1:(place1-1),],
-                     c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place1+1),
-                     seq[(place1):(place2-1),],
-                     c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place2+2),
-                     seq[(place2):m,])
-      nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
-      initAction = as.integer(seq[which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep="")),"replace"][1])
-      newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
-      newseq$row = seq(1,nrow(newseq))
-      
-    
-  }else if(type == 2){ # Shortening
-    # Choose element to be deleted:
-    e = sample(tieNames,size=1, prob=as.vector(t(gammaEminus/gammaMinus))) 
-    
-    # Choose to remove from the same e-run or from two distinct e-runs
-    sender = as.integer(strsplit(e,"V")[[1]][2])
-    receiver = as.integer(strsplit(e,"V")[[1]][3])
-    p = Kel_g1[sender,receiver]/gammaEminus[sender,receiver]
-    typeS = sample(c("same","diff"),size=1,prob=c(p,1-p))
-    
-    # Get auxiliar variables with indexes for the runs
-    auxDfE = auxDf[[sender]][[receiver]]
-    indexNo1 = which(auxDfE$rowDiff!=1)
-    auxDfE$run = rep(0,nrow(auxDfE))
-    run=1
-    for(i in 1:(length(indexNo1)-1)){
-      auxDfE$run[indexNo1[i]:indexNo1[i+1]]= run
-      run=run+1
-    }
-    auxDfE$run[indexNo1[length(indexNo1)]:nrow(auxDfE)]=run
-    rm(run)
-    
-    
-    if(typeS=="same"){
-      # Choose the e-runs of more than 1 element, select one and delete the first 2 elements.
-      
-      sampleRun = sample(which(table(auxDfE$run)>1),size=1)
-      indexSampleRun = auxDfE$row[auxDfE$run==sampleRun][1:2]
-      
-      newseq = seq[-(indexSampleRun),]
-      newseq$row = 1:nrow(newseq)
-
-    }else if(typeS=="diff"){
-      # Choose two different e-runs, and delete the first element of each one of them.
-      sampleRuns = sample(table(auxDfE$run),size=2,replace=FALSE)
-      indexSampleRuns = c(auxDfE$row[auxDfE$run==sampleRuns[1]][1],auxDfE$row[auxDfE$run==sampleRuns[2]][1])
-      
-      newseq = seq[-(indexSampleRuns),]
-      newseq$row = 1:nrow(newseq)
-      
-      # now we have to fix the replaceOG
-      nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
-      initAction = as.integer(seq[which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep="")),"replace"][1])
-      newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
-
+    # First step: choose a type of change: Type 1: augmentation, type 2: shortening, type 3: permutation
+   if(length(seq)==H){
+      type = sample(c(1,2,3),size=1,prob=c(pAug/(pAug+pPerm),0,pPerm/(pAug+pPerm))) 
+    }else{
+      type = sample(c(1,2,3),size=1,prob=c(pAug,pShort,pPerm)) 
     }
     
-    
-  }else if(type == 3){ # Permutation
-    # Choose elements to be permuted:
-    probVec = as.vector(t(me/m))
-    probVec2 = as.vector(t(me/(m-me)))
-    names(probVec) = tieNames
-    e1 = sample(tieNames,size=1, prob=probVec)
-    e2 = sample(tieNames[tieNames!=e1],size=1, prob=probVec2[names(probVec)!=e1])
-    
-    # After getting the edge identifier, select at random e1 and e2 from all the runs
-    sender1 = paste("V",strsplit(e1,"V")[[1]][2],sep="")
-    receiver1 = paste("V",strsplit(e1,"V")[[1]][3],sep="")
-    place1 = as.integer(sample(seq[seq$sender==sender1 & seq$receiver==receiver1,]$row,size=1))
-    sender2 = paste("V",strsplit(e2,"V")[[1]][2],sep="")
-    receiver2 = paste("V",strsplit(e2,"V")[[1]][3],sep="")
-    place2 = as.integer(sample(seq[seq$sender==sender2 & seq$receiver==receiver2,]$row,size=1))
-    auxRow = seq[place1,]
-    newseq = seq
-    newseq[place1,] = newseq[place2,]
-    newseq[place2,] = auxRow
-    rm(auxRow)
-    
-    nEdges = which(newseq$sender==sender1 & newseq$receiver==receiver1)
-    initAction = as.integer(seq[which(seq$sender==sender1 & seq$receiver==receiver1),"replace"][1])
-    newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
-    nEdges = which(newseq$sender==sender2 & newseq$receiver==receiver2)
-    initAction = as.integer(seq[which(seq$sender==sender2 & seq$receiver==receiver2),"replace"][1])
-    newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
 
+   if(type == 1){ # Augmentation
+      step = stepAugment(seq,tieNames,gammaEplus,gammaPlus,m,me)
+    
+   }else if(type == 2){ # Shortening
+     step = stepShort(seq,tieNames,gammaEminus,gammaMinus,m,me,auxDf)
+     
+   }else if(type == 3){ # Permutation
+      step = stepPerm(seq,tieNames,m,me)
+    }
+    
   }
   
-    
-  }
 }
 
 MCMC_MC = function(indexCore,splitIndicesPerCore,permut = permut,beta=beta, burnIn = TRUE, H = H,actDfnodes=actDfnodes){
