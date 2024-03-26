@@ -428,7 +428,7 @@ MCMC = function(seq,burn_in,H,actDfnodes){
                      seq[(place):m,])
       
       nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
-      initAction = as.integer(seq[which(seq$sender==sender & seq$receiver==receiver),"replace"][1])
+      initAction = as.integer(seq[which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep="")),"replace"][1])
       newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
       newseq$row = seq(1,nrow(newseq))
       
@@ -474,7 +474,7 @@ MCMC = function(seq,burn_in,H,actDfnodes){
                      c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place2+2),
                      seq[(place2):m,])
       nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
-      initAction = as.integer(seq[which(seq$sender==sender & seq$receiver==receiver),"replace"][1])
+      initAction = as.integer(seq[which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep="")),"replace"][1])
       newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
       newseq$row = seq(1,nrow(newseq))
       
@@ -489,12 +489,41 @@ MCMC = function(seq,burn_in,H,actDfnodes){
     p = Kel_g1[sender,receiver]/gammaEminus[sender,receiver]
     typeS = sample(c("same","diff"),size=1,prob=c(p,1-p))
     
+    # Get auxiliar variables with indexes for the runs
+    auxDfE = auxDf[[sender]][[receiver]]
+    indexNo1 = which(auxDfE$rowDiff!=1)
+    auxDfE$run = rep(0,nrow(auxDfE))
+    run=1
+    for(i in 1:(length(indexNo1)-1)){
+      auxDfE$run[indexNo1[i]:indexNo1[i+1]]= run
+      run=run+1
+    }
+    auxDfE$run[indexNo1[length(indexNo1)]:nrow(auxDfE)]=run
+    rm(run)
+    
+    
     if(typeS=="same"){
       # Choose the e-runs of more than 1 element, select one and delete the first 2 elements.
       
+      sampleRun = sample(which(table(auxDfE$run)>1),size=1)
+      indexSampleRun = auxDfE$row[auxDfE$run==sampleRun][1:2]
+      
+      newseq = seq[-(indexSampleRun),]
+      newseq$row = 1:nrow(newseq)
+
     }else if(typeS=="diff"){
       # Choose two different e-runs, and delete the first element of each one of them.
+      sampleRuns = sample(table(auxDfE$run),size=2,replace=FALSE)
+      indexSampleRuns = c(auxDfE$row[auxDfE$run==sampleRuns[1]][1],auxDfE$row[auxDfE$run==sampleRuns[2]][1])
       
+      newseq = seq[-(indexSampleRuns),]
+      newseq$row = 1:nrow(newseq)
+      
+      # now we have to fix the replaceOG
+      nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
+      initAction = as.integer(seq[which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep="")),"replace"][1])
+      newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
+
     }
     
     
