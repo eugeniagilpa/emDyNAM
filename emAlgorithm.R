@@ -646,7 +646,14 @@ MCMC = function(seq,burn_in,H,actDfnodes){
       getNewKelMeMatrix = getKelMeMatrix(step$newseq,actDfnodesLab)
       newAuxDfE = getAuxDfE(getNewKelMeMatrix$auxDf, sender,receiver)
       auxDfE = getAuxDfE(auxDf,sender,receiver)
+      
+      newKel_g1 = getNewKelMeMatrix$Kel_g1
+      newKel_ge1 = getNewKelMeMatrix$Kel_ge1
+      newGammaEminus = choose(newKel_ge1,2) + newKel_g1
+      newGammaMinus = sum(newGammaEminus)
       newMe = getNewKelMeMatrix$me
+      newGammaEplus = choose(nrow(newseq)-newMe+2,2)   
+      newGammaPlus = sum(newGammaEplus)
       newM = nrow(newseq)
       
       sender1=as.integer(strsplit(step$sender[1],"V")[[1]][2])
@@ -668,6 +675,19 @@ MCMC = function(seq,burn_in,H,actDfnodes){
     u = runif(1,min=0,max=1)
     accept =(u< exp(loglikSeq-newloglikSeq)*step$pUndoStep/step$pDoStep)
     
+    if(accept){
+      seq = newseq
+      getKelMeMatrix = newGetKelMeMatrix
+      Kel_g1 = gnewKel_g1
+      Kel_ge1 = newKel_ge1
+      gammaEminus = newGammaEminus
+      gammaMinus = newGammaMinus
+      me = newMe
+      gammaEplus = newGammaEplus
+      gammaPlus = newGammaPlus
+      m = newM
+      auxDf = getKelMeMatrix$auxDf
+    }
   }
   
 }
