@@ -601,16 +601,13 @@ MCMC = function(seq,burn_in,H,actDfnodes){
       
       newp= newKel_g1[sender,receiver]/newGammaEminus[sender,receiver]
       if((length(unique(auxDfE$run)) == length(unique(newAuxDfE$run))) | step$typeA=="same"){
-        pUndoStep = (newGammaEminus[sender,receiver]/newGammaMinus) * newp * (1/length(unique(newAuxDfE$run)))
-        loglikSeq = logLikelihoodMC(1,seq,beta,1,actDfnodes=actDfnodes,net0=net0,formula=formula)
-        newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=1,actDfnodes=actDfnodes,net0=net0,formula=formula)
-      }else{
-        # Augmentation created a new run, reverse: delete two elements in the designated runs
-        # Check if they were together or sepparetely
-        pUndoStep = (newGammaEminus[sender,receiver]/newGammaMinus) * (1-newp) * (1/length(unique(newauxDfE$run)))*(1/(length(unique(newAuxDfE$run))-1))
-        loglikSeq = logLikelihoodMC(1,seq,beta,1,actDfnodes=actDfnodes,net0=net0,formula=formula)
-        newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=1,actDfnodes=actDfnodes,net0=net0,formula=formula)
-      }
+          pUndoStep = (newGammaEminus[sender,receiver]/newGammaMinus) * newp * (1/length(unique(newAuxDfE$run)))
+         }else{
+          pUndoStep = (newGammaEminus[sender,receiver]/newGammaMinus) * (1-newp) * (1/length(unique(newauxDfE$run)))*(1/(length(unique(newAuxDfE$run))-1))
+         }
+      
+      loglikSeq = logLikelihoodMC(1,seq,beta,1,actDfnodes=actDfnodes,net0=net0,formula=formula)
+      newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=1,actDfnodes=actDfnodes,net0=net0,formula=formula)
       
       
    }else if(type == 2){ # Shortening
@@ -627,8 +624,21 @@ MCMC = function(seq,burn_in,H,actDfnodes){
      newGammaEplus = choose(nrow(newseq)-newMe+2,2)   
      newGammaPlus = sum(newGammaEplus)
      newM = nrow(newseq)
+     senderNumber = as.integer(strsplit(step$sender,"V")[[1]][2])
+     receiverNumber = as.integer(strsplit(step$receiver,"V")[[1]][2])
+     
+     newp = (newM-newMe[senderNumber,receiverNumber]+1)/newGammaEplus[senderNumber,receiverNumber]
      
      
+     if(step$typeS == "same"){
+       pUndoStep = (newGammaEplus[senderNumber,receiverNubmer]/newGammaPlus) * newp * (1/newM)
+       
+     }else if(step$typeS == "diff"){
+       pUndoStep = (newGammaEplus[senderNumber,receiverNumber]/newGammaPlus) * (1-newp) * (1/newM)*(1/(newM-3))
+     }
+     
+     loglikSeq = logLikelihoodMC(1,seq,beta,1,actDfnodes=actDfnodes,net0=net0,formula=formula)
+     newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=1,actDfnodes=actDfnodes,net0=net0,formula=formula)
      
      
    }else if(type == 3){ # Permutation
