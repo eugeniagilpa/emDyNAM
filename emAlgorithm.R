@@ -483,7 +483,7 @@ stepShort = function(seq,tieNames,gammaEminus,gammaMinus,m,me,auxDf){
     
   }else if(typeS=="diff"){
     # Choose two different e-runs, and delete the first element of each one of them
-    sampleRun = sample(table(auxDfE$run),size=2,replace=FALSE)
+    sampleRun = sample(unique(auxDfE$run),size=2,replace=FALSE)
     indexSampleRun = c(auxDfE$row[auxDfE$run==sampleRun[1]][1],auxDfE$row[auxDfE$run==sampleRun[2]][1])
     
     newseq = seq[-(indexSampleRun),]
@@ -507,6 +507,7 @@ stepPerm = function(seq,tieNames,m,me){
   probVec = as.vector(t(me/m))
   probVec2 = as.vector(t(me/(m-me)))
   names(probVec) = tieNames
+  names(probVec2) = tieNames
   e1 = sample(tieNames,size=1, prob=probVec)
   e2 = sample(tieNames[tieNames!=e1],size=1, prob=probVec2[names(probVec)!=e1])
   
@@ -530,6 +531,8 @@ stepPerm = function(seq,tieNames,m,me){
   nEdges = which(newseq$sender==sender2 & newseq$receiver==receiver2)
   initAction = as.integer(seq[which(seq$sender==sender2 & seq$receiver==receiver2),"replace"][1])
   newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
+  
+  newseq$row = 1:nrow(newseq)
   
   pDoStep = probVec[e1] * probVec2[e2] * (1/nrow(seq[seq$sender==sender1 & seq$receiver==receiver1,])) * (1/nrow(seq[seq$sender==sender2 & seq$receiver==receiver2,]))
   
@@ -626,7 +629,6 @@ MCMC = function(seq,burn_in,H,actDfnodes){
      newM = nrow(newseq)
      
      
-     # Compute acceptance rate
      
      
    }else if(type == 3){ # Permutation
@@ -634,18 +636,22 @@ MCMC = function(seq,burn_in,H,actDfnodes){
       getNewKelMeMatrix = getKelMeMatrix(step$newseq,actDfnodesLab)
       newAuxDfE = getAuxDfE(getNewKelMeMatrix$auxDf, sender,receiver)
       auxDfE = getAuxDfE(auxDf,sender,receiver)
-      
-      newKel_g1 = getNewKelMeMatrix$Kel_g1
-      newKel_ge1 = getNewKelMeMatrix$Kel_ge1
-      newGammaEminus = choose(newKel_ge1,2) + newKel_g1
-      newGammaMinus = sum(newGammaEminus)
       newMe = getNewKelMeMatrix$me
-      newGammaEplus = choose(nrow(newseq)-newMe+2,2)   
-      newGammaPlus = sum(newGammaEplus)
       newM = nrow(newseq)
       
-      # Compute acceptance rate
+      sender1=as.integer(strsplit(step$sender[1],"V")[[1]][2])
+      sender2=as.integer(strsplit(step$sender[2],"V")[[1]][2])
+      receiver1=as.integer(strsplit(step$receiver[1],"V")[[1]][2])
+      receiver2=as.integer(strsplit(step$receiver[2],"V")[[1]][2])
       
+      probVec = newMe[sender2,receiver2]/newM
+      probVec2 = newMe[sender1,receiver1]/(newM-newMe[sender2,receiver2])
+      
+      pUndoStep = probVec * probVec2 * 
+        (1/nrow(newseq[newseq$sender==paste("V",sender1,sep="") & newseq$receiver==paste("V",receiver1,sep=""),])) * 
+        (1/nrow(newseq[newseq$sender==paste("V",sender2,sep="") & newseq$receiver==paste("V",receiver2,sep=""),]))
+      loglikSeq = logLikelihoodMC(1,seq,beta,1,actDfnodes=actDfnodes,net0=net0,formula=formula)
+      newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=1,actDfnodes=actDfnodes,net0=net0,formula=formula)
     }
     
     
