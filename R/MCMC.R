@@ -47,6 +47,18 @@ getKelMeMatrix = function(seq,actDfnodes){
   return(list(Kel_g1 = Kel_g1, Kel_ge1 = Kel_ge1, me = me, auxDf = auxDf))
 }
 
+
+
+
+#' Get auxiliary data frame for tie \eqn{e}
+#'
+#' @param auxDf data frame from getKelMeMatrix.
+#' @param sender sender node
+#' @param receiver receiver node
+#'
+#' @return auxDfE
+#' @param auxDfE data frame
+#' @export
 getAuxDfE = function(auxDf, sender,receiver){
   auxDfE = auxDf[[sender]][[receiver]]
   indexNo1 = which(auxDfE$rowDiff!=1)
@@ -61,7 +73,24 @@ getAuxDfE = function(auxDf, sender,receiver){
   return(auxDfE)
 }
 
-
+#' Step for augmenting a giving sequence by adding a tie \eqn{e} two times (no change in sequence).
+#'
+#' @param seq data frame, sequence of events.
+#' @param tieNames vector, labels of ties (e.g., "12" if the tie is from sender 1 and receiver 2).
+#' @param gammaEplus matrix, probabilities needed for the computation.
+#' @param gammaPlus float, sum of gammaEplus.
+#' @param me matrix, probabilities needed for the computation.
+#' @param m float, sum of me.
+#' @param net0 matrix, initial network.
+#'
+#' @return list
+#' @param sender sender of the new event.
+#' @param receiver receiver of the new event.
+#' @param place positions were the event was included.
+#' @param typeA type of augmentation (two events together or separetly).
+#' @param pDoStep probability of doing the step
+#'
+#' @export
 stepAugment = function(seq,tieNames,gammaEplus,gammaPlus,m,me,net0){
   # Choose element to be inserted:
   e = sample(tieNames,size=1, prob=as.vector(t(gammaEplus/gammaPlus)))
