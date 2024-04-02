@@ -1,5 +1,16 @@
 # MCMC auxiliar functions --------------------
 
+
+#' Get auxiliary matrix \eqn{K_{el}} and \eqn{m_e} for MCMC steps.
+#'
+#' @param seq data frame with the sequence of events up to time \eqn{t}.
+#' @param actDfnodes vector with the labels of the actors of the network.
+#'
+#' @return list with matrix \eqn{K_{el}}, \eqn{K_{e,l>1}}, \eqn{m_e} and auxiliary data frame
+#' @export
+#'
+#' @examples seq = data.frame("sender" = c(1,2,3), "receiver" = c(3,2,1), "replace" = c(0,1,1))
+#' getKelMeMatrix(seq,actDfnodes = c(1,2,3))
 getKelMeMatrix = function(seq,actDfnodes){
   seq = cbind(seq,"row" = as.integer(rownames(seq)))
 
