@@ -56,41 +56,43 @@ getKelMeMatrix = function(seq,actDfnodes){
 #' @param sender sender node
 #' @param receiver receiver node
 #'
-#' @return auxDfE
-#' @param auxDfE data frame
+#' @return list of auxDfE (data frame).
+#'
 #' @export
-getAuxDfE = function(auxDf, sender,receiver){
-  auxDfE = auxDf[[sender]][[receiver]]
-  indexNo1 = which(auxDfE$rowDiff!=1)
-  auxDfE$run = rep(0,nrow(auxDfE))
-  run=1
-  for(i in 1:(length(indexNo1)-1)){
-    auxDfE$run[indexNo1[i]:indexNo1[i+1]]= run
-    run=run+1
+#'
+getAuxDfE <- function(auxDf, sender, receiver) {
+  auxDfE <- auxDf[[sender]][[receiver]]
+  indexNo1 <- which(auxDfE$rowDiff != 1)
+  auxDfE$run <- rep(0, nrow(auxDfE))
+  run <- 1
+  for (i in 1:(length(indexNo1) - 1)) {
+    auxDfE$run[indexNo1[i]:indexNo1[i + 1]] <- run
+    run <- run + 1
   }
-  auxDfE$run[indexNo1[length(indexNo1)]:nrow(auxDfE)]=run
+  auxDfE$run[indexNo1[length(indexNo1)]:nrow(auxDfE)] <- run
 
   return(auxDfE)
 }
 
-#' Step for augmenting a giving sequence by adding a tie \eqn{e} two times (no change in sequence).
+#' Step for augmenting a given sequence by adding a tie \eqn{e} two times.
 #'
 #' @param seq data frame, sequence of events.
 #' @param tieNames vector, labels of ties (e.g., "12" if the tie is from sender 1 and receiver 2).
 #' @param gammaEplus matrix, probabilities needed for the computation.
 #' @param gammaPlus float, sum of gammaEplus.
-#' @param me matrix, probabilities needed for the computation.
 #' @param m float, sum of me.
+#' @param me matrix, probabilities needed for the computation.
 #' @param net0 matrix, initial network.
 #'
-#' @return list
-#' @param sender sender of the new event.
-#' @param receiver receiver of the new event.
-#' @param place positions were the event was included.
-#' @param typeA type of augmentation (two events together or separetly).
-#' @param pDoStep probability of doing the step
+#' @return list of
+#' \item{sender}{sender of the new event.}
+#' \item{receiver}{receiver of the new event.}
+#' \item{place}{positions were the event was included.}
+#' \item{typeA}{type of augmentation (two events together or separetly).}
+#' \item{pDoStep}{probability of doing the step.}
 #'
 #' @export
+#'
 stepAugment = function(seq,tieNames,gammaEplus,gammaPlus,m,me,net0){
   # Choose element to be inserted:
   e = sample(tieNames,size=1, prob=as.vector(t(gammaEplus/gammaPlus)))
@@ -170,6 +172,27 @@ stepAugment = function(seq,tieNames,gammaEplus,gammaPlus,m,me,net0){
               pDoStep = pDoStep))
 }
 
+
+#' Step for shortening a given sequence by removing a tie \eqn{e} in two positions.
+#'
+#' @param seq data frame, sequence of events.
+#' @param tieNames vector, labels of ties (e.g., "12" if the tie is from sender 1 and receiver 2).
+#' @param gammaEminus matrix, probabilities needed for the computation.
+#' @param gammaMinus float, sum of gammaEplus.
+#' @param m float, sum of me.
+#' @param me matrix, probabilities needed for the computation.
+#' @param auxDf data frame, from getKelMeMatrix
+#' @param net0 matrix, initial network.
+#'
+#' @return list of
+#' \item{sender}{sender of the new event.}
+#' \item{receiver}{receiver of the new event.}
+#' \item{place}{positions were the event was included.}
+#' \item{typeS}{type of shortening (two events together or separetly).}
+#' \item{pDoStep}{probability of doing the step.}
+#'
+#' @export
+#'
 stepShort = function(seq,tieNames,gammaEminus,gammaMinus,m,me,auxDf,net0){
   # Choose element to be deleted:
   e = sample(tieNames,size=1, prob=as.vector(t(gammaEminus/gammaMinus)))
@@ -217,6 +240,23 @@ stepShort = function(seq,tieNames,gammaEminus,gammaMinus,m,me,auxDf,net0){
               pDoStep = pDoStep, auxDfE = auxDfE))
 }
 
+
+
+#' Step for permuting two elements in a given sequence.
+#'
+#' @param seq data frame, sequence of events.
+#' @param tieNames vector, labels of ties (e.g., "12" if the tie is from sender 1 and receiver 2).
+#' @param m float, sum of me.
+#' @param me matrix, probabilities needed for the computation.
+#'
+#' @return list of
+#' \item{sender}{sender of the new event.}
+#' \item{receiver}{receiver of the new event.}
+#' \item{place}{positions were the event was included.}
+#' \item{pDoStep}{probability of doing the step.}
+#'
+#' @export
+#'
 stepPerm = function(seq,tieNames,m,me){
   # Choose elements to be permuted:
   probVec = as.vector(t(me/m))
@@ -259,24 +299,31 @@ stepPerm = function(seq,tieNames,m,me){
 
 # MCMC -------------------------------------
 
-
-burnIn = function(seq,beta,H,actDfnodes,formula,net0){
-  #burn in for MCMC (to be done only once to change all sequences)
-
-}
-
-MCMC = function(seq,burn_in,H,actDfnodes,n=500){
-  # Compute initial quatities:
-  # Type 1: augmentation, type 2: shortening, type 3: permutation
-
-  pShort = pAug = 0.35 # These could be parameters of the function
-  pPerm = 0.3 # This could be a parameter of the function
-
-  actDfnodesLab=actDfnodes$label
-
-  tieNames = sapply(actDfnodesLab,function(x) sapply(actDfnodesLab, function(i) paste(x,i,sep="")))
-  tieNames = as.vector(tieNames)
-
+#' MCMC step
+#'
+#' @description Performs an step of MCMC given a type:
+#' \item Type 1: augmentation of sequence.
+#' \item Type 2: shortening of sequence.
+#' \item Type 3: permutation of 2 elements of the sequence.
+#'
+#' @param seq data frame, sequence of events.
+#' @param type integer, type of step.
+#' @param actDfnodesLab vector, node labs.
+#' @param tieNames vector, tie labs (e.g. "12" is a tie from sender 1 to receiver 2).
+#' @param formula formula, the one used in goldfish model.
+#' @param net0 matrix, initial observed network.
+#' @param beta list, estimator of parameters of the model (creation and deletion)
+#'
+#' @return list of
+#' \item{newseq}{new sequence.}
+#' \item{loglikSeq}{log-likelihood from original sequence.}
+#' \item{newloglikSeq}{log-likelihood from new sequence.}
+#' \item{step}{depending on the type of step, result of [stepAugment()],[stepShort()] or [stepPerm()].}
+#' \item{pUndoStep}{probability of undoing the step of MH acceptance rate.}
+#'
+#' @export
+#'
+stepMCMC = function(seq,type,actDfnodesLab,tieNames,formula,net0,beta){
 
   getKelMeMatrix = getKelMeMatrix(seq,actDfnodesLab)
   Kel_g1 = getKelMeMatrix$Kel_g1
@@ -289,8 +336,140 @@ MCMC = function(seq,burn_in,H,actDfnodes,n=500){
   m = nrow(seq)
   auxDf = getKelMeMatrix$auxDf
 
-  for(i in 1:1000){
-    acceptIndex = 0
+  if(type == 1){ # Augmentation
+    step = stepAugment(seq,tieNames,gammaEplus,gammaPlus,m,me)
+
+    getNewKelMeMatrix = getKelMeMatrix(step$newseq,actDfnodesLab)
+    newAuxDfE = getAuxDfE(getNewKelMeMatrix$auxDf, sender,receiver)
+    auxDfE = getAuxDfE(auxDf,sender,receiver)
+
+    newKel_g1 = getNewKelMeMatrix$Kel_g1
+    newKel_ge1 = getNewKelMeMatrix$Kel_ge1
+    newGammaEminus = choose(newKel_ge1,2) + newKel_g1
+    newGammaMinus = sum(newGammaEminus)
+    newMe = getNewKelMeMatrix$me
+    newGammaEplus = choose(nrow(newseq)-newMe+2,2)
+    newGammaPlus = sum(newGammaEplus)
+    newM = nrow(newseq)
+
+    newp= newKel_g1[sender,receiver]/newGammaEminus[sender,receiver]
+    if((length(unique(auxDfE$run)) == length(unique(newAuxDfE$run))) | step$typeA=="same"){
+      pUndoStep = (newGammaEminus[sender,receiver]/newGammaMinus) * newp * (1/length(unique(newAuxDfE$run)))
+    }else{
+      pUndoStep = (newGammaEminus[sender,receiver]/newGammaMinus) * (1-newp) * (1/length(unique(newauxDfE$run)))*(1/(length(unique(newAuxDfE$run))-1))
+    }
+
+    loglikSeq = logLikelihoodMC(1,seq,beta,list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
+    newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
+
+
+  }else if(type == 2){ # Shortening
+    step = stepShort(seq,tieNames,gammaEminus,gammaMinus,m,me,auxDf)
+    getNewKelMeMatrix = getKelMeMatrix(step$newseq,actDfnodesLab)
+    newAuxDfE = getAuxDfE(getNewKelMeMatrix$auxDf, sender,receiver)
+    auxDfE = getAuxDfE(auxDf,sender,receiver)
+
+    newKel_g1 = getNewKelMeMatrix$Kel_g1
+    newKel_ge1 = getNewKelMeMatrix$Kel_ge1
+    newGammaEminus = choose(newKel_ge1,2) + newKel_g1
+    newGammaMinus = sum(newGammaEminus)
+    newMe = getNewKelMeMatrix$me
+    newGammaEplus = choose(nrow(newseq)-newMe+2,2)
+    newGammaPlus = sum(newGammaEplus)
+    newM = nrow(newseq)
+    senderNumber = as.integer(strsplit(step$sender,"V")[[1]][2])
+    receiverNumber = as.integer(strsplit(step$receiver,"V")[[1]][2])
+
+    newp = (newM-newMe[senderNumber,receiverNumber]+1)/newGammaEplus[senderNumber,receiverNumber]
+
+
+    if(step$typeS == "same"){
+      pUndoStep = (newGammaEplus[senderNumber,receiverNubmer]/newGammaPlus) * newp * (1/(newM-newMe[senderNumber,receiverNumber]+1))
+
+    }else if(step$typeS == "diff"){
+      pUndoStep = (newGammaEplus[senderNumber,receiverNumber]/newGammaPlus) * (1-newp) * (1/(newM-newMe[senderNumber,receiverNumber]+1))*(1/(newM-newMe[senderNumber,receiverNumber]))
+    }
+
+    loglikSeq = logLikelihoodMC(1,seq,beta,list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
+    newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
+
+
+  }else if(type == 3){ # Permutation
+    step = stepPerm(seq,tieNames,m,me)
+    getNewKelMeMatrix = getKelMeMatrix(step$newseq,actDfnodesLab)
+    newAuxDfE = getAuxDfE(getNewKelMeMatrix$auxDf, sender,receiver)
+    auxDfE = getAuxDfE(auxDf,sender,receiver)
+
+    newKel_g1 = getNewKelMeMatrix$Kel_g1
+    newKel_ge1 = getNewKelMeMatrix$Kel_ge1
+    newGammaEminus = choose(newKel_ge1,2) + newKel_g1
+    newGammaMinus = sum(newGammaEminus)
+    newMe = getNewKelMeMatrix$me
+    newGammaEplus = choose(nrow(newseq)-newMe+2,2)
+    newGammaPlus = sum(newGammaEplus)
+    newM = nrow(newseq)
+
+    sender1=as.integer(strsplit(step$sender[1],"V")[[1]][2])
+    sender2=as.integer(strsplit(step$sender[2],"V")[[1]][2])
+    receiver1=as.integer(strsplit(step$receiver[1],"V")[[1]][2])
+    receiver2=as.integer(strsplit(step$receiver[2],"V")[[1]][2])
+
+    probVec = newMe[sender2,receiver2]/newM
+    probVec2 = newMe[sender1,receiver1]/(newM-newMe[sender2,receiver2])
+    probVec3 = newMe[sender1,receiver1]/newM
+    probVec4 = newMe[sender2,receiver2]/(newM-newMe[sender1,receiver1])
+
+    pUndoStep = (probVec * probVec2 + robVec3 * probVec4 )*
+      (1/nrow(newseq[newseq$sender==paste("V",sender1,sep="") & newseq$receiver==paste("V",receiver1,sep=""),])) *
+      (1/nrow(newseq[newseq$sender==paste("V",sender2,sep="") & newseq$receiver==paste("V",receiver2,sep=""),]))
+    loglikSeq = logLikelihoodMC(1,seq,beta,list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
+    newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
+  }
+
+  return(list("newseq"=newseq,"loglikSeq"=loglikSeq,"newloglikSeq"=newloglikSeq,
+              "step"=step,"pUndoStep"=pUndoStep))
+}
+
+
+
+#' MCMC function
+#'
+#' @description Computes an MCMC chain and returns nmax sequences from the MCMC chain.
+#'
+#' @param nmax integer, number of sequences to be returned.
+#' @param seq data frame, sequence from which start/continue MCMC chain.
+#' @param H integer, hamming distance between net0 and net1.
+#' @param actDfnodes object of type ´nodes´ from goldfish.
+#' @param formula formula, the one used in goldfish model.
+#' @param net0 matrix, initial observed network.
+#' @param beta list, estimator of parameters of the model (creation and deletion).
+#' @param burnIn boolean, indicates if burn in must be performed.
+#' @param maxIter integer, maximum number of steps of the MCMC chain.
+#' @param seqIter integer, number of steps between selected sequences.
+#' @param pShort float, probability of shortening step.
+#' @param pAugment float, probability of augmenting step.
+#' @param pPerm float, probability of permutation step.
+#'
+#' @return permut, list of sequences.
+#'
+#' @export
+#'
+MCMC = function(nmax,seq,H,actDfnodes,formula,net0,beta,burnIn = TRUE,maxIter=10000,seqIter = 50,pShort=0.35,pAug = 0.35,pPerm = 0.3){
+  # Compute initial quatities:
+  # Type 1: augmentation, type 2: shortening, type 3: permutation
+
+  if(nmax>(maxIter-500)/seqIter) {maxIter=(nmax+501)*50}
+
+  actDfnodesLab=actDfnodes$label
+
+  tieNames = sapply(actDfnodesLab,function(x) sapply(actDfnodesLab, function(i) paste(x,i,sep="")))
+  tieNames = as.vector(tieNames)
+
+
+  permut <- vector(mode = "list", length = nmax)
+
+  acceptIndex = 0
+  for(i in 1:maxIter){
 
     if(length(seq)==H){
       type = sample(c(1,2,3),size=1,prob=c(pAug/(pAug+pPerm),0,pPerm/(pAug+pPerm)))
@@ -298,132 +477,38 @@ MCMC = function(seq,burn_in,H,actDfnodes,n=500){
       type = sample(c(1,2,3),size=1,prob=c(pAug,pShort,pPerm))
     }
 
-
-    if(type == 1){ # Augmentation
-      step = stepAugment(seq,tieNames,gammaEplus,gammaPlus,m,me)
-
-      getNewKelMeMatrix = getKelMeMatrix(step$newseq,actDfnodesLab)
-      newAuxDfE = getAuxDfE(getNewKelMeMatrix$auxDf, sender,receiver)
-      auxDfE = getAuxDfE(auxDf,sender,receiver)
-
-      newKel_g1 = getNewKelMeMatrix$Kel_g1
-      newKel_ge1 = getNewKelMeMatrix$Kel_ge1
-      newGammaEminus = choose(newKel_ge1,2) + newKel_g1
-      newGammaMinus = sum(newGammaEminus)
-      newMe = getNewKelMeMatrix$me
-      newGammaEplus = choose(nrow(newseq)-newMe+2,2)
-      newGammaPlus = sum(newGammaEplus)
-      newM = nrow(newseq)
-
-      newp= newKel_g1[sender,receiver]/newGammaEminus[sender,receiver]
-      if((length(unique(auxDfE$run)) == length(unique(newAuxDfE$run))) | step$typeA=="same"){
-        pUndoStep = (newGammaEminus[sender,receiver]/newGammaMinus) * newp * (1/length(unique(newAuxDfE$run)))
-      }else{
-        pUndoStep = (newGammaEminus[sender,receiver]/newGammaMinus) * (1-newp) * (1/length(unique(newauxDfE$run)))*(1/(length(unique(newAuxDfE$run))-1))
-      }
-
-      loglikSeq = logLikelihoodMC(1,seq,beta,list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
-      newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
-
-
-    }else if(type == 2){ # Shortening
-      step = stepShort(seq,tieNames,gammaEminus,gammaMinus,m,me,auxDf)
-      getNewKelMeMatrix = getKelMeMatrix(step$newseq,actDfnodesLab)
-      newAuxDfE = getAuxDfE(getNewKelMeMatrix$auxDf, sender,receiver)
-      auxDfE = getAuxDfE(auxDf,sender,receiver)
-
-      newKel_g1 = getNewKelMeMatrix$Kel_g1
-      newKel_ge1 = getNewKelMeMatrix$Kel_ge1
-      newGammaEminus = choose(newKel_ge1,2) + newKel_g1
-      newGammaMinus = sum(newGammaEminus)
-      newMe = getNewKelMeMatrix$me
-      newGammaEplus = choose(nrow(newseq)-newMe+2,2)
-      newGammaPlus = sum(newGammaEplus)
-      newM = nrow(newseq)
-      senderNumber = as.integer(strsplit(step$sender,"V")[[1]][2])
-      receiverNumber = as.integer(strsplit(step$receiver,"V")[[1]][2])
-
-      newp = (newM-newMe[senderNumber,receiverNumber]+1)/newGammaEplus[senderNumber,receiverNumber]
-
-
-      if(step$typeS == "same"){
-        pUndoStep = (newGammaEplus[senderNumber,receiverNubmer]/newGammaPlus) * newp * (1/(newM-newMe[senderNumber,receiverNumber]+1))
-
-      }else if(step$typeS == "diff"){
-        pUndoStep = (newGammaEplus[senderNumber,receiverNumber]/newGammaPlus) * (1-newp) * (1/(newM-newMe[senderNumber,receiverNumber]+1))*(1/(newM-newMe[senderNumber,receiverNumber]))
-      }
-
-      loglikSeq = logLikelihoodMC(1,seq,beta,list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
-      newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
-
-
-    }else if(type == 3){ # Permutation
-      step = stepPerm(seq,tieNames,m,me)
-      getNewKelMeMatrix = getKelMeMatrix(step$newseq,actDfnodesLab)
-      newAuxDfE = getAuxDfE(getNewKelMeMatrix$auxDf, sender,receiver)
-      auxDfE = getAuxDfE(auxDf,sender,receiver)
-
-      newKel_g1 = getNewKelMeMatrix$Kel_g1
-      newKel_ge1 = getNewKelMeMatrix$Kel_ge1
-      newGammaEminus = choose(newKel_ge1,2) + newKel_g1
-      newGammaMinus = sum(newGammaEminus)
-      newMe = getNewKelMeMatrix$me
-      newGammaEplus = choose(nrow(newseq)-newMe+2,2)
-      newGammaPlus = sum(newGammaEplus)
-      newM = nrow(newseq)
-
-      sender1=as.integer(strsplit(step$sender[1],"V")[[1]][2])
-      sender2=as.integer(strsplit(step$sender[2],"V")[[1]][2])
-      receiver1=as.integer(strsplit(step$receiver[1],"V")[[1]][2])
-      receiver2=as.integer(strsplit(step$receiver[2],"V")[[1]][2])
-
-      probVec = newMe[sender2,receiver2]/newM
-      probVec2 = newMe[sender1,receiver1]/(newM-newMe[sender2,receiver2])
-      probVec3 = newMe[sender1,receiver1]/newM
-      probVec4 = newMe[sender2,receiver2]/(newM-newMe[sender1,receiver1])
-
-      pUndoStep = (probVec * probVec2 + robVec3 * probVec4 )*
-        (1/nrow(newseq[newseq$sender==paste("V",sender1,sep="") & newseq$receiver==paste("V",receiver1,sep=""),])) *
-        (1/nrow(newseq[newseq$sender==paste("V",sender2,sep="") & newseq$receiver==paste("V",receiver2,sep=""),]))
-      loglikSeq = logLikelihoodMC(1,seq,beta,list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
-      newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
-    }
-
+    stepMCMC = stepMCMC(seq,type,actDfnodesLab,tieNames,formula,net0,beta)
 
     u = runif(1,min=0,max=1)
-    accept =(u<= exp(newloglikSeq-loglikSeq)*pUndoStep/step$pDoStep)
+    accept =(u<= exp(stepMCMC$newloglikSeq-stepMCMC$loglikSeq)*stepMCMC$pUndoStep/stepMCMC$step$pDoStep)
     if(accept){
-      accecptIndex = accecptIndex + 1
+      acceptIndex = acceptIndex + 1
       #if(accept & !acceptIndex %% 50){
-      #Update sequence every 50 steps
-      seq = newseq
-      getKelMeMatrix = newGetKelMeMatrix
-      Kel_g1 = gnewKel_g1
-      Kel_ge1 = newKel_ge1
-      gammaEminus = newGammaEminus
-      gammaMinus = newGammaMinus
-      me = newMe
-      gammaEplus = newGammaEplus
-      gammaPlus = newGammaPlus
-      m = newM
-      auxDf = getKelMeMatrix$auxDf
+      seq = stepMCMC$newseq
     }
   }
 
-}
-
-MCMC_MC = function(indexCore,splitIndicesPerCore,permut = permut,beta=beta, burnIn = TRUE, H = H,actDfnodes=actDfnodes){
-
-  indicesCore = splitIndicesPerCore[[indexCore]]
-  resMCMC = vector("list",length(indicesCore))
-
-  if(burnIn) {burn_in = burnIn(permut[[1]],beta,H,actDfnodes)}
-
-
-  for(i in seq_along(indicesCore)){
-    resMCMC[[i]] = MCMC(permut[[indicesCore[[i]]]],burn_in,H,actDfnodes)
+  if(burnIn){
+    if(i>500 & !i%%50){permut = c(permut,seq)}
+  }else{
+    if(!i%%50){permut = c(permut,seq)}
   }
 
-  return(resMCMC)
+  return(permut)
 }
+
+# MCMC_MC = function(indexCore,splitIndicesPerCore,permut = permut,beta=beta, burnIn = TRUE, H = H,actDfnodes=actDfnodes){
+#
+#   indicesCore = splitIndicesPerCore[[indexCore]]
+#   resMCMC = vector("list",length(indicesCore))
+#
+#   if(burnIn) {burn_in = burnIn(permut[[1]],beta,H,actDfnodes)}
+#
+#
+#   for(i in seq_along(indicesCore)){
+#     resMCMC[[i]] = MCMC(permut[[indicesCore[[i]]]],burn_in,H,actDfnodes)
+#   }
+#
+#   return(resMCMC)
+# }
 

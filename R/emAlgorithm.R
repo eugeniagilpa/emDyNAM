@@ -904,7 +904,7 @@ softEMAlgorithmForEach = function(net0,net1,theta0,beta0,formula,nmax = 10){
 }
 
 
-MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
+MCEMalgorithm = function(nmax0,net0,net1,theta0,beta0,formula,num_cores=1){
   # net0 : network matrix in initial state
   # net1: network matrix in final state
   # theta0 : initial parameters for sender (list of creation and deletion with
@@ -915,6 +915,7 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
 
   actDfnodes <- defineNodes(data.frame(label=colnames(net0)))
 
+  nmax = nmax0
 
   # Initialization of parameters
   theta = theta0
@@ -925,9 +926,8 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
   sequence = EMPreprocessing(net0,net1)
   H = length(sequence) # Humming distance
   # Creation of permutations
-  permut = permute(sequence, nmax = nmax)
-
-  # permut[[nmax+1]]=events[,2:4]
+  #permut = permute(sequence, nmax = nmax)
+  permut = MCMC(nmax=nmax,seq,H,actDfnodes,formula,net0,beta,burnIn = TRUE,maxIter=10000,seqIter = 50,pShort=0.35,pAug = 0.35,pPerm = 0.3)
 
   splitIndicesPerCore = splitIndices(length(permut),num_cores)
   cl =  makeCluster(num_cores)
@@ -940,12 +940,7 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
 
   clusterExport(cl, list("softEMAlgorithm","EMPreprocessing", "GatherPreprocessingDF",
                         "hardEMAlgorithm","logLikelihood","permute","rubinsRule",
-                         "parameters","timeGenerator","logLikelihood","MCMC","burnIn",
-                        "getKelMatrix","getmeMatrix")) # to be updated
-
-  permut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = permut,
-                        beta=beta,splitIndicesPerCore = splitIndicesPerCore, burnIn = TRUE,
-                        H = H,actDfnodes=actDfnodes) # to be updated
+                         "parameters","timeGenerator","logLikelihood"))
 
 
   resPar = clusterApply(cl,seq_along(splitIndicesPerCore),parametersMC,permut = permut,
@@ -1001,11 +996,8 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
 
     if(lowerBoud<0){
       # Estimator is not accepted, new point must be sampled
-      newpermut = permute(sequence, nmax = nmax/2)
-      newpermut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = newpermut,
-                            beta=beta,splitIndicesPerCore=splitIndicesPerCore, burnIn = FALSE,
-                            H = H,actDfnodes=actDfnodes)
-      nmax = nmax+(nmax/2)
+      newpermut = MCMC(nmax=nmax/2,permut[[length(permut)]],H,actDfnodes,formula,net0,beta,burnIn = FALSE,maxIter=10000,seqIter = 50,pShort=0.35,pAug = 0.35,pPerm = 0.3)
+      nmax = nmax+(nmax0/2)
       permut = c(permut,newpermut)
 
       resPar = clusterApply(cl,seq_along(splitIndicesPerCore),parametersMC,permut = permut,
@@ -1033,20 +1025,18 @@ MCEMalgorithm = function(nmax,net0,net1,theta0,beta0,formula,num_cores=1){
       se$Crea = betaCreaAux$se
       se$Del = betaDelAux$se
 
+
       # Update on the permutations -> new MCMC
       errType2 = 0.8
       m_start = sigmaHat^2*(1.281552+qnorm(errType2))^2/deltaQ^2
 
       if(m_start > nmax){
-        newpermut = permute(sequence, nmax = m_start - nmax)
         nmax = m_start
-        permut = c(permut,newpermut)
       }
 
-       permut = clusterApply(cl,seq_along(splitIndicesPerCore),MCMC_MC,permut = permut,
-                             beta=beta, splitIndicesPerCore=splitIndicesPerCore, burnIn = TRUE,
-                             H = H,actDfnodes=actDfnodes)
+      indexMaxlogLik = which(logLikPrev==max(logLikPrev))
 
+      permut = MCMC(nmax=nmax,permut[[indexMaxlogLik]],H,actDfnodes,formula,net0,beta,burnIn = TRUE,maxIter=10000,seqIter = 50,pShort=0.35,pAug = 0.35,pPerm = 0.3)
 
       logLikPrev = clusterApply(cl,seq_along(splitIndicesPerCore),logLikelihoodMC,permut = permut,
                                 splitIndicesPerCore=splitIndicesPerCore,
