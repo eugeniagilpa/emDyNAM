@@ -1,4 +1,18 @@
 # Ascent-based MCEM -----------------------------
+
+
+#' Auxiliar function to compute \enq{\hat\sigma}.
+#'
+#' @param mt number of observations
+#' @param loglikPrev log-likelihood at time \enq{t-1}
+#' @param loglikCur log-likelihood at time \enq{t}
+#' @param w weights (for importance sampling)
+#'
+#' @return estimator of \enq{\sigma^2}
+#' @export
+#'
+#' @references Caffo, B. S., Jank, W., & Jones, G. L. (2005). Ascent-based Monte Carlo expectation–maximization. \emph{Journal of the Royal Statistical Society Series B: Statistical Methodology, 67(2)}, 235-251.
+#'
 sigmaHat = function(mt,loglikPrev, loglikCur, w){
 
   lambda = loglikCur - loglikPrev
@@ -11,6 +25,17 @@ sigmaHat = function(mt,loglikPrev, loglikCur, w){
 
 }
 
+#' Auxiliar function to compute \enq{\tilde{\Delta Q}}.
+#'
+#' @param loglikPrev log-likelihood at time \enq{t-1}
+#' @param loglikCur log-likelihood at time \enq{t}
+#' @param w weights (for importance sampling)
+#'
+#' @return estimator of \enq{\Delta Q}
+#' @export
+#'
+#' @references Caffo, B. S., Jank, W., & Jones, G. L. (2005). Ascent-based Monte Carlo expectation–maximization. \emph{Journal of the Royal Statistical Society Series B: Statistical Methodology, 67(2)}, 235-251.
+#'
 deltaQ = function(loglikPrev, loglikCur, w){
 
   loglikRatio = loglikCur - loglikPrev
@@ -22,6 +47,40 @@ deltaQ = function(loglikPrev, loglikCur, w){
 
 # Ascent-Based Markov-Chain Expectation-Maximization algorithm --------------
 
+
+#' Ascent-Based Markov-Chain Expectation-Maximization algorithm
+#'
+#' @param nmax0 initial value of number of permuations for step 0
+#' @param net0 initial network
+#' @param net1 final network
+#' @param theta0 initial values for rate parameters
+#' @param beta0 initial values for effect parameters
+#' @param formula formula of the model
+#' @param num_cores number of cores for paralelization
+#'
+#' @return list of
+#' \item{logLik}{log likelihood of the sequences at the last step}
+#' \item{beta}{estimation of effect parameters}
+#' \item{se}{estimation of standard errors}
+#' \item{index}{number of iterations until convergence of EM algorithm}
+#' \item{diff}{value of stopping rule at last iteration}
+#' \item{permut}{last set of permutations}
+#' \item{betaCreaDF}{last data frame of goldfish estimators}
+#' \item{betaDelDF}{last data frame of goldfish estimators}
+#' @export
+#'
+#' @references
+#' Caffo, B. S., Jank, W., & Jones, G. L. (2005). Ascent-based Monte Carlo expectation–maximization.
+#' \emph{Journal of the Royal Statistical Society Series B: Statistical Methodology, 67(2)}, 235-251.
+#'
+#' Stadtfeld, C., Hollway, J., & Block, P. (2017). Dynamic Network Actor Models: Investigating Coordination Ties through Time.
+#' \emph{Sociological Methodology, 47(1)}, 1-40.
+#' \doi{https://doi.org/10.1177/0081175017709295}
+#'
+#' Koskinen J.(2004). BAYESIAN INFERENCE FOR LONGITUDINAL SOCIAL NETWORKS.
+#' \emph{Research Report, number 2004: 4.}.
+#'
+#'
 MCEMalgorithm = function(nmax0,net0,net1,theta0,beta0,formula,num_cores=1){
   # net0 : network matrix in initial state
   # net1: network matrix in final state
@@ -156,6 +215,16 @@ MCEMalgorithm = function(nmax0,net0,net1,theta0,beta0,formula,num_cores=1){
 
       permut = MCMC(nmax=nmax,permut[[indexMaxlogLik]],H,actDfnodes,formula,net0,beta,burnIn = TRUE,maxIter=10000,seqIter = 50,pShort=0.35,pAug = 0.35,pPerm = 0.3)
 
+      resPar = clusterApply(cl,seq_along(splitIndicesPerCore),parametersMC,permut = permut,
+                            splitIndicesPerCore=splitIndicesPerCore,actDfnodes.=actDfnodes,
+                            net0.=net0,formula.=formula)
+
+      resPar = unlist(resPar,recursive = FALSE)
+      betaCreaDF = t(sapply(resPar,"[[",1))
+      betaDelDF = t(sapply(resPar,"[[",2))
+      seCreaDF = t(sapply(resPar,"[[",3))
+      seDelDF = t(sapply(resPar,"[[",4))
+
       logLikPrev = clusterApply(cl,seq_along(splitIndicesPerCore),logLikelihoodMC,permut = permut,
                                 splitIndicesPerCore=splitIndicesPerCore,
                                 beta=beta,actDfnodes=actDfnodes,net0=net0,formula=formula)
@@ -165,12 +234,9 @@ MCEMalgorithm = function(nmax0,net0,net1,theta0,beta0,formula,num_cores=1){
 
   }
 
-  aux_permut = permut[[1]]
-  og_permut = aux_permut[order(as.numeric(row.names(aux_permut))),]
-  aux_names = lapply(lapply(permut,row.names),as.numeric)
 
-  return(list("logLik" = logLik,"beta" = beta,"se" = se,"index" = index,
-              "diff" = diff,"og_permut" =og_permut, "permut"=aux_names,"betaCreaDF" = betaCreaDF,"betaDelDF"=betaDelDF))
+  return(list("logLik" = logLik,"beta" = beta,"se" = se,"index" = index, "diff" = diff,
+               "permut" = permut, "betaCreaDF" = betaCreaDF,"betaDelDF"=betaDelDF))
 }
 
 
