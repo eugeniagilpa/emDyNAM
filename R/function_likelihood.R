@@ -8,25 +8,119 @@
 #' @return loglikelihood (creation + deletion of events models)
 #' @export
 #'
-logLikelihood = function(listExpandedDF, beta){
+logLikelihood <- function(listExpandedDFChoice, listExpandedDFRate, beta, theta, initTime, endTime) {
+  logLikChoice <- logLikChoice(listExpandedDFChoice, beta)
+  logLikRate <- logLikRate(listExpandedDFRate, theta)
+  logLikTime <- logLikTime(logLikRate, initTime, endTime)
 
+  return(logLikChoice$loglik + logLikRate$loglik + logLikTime)
+}
+
+#' log-likelihood computation with time information
+#'
+#' @param listExpandedDF list returned from function GatherPreprocessingDF
+#' @param beta list of choice parameters with elements Crea and Del
+#'
+#' @return loglikelihood (creation + deletion of events models)
+#' @export
+#'
+logLikChoice <- function(listExpandedDf, beta) {
   # Computations of loglikelihood for creation events
-  xbCrea = by(listExpandedDF$expandedDFCreation[,!names(listExpandedDF$expandedDFCreation) %in% c("event","selected")],
-              listExpandedDF$expandedDFCreation[,"event"],function(x) as.matrix(x)%*%beta$Crea)
-  xb_auxCrea = by(listExpandedDF$expandedDFCreation[listExpandedDF$expandedDFCreation$selected==TRUE,!names(listExpandedDF$expandedDFCreation) %in% c("event","selected")],
-                  listExpandedDF$expandedDFCreation[listExpandedDF$expandedDFCreation$selected==TRUE,"event"],function(x) as.matrix(x)%*%beta$Crea)
-  loglikCrea =  sum(unlist(xb_auxCrea) - sapply(xbCrea,colLogSumExps))
+  xbCrea <- by(
+    listExpandedDF$expandedDFCreation[, !names(listExpandedDF$expandedDFCreation) %in% c("event", "selected")],
+    listExpandedDF$expandedDFCreation[, "event"], function(x) as.matrix(x) %*% beta$Crea
+  )
+  xb_auxCrea <- by(
+    listExpandedDF$expandedDFCreation[listExpandedDF$expandedDFCreation$selected == TRUE, !names(listExpandedDF$expandedDFCreation) %in% c("event", "selected")],
+    listExpandedDF$expandedDFCreation[listExpandedDF$expandedDFCreation$selected == TRUE, "event"], function(x) as.matrix(x) %*% beta$Crea
+  )
+  loglikCrea <- sum(unlist(xb_auxCrea) - sapply(xbCrea, colLogSumExps))
 
   # Computation of loglikelihood for deletion events
-  xbDel = by(listExpandedDF$expandedDFDeletion[,!names(listExpandedDF$expandedDFDeletion) %in% c("event","selected")],
-             listExpandedDF$expandedDFDeletion[,"event"],function(x) as.matrix(x)%*%beta$Del)
-  xb_auxDel = by(listExpandedDF$expandedDFDeletion[listExpandedDF$expandedDFDeletion$selected==TRUE,!names(listExpandedDF$expandedDFDeletion) %in% c("event","selected")],
-                 listExpandedDF$expandedDFDeletion[listExpandedDF$expandedDFDeletion$selected==TRUE,"event"],function(x) as.matrix(x)%*%beta$Del)
-  loglikDel = sum(unlist(xb_auxDel) - sapply(xbDel,colLogSumExps))
+  xbDel <- by(
+    listExpandedDF$expandedDFDeletion[, !names(listExpandedDF$expandedDFDeletion) %in% c("event", "selected")],
+    listExpandedDF$expandedDFDeletion[, "event"], function(x) as.matrix(x) %*% beta$Del
+  )
+  xb_auxDel <- by(
+    listExpandedDF$expandedDFDeletion[listExpandedDF$expandedDFDeletion$selected == TRUE, !names(listExpandedDF$expandedDFDeletion) %in% c("event", "selected")],
+    listExpandedDF$expandedDFDeletion[listExpandedDF$expandedDFDeletion$selected == TRUE, "event"], function(x) as.matrix(x) %*% beta$Del
+  )
+  loglikDel <- sum(unlist(xb_auxDel) - sapply(xbDel, colLogSumExps))
 
-  return(loglikCrea+loglikDel)
-
+  return(list("loglik" = loglikCrea + loglikDel, "xb_auxCrea" = xb_auxCrea, "xbCrea" = xbCrea, "xb_auxDel" = xb_auxDel, "xbDel" = xbDel))
 }
+
+
+#' log-likelihood computation with time information
+#'
+#' @param listExpandedDF list returned from function GatherPreprocessingDF
+#' @param theta list of rate parameters with elements Crea and Del
+#'
+#' @return loglikelihood (creation + deletion of events models)
+#' @export
+#'
+logLikRate <- function(expandedDF, theta) {
+  # Computations of loglikelihood for creation events
+  xbCrea <- by(
+    expandedDF$expandedDFCreation[, !names(expandedDF$expandedDFCreation) %in% c("event", "selected")],
+    expandedDF$expandedDFCreation[, "event"], function(x) as.matrix(x) %*% theta$Crea
+  )
+
+  xbCrea = as.data.frame(do.call(cbind, xbCrea))
+
+  xb_auxCrea <- by(
+    expandedDF$expandedDFCreation[expandedDF$expandedDFCreation$selected == TRUE, !names(expandedDF$expandedDFCreation) %in% c("event", "selected")],
+    expandedDF$expandedDFCreation[expandedDF$expandedDFCreation$selected == TRUE, "event"], function(x) as.matrix(x) %*% theta$Crea
+  )
+  loglikCrea <- sum(unlist(xb_auxCrea) - apply(xbCrea,2,sum))
+
+
+  # Computation of loglikelihood for deletion events
+  xbDel <- by(
+    expandedDF$expandedDFDeletion[, !names(expandedDF$expandedDFDeletion) %in% c("event", "selected")],
+    expandedDF$expandedDFDeletion[, "event"], function(x) as.matrix(x) %*% theta$Del
+  )
+
+  xbDel = as.data.frame(do.call(cbind, xbDel))
+
+  xb_auxDel <- by(
+    expandedDF$expandedDFDeletion[expandedDF$expandedDFDeletion$selected == TRUE, !names(expandedDF$expandedDFDeletion) %in% c("event", "selected")],
+    expandedDF$expandedDFDeletion[expandedDF$expandedDFDeletion$selected == TRUE, "event"], function(x) as.matrix(x) %*% theta$Del
+  )
+  loglikDel <- sum(unlist(xb_auxDel) - apply(xbDel,2,sum))
+
+  return(list("loglik" = loglikCrea + loglikDel, "xb_auxCrea" = xb_auxCrea, "xbCrea" = xbCrea, "xb_auxDel" = xb_auxDel, "xbDel" = xbDel))
+}
+
+
+
+#' log-likelihood computation with time information
+#'
+#' @param logLikRate list returned from logLik
+#' @param initTime initial time of observation
+#' @param endTime end time of observation
+#'
+#' @return loglikelihood (creation + deletion of events models)
+#' @export
+#'
+logLikTime <- function(logLikRate, initTime, endTime) {
+
+  lambdaCreaDF = exp(logLikRate$xb_auxCrea - apply(logLikRate$xbCrea,2,sum))
+  lambdaDelDF = exp(logLikRate$xb_auxDel - apply(logLikRate$xbDel,2,sum))
+
+  mu_alphaCrea <- sum(1/lambdaCreaDF[-length(lambdaCreaDF)])
+  sigma_alphaCrea <-sum(1/(lambdaCreaDF[-length(lambdaCreaDF)])^2)
+  logkappaCrea <- -log(lambdaCreaDF[length(lambdaCreaDF)]) - 0.5 * log(2 * pi * sigma_alphaCrea) - (endTime - initTime - mu_alphaCrea)^2 / (2 * sigma_alphaCrea)
+
+  mu_alphaDel <- sum(1/lambdaDelDF[-length(lambdaDelDF)])
+  sigma_alphaDel <- sum(1/(lambdaDelDF[-length(lambdaDelDF)])^2)
+  logkappaDel <- -log(lambdaDelDF[length(lambdaDelDF)]) - 0.5 * log(2 * pi * sigma_alphaDel) - (endTime - initTime - mu_alphaDel)^2 / (2 * sigma_alphaDel)
+
+  return(logkappaCrea + logkappaDel)
+}
+
+
+
 
 #' log-likelihood computation: Multi-Core
 #'
@@ -35,35 +129,73 @@ logLikelihood = function(listExpandedDF, beta){
 #' @return vector of loglikelihoods
 #' @export
 #'
-logLikelihoodMC = function(indexCore,permut,beta,splitIndicesPerCore,actDfnodes=actDfnodes,net0=net0,formula=formula){
+logLikelihoodMC <- function(indexCore, permut, beta, splitIndicesPerCore, actDfnodes = actDfnodes, net0 = net0, formula = formula) {
+  indicesCore <- splitIndicesPerCore[[indexCore]]
+  resLikelihood <- vector("list", length(indicesCore))
 
-  indicesCore = splitIndicesPerCore[[indexCore]]
-  resLikelihood = vector("list",length(indicesCore))
-
-  for(i in seq_along(indicesCore)){
-    seq = permut[[indicesCore[[i]]]]
+  for (i in seq_along(indicesCore)) {
+    seq <- permut[[indicesCore[[i]]]]
     envirPrepro <- new.env()
-    seq$time <- seq(1,nrow(seq))
+    seq$time <- seq(1, nrow(seq))
     envirPrepro$seqTime <- seq
     envirPrepro$actDfnodes <- actDfnodes
     envirPrepro$net0 <- net0
 
     local(
       {
-        netEvents = defineNetwork(nodes = actDfnodes,matrix=net0) |>
+        netEvents <- defineNetwork(nodes = actDfnodes, matrix = net0) |>
           linkEvents(changeEvents = seqTime, nodes = actDfnodes)
 
-        depEvents = defineDependentEvents(
-          seqTime, nodes = actDfnodes, defaultNetwork = netEvents
+        depEvents <- defineDependentEvents(
+          seqTime,
+          nodes = actDfnodes, defaultNetwork = netEvents
         )
       },
       envirPrepro
     )
-    listExpandedDF = GatherPreprocessingDF(formula, envir = envirPrepro)
+    listExpandedDF <- GatherPreprocessingDF(formula, envir = envirPrepro)$listExpandedDF
 
-    resLikelihood[[i]] = logLikelihood(listExpandedDF,beta)
+    resLikelihood[[i]] <- logLikelihood(listExpandedDF, beta)
   }
   return(unlist(resLikelihood))
 }
 
+#' log-likelihood computation: Multi-Core with time
+#'
+#' @description given parameters, sequences, formula, initial network and multi-core elements, computes log-likelihood of all the sequences.
+#'
+#' @return vector of loglikelihoods
+#' @export
+#'
+logLikelihoodTimeMC <- function(indexCore, permut, beta, theta, initTime, endTime, splitIndicesPerCore, actDfnodes = actDfnodes, net0 = net0, formulaChoice = formulaChoice, formulaRate = formulaRate) {
+  indicesCore <- splitIndicesPerCore[[indexCore]]
+  resLikelihood <- vector("list", length(indicesCore))
 
+  for (i in seq_along(indicesCore)) {
+    seq <- permut[[indicesCore[[i]]]]
+    envirPrepro <- new.env()
+    seq$time <- seq(1, nrow(seq))
+    envirPrepro$seqTime <- seq
+    envirPrepro$actDfnodes <- actDfnodes
+    envirPrepro$net0 <- net0
+
+    local(
+      {
+        netEvents <- defineNetwork(nodes = actDfnodes, matrix = net0) |>
+          linkEvents(changeEvents = seqTime, nodes = actDfnodes)
+
+        depEvents <- defineDependentEvents(
+          seqTime,
+          nodes = actDfnodes, defaultNetwork = netEvents
+        )
+      },
+      envirPrepro
+    )
+    listExpandedDFChoice <- GatherPreprocessingDF(formulaChoice, envir = envirPrepro)$listExpandedDF
+
+    listExpandedDFRate <- GatherPreprocessingDF(formulaRate, envir = envirPrepro)$expandedDF
+
+    resLikelihood[[i]] <- logLikelihood(listExpandedDFChoice, listExpandedDFRate, beta, theta, initTime, endTime)
+  }
+  return(unlist(resLikelihood))
+}

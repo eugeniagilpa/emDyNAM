@@ -9,40 +9,40 @@
 #' @return list with matrix \eqn{K_{el}}, \eqn{K_{e,l>1}}, \eqn{m_e} and auxiliary data frame
 #' @export
 #'
-#' @examples seq = data.frame("sender" = c(1,2,3), "receiver" = c(3,2,1), "replace" = c(0,1,1))
-#' getKelMeMatrix(seq,actDfnodes = c(1,2,3))
-getKelMeMatrix = function(seq,actDfnodes){
-  seq = cbind(seq,"row" = as.integer(rownames(seq)))
+#' @examples seq <- data.frame("sender" = c(1, 2, 3), "receiver" = c(3, 2, 1), "replace" = c(0, 1, 1))
+#' getKelMeMatrix(seq, actDfnodes = c(1, 2, 3))
+getKelMeMatrix <- function(seq, actDfnodes) {
+  seq <- cbind(seq, "row" = as.integer(rownames(seq)))
 
 
-  auxDf = lapply(actDfnodes,function(x) lapply(actDfnodes, function(i) subset(seq,subset=(sender== x & receiver==i))))
+  auxDf <- lapply(actDfnodes, function(x) lapply(actDfnodes, function(i) subset(seq, subset = (sender == x & receiver == i))))
 
-  for(i in 1:length(actDfnodes)){
-    for(j in 1:length(actDfnodes)){
-      if(nrow(auxDf[[i]][[j]])>0){
-        auxDf[[i]][[j]]$row = as.integer(auxDf[[i]][[j]]$row)
-        auxDf[[i]][[j]]$rowDiff =c(0,diff(auxDf[[i]][[j]]$row))
+  for (i in 1:length(actDfnodes)) {
+    for (j in 1:length(actDfnodes)) {
+      if (nrow(auxDf[[i]][[j]]) > 0) {
+        auxDf[[i]][[j]]$row <- as.integer(auxDf[[i]][[j]]$row)
+        auxDf[[i]][[j]]$rowDiff <- c(0, diff(auxDf[[i]][[j]]$row))
       }
     }
   }
 
 
-  Kel_g1 = matrix(0,nrow=length(actDfnodes),ncol=length(actDfnodes)) # Notation from Johan´s paper, sum for l greater than 1
-  Kel_ge1 = matrix(0,nrow=length(actDfnodes),ncol=length(actDfnodes)) # Notation from Johan´s paper, sum for l greater or equal than 1
+  Kel_g1 <- matrix(0, nrow = length(actDfnodes), ncol = length(actDfnodes)) # Notation from Johan´s paper, sum for l greater than 1
+  Kel_ge1 <- matrix(0, nrow = length(actDfnodes), ncol = length(actDfnodes)) # Notation from Johan´s paper, sum for l greater or equal than 1
 
-  for(i in 1:nrow(Kel_g1)){
-    for(j in 1:ncol(Kel_g1)){
-      if(nrow(auxDf[[i]][[j]])>0){
-        Kel_ge1[i,j] = nrow(auxDf[[i]][[j]][auxDf[[i]][[j]]$rowDiff!=1,])
-        v_rowDiff = auxDf[[i]][[j]]$rowDiff
+  for (i in 1:nrow(Kel_g1)) {
+    for (j in 1:ncol(Kel_g1)) {
+      if (nrow(auxDf[[i]][[j]]) > 0) {
+        Kel_ge1[i, j] <- nrow(auxDf[[i]][[j]][auxDf[[i]][[j]]$rowDiff != 1, ])
+        v_rowDiff <- auxDf[[i]][[j]]$rowDiff
         not_1 <- which(v_rowDiff != 1)
         shifted_vector <- c(v_rowDiff[-1], 0)
-        Kel_g1[i,j] = sum(v_rowDiff[-length(v_rowDiff)] != 1 & shifted_vector[-1] == 1)
+        Kel_g1[i, j] <- sum(v_rowDiff[-length(v_rowDiff)] != 1 & shifted_vector[-1] == 1)
       }
     }
   }
 
-  me = t(sapply(auxDf,function(x) sapply(x,nrow)))
+  me <- t(sapply(auxDf, function(x) sapply(x, nrow)))
 
   return(list(Kel_g1 = Kel_g1, Kel_ge1 = Kel_ge1, me = me, auxDf = auxDf))
 }
@@ -93,83 +93,95 @@ getAuxDfE <- function(auxDf, sender, receiver) {
 #'
 #' @export
 #'
-stepAugment = function(seq,tieNames,gammaEplus,gammaPlus,m,me,net0){
+stepAugment <- function(seq, tieNames, gammaEplus, gammaPlus, m, me, net0) {
   # Choose element to be inserted:
-  e = sample(tieNames,size=1, prob=as.vector(t(gammaEplus/gammaPlus)))
+  e <- sample(tieNames, size = 1, prob = as.vector(t(gammaEplus / gammaPlus)))
 
   # Choose to augment in the same e-run or different ones
-  sender = as.integer(strsplit(e,"V")[[1]][2])
-  receiver = as.integer(strsplit(e,"V")[[1]][3])
+  sender <- as.integer(strsplit(e, "V")[[1]][2])
+  receiver <- as.integer(strsplit(e, "V")[[1]][3])
 
-  p = (m-me[sender,receiver]+1)/gammaEplus[sender,receiver]
-  typeA = sample(c("same","diff"),size=1,prob=c(p,1-p))
-  indexSR = which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep=""))
+  p <- (m - me[sender, receiver] + 1) / gammaEplus[sender, receiver]
+  typeA <- sample(c("same", "diff"), size = 1, prob = c(p, 1 - p))
+  indexSR <- which(seq$sender == paste("V", sender, sep = "") & seq$receiver == paste("V", receiver, sep = ""))
 
 
 
-  if(typeA == "same"){
-    if(length(indexSR)<1){
-      place = sample(m+1, size=1)
-    }else{
-      place = sample(seq(m+1)[-indexSR],size=1)
+  if (typeA == "same") {
+    if (length(indexSR) < 1) {
+      place <- sample(m + 1, size = 1)
+    } else {
+      place <- sample(seq(m + 1)[-indexSR], size = 1)
     }
 
 
-    if(place==1){
-      newseq = rbind(c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place),
-                     c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place+1),
-                     seq)
-    }else{
-      newseq = rbind(seq[1:(place-1),],
-                     c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place),
-                     c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place+1),
-                     seq[(place):m,])
+    if (place == 1) {
+      newseq <- rbind(
+        c(paste("V", sender, sep = ""), paste("V", receiver, sep = ""), 4, place),
+        c(paste("V", sender, sep = ""), paste("V", receiver, sep = ""), 4, place + 1),
+        seq
+      )
+    } else {
+      newseq <- rbind(
+        seq[1:(place - 1), ],
+        c(paste("V", sender, sep = ""), paste("V", receiver, sep = ""), 4, place),
+        c(paste("V", sender, sep = ""), paste("V", receiver, sep = ""), 4, place + 1),
+        seq[(place):m, ]
+      )
     }
 
-    nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
-    initAction = as.integer(seq[which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep="")),"replace"][1])
-    if(is.na(initAction)) {initAction=net0[sender,receiver]}
-    newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
-    newseq$row = seq(1,nrow(newseq))
+    nEdges <- which(newseq$sender == paste("V", sender, sep = "") & newseq$receiver == paste("V", receiver, sep = ""))
+    initAction <- as.integer(seq[which(seq$sender == paste("V", sender, sep = "") & seq$receiver == paste("V", receiver, sep = "")), "replace"][1])
+    if (is.na(initAction)) {
+      initAction <- net0[sender, receiver]
+    }
+    newseq[nEdges, "replace"] <- seq(initAction, (initAction + length(nEdges) - 1)) %% 2
+    newseq$row <- seq(1, nrow(newseq))
 
-    pDoStep = (gammaEplus[sender,receiver]/gammaPlus) * p * (1/m) # change
-
-  }else if(typeA == "diff"){
+    pDoStep <- (gammaEplus[sender, receiver] / gammaPlus) * p * (1 / m) # change
+  } else if (typeA == "diff") {
     # Choose thow places separated at least from one tie different than e
-    if(length(indexSR)<1){
-      place = sample(m+1, size=2)
-    }else{
-      place = sample(seq(m+1)[-indexSR],size=2)
+    if (length(indexSR) < 1) {
+      place <- sample(m + 1, size = 2)
+    } else {
+      place <- sample(seq(m + 1)[-indexSR], size = 2)
     }
 
-    place = sort(place)
+    place <- sort(place)
 
 
 
-    if(place[1]==1){
-      newseq = rbind(c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place[1]+1),
-                     seq[(place[1]):(place[2]-1),],
-                     c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place[2]+2),
-                     seq[(place[2]):m,])
-    }else{
-      newseq = rbind(seq[1:(place[1]-1),],
-                     c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place[1]+1),
-                     seq[(place[1]):(place[2]-1),],
-                     c(paste("V",sender,sep=""),paste("V",receiver,sep=""),4,place[2]+2),
-                     seq[(place[2]):m,])
+    if (place[1] == 1) {
+      newseq <- rbind(
+        c(paste("V", sender, sep = ""), paste("V", receiver, sep = ""), 4, place[1] + 1),
+        seq[(place[1]):(place[2] - 1), ],
+        c(paste("V", sender, sep = ""), paste("V", receiver, sep = ""), 4, place[2] + 2),
+        seq[(place[2]):m, ]
+      )
+    } else {
+      newseq <- rbind(
+        seq[1:(place[1] - 1), ],
+        c(paste("V", sender, sep = ""), paste("V", receiver, sep = ""), 4, place[1] + 1),
+        seq[(place[1]):(place[2] - 1), ],
+        c(paste("V", sender, sep = ""), paste("V", receiver, sep = ""), 4, place[2] + 2),
+        seq[(place[2]):m, ]
+      )
     }
-    nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
-    initAction = as.integer(seq[which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep="")),"replace"][1])
-    if(is.na(initAction)) {initAction=net0[sender,receiver]}
-    newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
-    newseq$row = seq(1,nrow(newseq))
+    nEdges <- which(newseq$sender == paste("V", sender, sep = "") & newseq$receiver == paste("V", receiver, sep = ""))
+    initAction <- as.integer(seq[which(seq$sender == paste("V", sender, sep = "") & seq$receiver == paste("V", receiver, sep = "")), "replace"][1])
+    if (is.na(initAction)) {
+      initAction <- net0[sender, receiver]
+    }
+    newseq[nEdges, "replace"] <- seq(initAction, (initAction + length(nEdges) - 1)) %% 2
+    newseq$row <- seq(1, nrow(newseq))
 
-    pDoStep = (gammaEplus[sender,receiver]/gammaPlus) * (1-p) * (1/m)*(1/(m-3)) # to be done
-
+    pDoStep <- (gammaEplus[sender, receiver] / gammaPlus) * (1 - p) * (1 / m) * (1 / (m - 3)) # to be done
   }
 
-  return(list(newseq=newseq,sender=paste("V",sender,sep=""),receiver=paste("V",receiver,sep=""),place = place,typeA=typeA,
-              pDoStep = pDoStep))
+  return(list(
+    newseq = newseq, sender = paste("V", sender, sep = ""), receiver = paste("V", receiver, sep = ""), place = place, typeA = typeA,
+    pDoStep = pDoStep
+  ))
 }
 
 
@@ -193,51 +205,52 @@ stepAugment = function(seq,tieNames,gammaEplus,gammaPlus,m,me,net0){
 #'
 #' @export
 #'
-stepShort = function(seq,tieNames,gammaEminus,gammaMinus,m,me,auxDf,net0){
+stepShort <- function(seq, tieNames, gammaEminus, gammaMinus, m, me, auxDf, net0) {
   # Choose element to be deleted:
-  e = sample(tieNames,size=1, prob=as.vector(t(gammaEminus/gammaMinus)))
+  e <- sample(tieNames, size = 1, prob = as.vector(t(gammaEminus / gammaMinus)))
 
   # Choose to remove from the same e-run or from two distinct e-runs
-  sender = as.integer(strsplit(e,"V")[[1]][2])
-  receiver = as.integer(strsplit(e,"V")[[1]][3])
-  p = Kel_g1[sender,receiver]/gammaEminus[sender,receiver]
-  typeS = sample(c("same","diff"),size=1,prob=c(p,1-p))
+  sender <- as.integer(strsplit(e, "V")[[1]][2])
+  receiver <- as.integer(strsplit(e, "V")[[1]][3])
+  p <- Kel_g1[sender, receiver] / gammaEminus[sender, receiver]
+  typeS <- sample(c("same", "diff"), size = 1, prob = c(p, 1 - p))
 
   # Get auxiliar variables with indexes for the runs
-  auxDfE = getAuxDfE(auxDf, sender,receiver)
+  auxDfE <- getAuxDfE(auxDf, sender, receiver)
 
 
-  if(typeS=="same"){
+  if (typeS == "same") {
     # Choose the e-runs of more than 1 element, select one and delete the first 2 elements.
-    sampleRun = sample(which(table(auxDfE$run)>1),size=1)
-    indexSampleRun = auxDfE$row[auxDfE$run==sampleRun][1:2]
+    sampleRun <- sample(which(table(auxDfE$run) > 1), size = 1)
+    indexSampleRun <- auxDfE$row[auxDfE$run == sampleRun][1:2]
 
-    newseq = seq[-(indexSampleRun),]
-    newseq$row = 1:nrow(newseq)
+    newseq <- seq[-(indexSampleRun), ]
+    newseq$row <- 1:nrow(newseq)
 
-    place = list(sampleRun=sampleRun, indexSampleRun= indexSampleRun)
+    place <- list(sampleRun = sampleRun, indexSampleRun = indexSampleRun)
 
-    pDoStep = (gammaEminus[sender,receiver]/gammaMinus) * p * (1/length(unique(auxDfE$run)))
-
-  }else if(typeS=="diff"){
+    pDoStep <- (gammaEminus[sender, receiver] / gammaMinus) * p * (1 / length(unique(auxDfE$run)))
+  } else if (typeS == "diff") {
     # Choose two different e-runs, and delete the first element of each one of them
-    sampleRun = sample(unique(auxDfE$run),size=2,replace=FALSE)
-    indexSampleRun = c(auxDfE$row[auxDfE$run==sampleRun[1]][1],auxDfE$row[auxDfE$run==sampleRun[2]][1])
+    sampleRun <- sample(unique(auxDfE$run), size = 2, replace = FALSE)
+    indexSampleRun <- c(auxDfE$row[auxDfE$run == sampleRun[1]][1], auxDfE$row[auxDfE$run == sampleRun[2]][1])
 
-    newseq = seq[-(indexSampleRun),]
-    newseq$row = 1:nrow(newseq)
+    newseq <- seq[-(indexSampleRun), ]
+    newseq$row <- 1:nrow(newseq)
 
     # now we have to fix the replaceOG
-    nEdges = which(newseq$sender==paste("V",sender,sep="") & newseq$receiver==paste("V",receiver,sep=""))
-    initAction = as.integer(seq[which(seq$sender==paste("V",sender,sep="") & seq$receiver==paste("V",receiver,sep="")),"replace"][1])
-    newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
+    nEdges <- which(newseq$sender == paste("V", sender, sep = "") & newseq$receiver == paste("V", receiver, sep = ""))
+    initAction <- as.integer(seq[which(seq$sender == paste("V", sender, sep = "") & seq$receiver == paste("V", receiver, sep = "")), "replace"][1])
+    newseq[nEdges, "replace"] <- seq(initAction, (initAction + length(nEdges) - 1)) %% 2
 
-    place = list(sampleRun=sampleRun, indexSampleRun= indexSampleRun)
-    pDoStep = (gammaEminus[sender,receiver]/gammaMinus) * (1-p) * (1/length(unique(auxDfE$run)))*(1/(length(unique(auxDfE$run))-1))
+    place <- list(sampleRun = sampleRun, indexSampleRun = indexSampleRun)
+    pDoStep <- (gammaEminus[sender, receiver] / gammaMinus) * (1 - p) * (1 / length(unique(auxDfE$run))) * (1 / (length(unique(auxDfE$run)) - 1))
   }
 
-  return(list(newseq=newseq,sender=paste("V",sender,sep=""),receiver=paste("V",receiver,sep=""),place = place,typeS=typeS,
-              pDoStep = pDoStep, auxDfE = auxDfE))
+  return(list(
+    newseq = newseq, sender = paste("V", sender, sep = ""), receiver = paste("V", receiver, sep = ""), place = place, typeS = typeS,
+    pDoStep = pDoStep, auxDfE = auxDfE
+  ))
 }
 
 
@@ -257,42 +270,44 @@ stepShort = function(seq,tieNames,gammaEminus,gammaMinus,m,me,auxDf,net0){
 #'
 #' @export
 #'
-stepPerm = function(seq,tieNames,m,me){
+stepPerm <- function(seq, tieNames, m, me) {
   # Choose elements to be permuted:
-  probVec = as.vector(t(me/m))
-  probVec2 = as.vector(t(me/(m-me)))
-  names(probVec) = tieNames
-  names(probVec2) = tieNames
-  e1 = sample(tieNames,size=1, prob=probVec)
-  e2 = sample(tieNames[tieNames!=e1],size=1, prob=probVec2[names(probVec)!=e1])
+  probVec <- as.vector(t(me / m))
+  probVec2 <- as.vector(t(me / (m - me)))
+  names(probVec) <- tieNames
+  names(probVec2) <- tieNames
+  e1 <- sample(tieNames, size = 1, prob = probVec)
+  e2 <- sample(tieNames[tieNames != e1], size = 1, prob = probVec2[names(probVec) != e1])
 
   # After getting the edge identifier, select at random e1 and e2 from all the runs
-  sender1 = paste("V",strsplit(e1,"V")[[1]][2],sep="")
-  receiver1 = paste("V",strsplit(e1,"V")[[1]][3],sep="")
-  place1 = as.integer(sample(seq[seq$sender==sender1 & seq$receiver==receiver1,]$row,size=1))
-  sender2 = paste("V",strsplit(e2,"V")[[1]][2],sep="")
-  receiver2 = paste("V",strsplit(e2,"V")[[1]][3],sep="")
-  place2 = as.integer(sample(seq[seq$sender==sender2 & seq$receiver==receiver2,]$row,size=1))
-  auxRow = seq[place1,]
-  newseq = seq
-  newseq[place1,] = newseq[place2,]
-  newseq[place2,] = auxRow
+  sender1 <- paste("V", strsplit(e1, "V")[[1]][2], sep = "")
+  receiver1 <- paste("V", strsplit(e1, "V")[[1]][3], sep = "")
+  place1 <- as.integer(sample(seq[seq$sender == sender1 & seq$receiver == receiver1, ]$row, size = 1))
+  sender2 <- paste("V", strsplit(e2, "V")[[1]][2], sep = "")
+  receiver2 <- paste("V", strsplit(e2, "V")[[1]][3], sep = "")
+  place2 <- as.integer(sample(seq[seq$sender == sender2 & seq$receiver == receiver2, ]$row, size = 1))
+  auxRow <- seq[place1, ]
+  newseq <- seq
+  newseq[place1, ] <- newseq[place2, ]
+  newseq[place2, ] <- auxRow
   rm(auxRow)
 
 
-  nEdges = which(newseq$sender==sender1 & newseq$receiver==receiver1)
-  initAction = as.integer(seq[which(seq$sender==sender1 & seq$receiver==receiver1),"replace"][1])
-  newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
-  nEdges = which(newseq$sender==sender2 & newseq$receiver==receiver2)
-  initAction = as.integer(seq[which(seq$sender==sender2 & seq$receiver==receiver2),"replace"][1])
-  newseq[nEdges,"replace"] = seq(initAction,(initAction+length(nEdges)-1)) %% 2
+  nEdges <- which(newseq$sender == sender1 & newseq$receiver == receiver1)
+  initAction <- as.integer(seq[which(seq$sender == sender1 & seq$receiver == receiver1), "replace"][1])
+  newseq[nEdges, "replace"] <- seq(initAction, (initAction + length(nEdges) - 1)) %% 2
+  nEdges <- which(newseq$sender == sender2 & newseq$receiver == receiver2)
+  initAction <- as.integer(seq[which(seq$sender == sender2 & seq$receiver == receiver2), "replace"][1])
+  newseq[nEdges, "replace"] <- seq(initAction, (initAction + length(nEdges) - 1)) %% 2
 
-  newseq$row = 1:nrow(newseq)
+  newseq$row <- 1:nrow(newseq)
 
-  pDoStep = probVec[e1] * probVec2[e2] * (1/nrow(seq[seq$sender==sender1 & seq$receiver==receiver1,])) * (1/nrow(seq[seq$sender==sender2 & seq$receiver==receiver2,]))
+  pDoStep <- probVec[e1] * probVec2[e2] * (1 / nrow(seq[seq$sender == sender1 & seq$receiver == receiver1, ])) * (1 / nrow(seq[seq$sender == sender2 & seq$receiver == receiver2, ]))
 
-  return(list(newseq=newseq,sender=c(sender1,sender2),receiver=c(receiver1,receiver2),place = c(place1,place2),
-              pDoStep = pDoStep))
+  return(list(
+    newseq = newseq, sender = c(sender1, sender2), receiver = c(receiver1, receiver2), place = c(place1, place2),
+    pDoStep = pDoStep
+  ))
 }
 
 
@@ -323,111 +338,107 @@ stepPerm = function(seq,tieNames,m,me){
 #'
 #' @export
 #'
-stepMCMC = function(seq,type,actDfnodesLab,tieNames,formula,net0,beta){
+stepMCMC <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta) {
+  getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
+  Kel_g1 <- getKelMeMatrix$Kel_g1
+  Kel_ge1 <- getKelMeMatrix$Kel_ge1
+  gammaEminus <- choose(Kel_ge1, 2) + Kel_g1
+  gammaMinus <- sum(gammaEminus)
+  me <- getKelMeMatrix$me
+  gammaEplus <- choose(nrow(seq) - me + 2, 2)
+  gammaPlus <- sum(gammaEplus)
+  m <- nrow(seq)
+  auxDf <- getKelMeMatrix$auxDf
 
-  getKelMeMatrix = getKelMeMatrix(seq,actDfnodesLab)
-  Kel_g1 = getKelMeMatrix$Kel_g1
-  Kel_ge1 = getKelMeMatrix$Kel_ge1
-  gammaEminus = choose(Kel_ge1,2) + Kel_g1
-  gammaMinus = sum(gammaEminus)
-  me = getKelMeMatrix$me
-  gammaEplus = choose(nrow(seq)-me+2,2)
-  gammaPlus = sum(gammaEplus)
-  m = nrow(seq)
-  auxDf = getKelMeMatrix$auxDf
+  if (type == 1) { # Augmentation
+    step <- stepAugment(seq, tieNames, gammaEplus, gammaPlus, m, me)
 
-  if(type == 1){ # Augmentation
-    step = stepAugment(seq,tieNames,gammaEplus,gammaPlus,m,me)
+    getNewKelMeMatrix <- getKelMeMatrix(step$newseq, actDfnodesLab)
+    newAuxDfE <- getAuxDfE(getNewKelMeMatrix$auxDf, sender, receiver)
+    auxDfE <- getAuxDfE(auxDf, sender, receiver)
 
-    getNewKelMeMatrix = getKelMeMatrix(step$newseq,actDfnodesLab)
-    newAuxDfE = getAuxDfE(getNewKelMeMatrix$auxDf, sender,receiver)
-    auxDfE = getAuxDfE(auxDf,sender,receiver)
+    newKel_g1 <- getNewKelMeMatrix$Kel_g1
+    newKel_ge1 <- getNewKelMeMatrix$Kel_ge1
+    newGammaEminus <- choose(newKel_ge1, 2) + newKel_g1
+    newGammaMinus <- sum(newGammaEminus)
+    newMe <- getNewKelMeMatrix$me
+    newGammaEplus <- choose(nrow(newseq) - newMe + 2, 2)
+    newGammaPlus <- sum(newGammaEplus)
+    newM <- nrow(newseq)
 
-    newKel_g1 = getNewKelMeMatrix$Kel_g1
-    newKel_ge1 = getNewKelMeMatrix$Kel_ge1
-    newGammaEminus = choose(newKel_ge1,2) + newKel_g1
-    newGammaMinus = sum(newGammaEminus)
-    newMe = getNewKelMeMatrix$me
-    newGammaEplus = choose(nrow(newseq)-newMe+2,2)
-    newGammaPlus = sum(newGammaEplus)
-    newM = nrow(newseq)
-
-    newp= newKel_g1[sender,receiver]/newGammaEminus[sender,receiver]
-    if((length(unique(auxDfE$run)) == length(unique(newAuxDfE$run))) | step$typeA=="same"){
-      pUndoStep = (newGammaEminus[sender,receiver]/newGammaMinus) * newp * (1/length(unique(newAuxDfE$run)))
-    }else{
-      pUndoStep = (newGammaEminus[sender,receiver]/newGammaMinus) * (1-newp) * (1/length(unique(newauxDfE$run)))*(1/(length(unique(newAuxDfE$run))-1))
+    newp <- newKel_g1[sender, receiver] / newGammaEminus[sender, receiver]
+    if ((length(unique(auxDfE$run)) == length(unique(newAuxDfE$run))) | step$typeA == "same") {
+      pUndoStep <- (newGammaEminus[sender, receiver] / newGammaMinus) * newp * (1 / length(unique(newAuxDfE$run)))
+    } else {
+      pUndoStep <- (newGammaEminus[sender, receiver] / newGammaMinus) * (1 - newp) * (1 / length(unique(newauxDfE$run))) * (1 / (length(unique(newAuxDfE$run)) - 1))
     }
 
-    loglikSeq = logLikelihoodMC(1,seq,beta,list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
-    newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
+    loglikSeq <- logLikelihoodMC(1, seq, beta, list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+    newloglikSeq <- logLikelihoodMC(indexCore = 1, newseq, beta, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+  } else if (type == 2) { # Shortening
+    step <- stepShort(seq, tieNames, gammaEminus, gammaMinus, m, me, auxDf)
+    getNewKelMeMatrix <- getKelMeMatrix(step$newseq, actDfnodesLab)
+    newAuxDfE <- getAuxDfE(getNewKelMeMatrix$auxDf, sender, receiver)
+    auxDfE <- getAuxDfE(auxDf, sender, receiver)
+
+    newKel_g1 <- getNewKelMeMatrix$Kel_g1
+    newKel_ge1 <- getNewKelMeMatrix$Kel_ge1
+    newGammaEminus <- choose(newKel_ge1, 2) + newKel_g1
+    newGammaMinus <- sum(newGammaEminus)
+    newMe <- getNewKelMeMatrix$me
+    newGammaEplus <- choose(nrow(newseq) - newMe + 2, 2)
+    newGammaPlus <- sum(newGammaEplus)
+    newM <- nrow(newseq)
+    senderNumber <- as.integer(strsplit(step$sender, "V")[[1]][2])
+    receiverNumber <- as.integer(strsplit(step$receiver, "V")[[1]][2])
+
+    newp <- (newM - newMe[senderNumber, receiverNumber] + 1) / newGammaEplus[senderNumber, receiverNumber]
 
 
-  }else if(type == 2){ # Shortening
-    step = stepShort(seq,tieNames,gammaEminus,gammaMinus,m,me,auxDf)
-    getNewKelMeMatrix = getKelMeMatrix(step$newseq,actDfnodesLab)
-    newAuxDfE = getAuxDfE(getNewKelMeMatrix$auxDf, sender,receiver)
-    auxDfE = getAuxDfE(auxDf,sender,receiver)
-
-    newKel_g1 = getNewKelMeMatrix$Kel_g1
-    newKel_ge1 = getNewKelMeMatrix$Kel_ge1
-    newGammaEminus = choose(newKel_ge1,2) + newKel_g1
-    newGammaMinus = sum(newGammaEminus)
-    newMe = getNewKelMeMatrix$me
-    newGammaEplus = choose(nrow(newseq)-newMe+2,2)
-    newGammaPlus = sum(newGammaEplus)
-    newM = nrow(newseq)
-    senderNumber = as.integer(strsplit(step$sender,"V")[[1]][2])
-    receiverNumber = as.integer(strsplit(step$receiver,"V")[[1]][2])
-
-    newp = (newM-newMe[senderNumber,receiverNumber]+1)/newGammaEplus[senderNumber,receiverNumber]
-
-
-    if(step$typeS == "same"){
-      pUndoStep = (newGammaEplus[senderNumber,receiverNubmer]/newGammaPlus) * newp * (1/(newM-newMe[senderNumber,receiverNumber]+1))
-
-    }else if(step$typeS == "diff"){
-      pUndoStep = (newGammaEplus[senderNumber,receiverNumber]/newGammaPlus) * (1-newp) * (1/(newM-newMe[senderNumber,receiverNumber]+1))*(1/(newM-newMe[senderNumber,receiverNumber]))
+    if (step$typeS == "same") {
+      pUndoStep <- (newGammaEplus[senderNumber, receiverNubmer] / newGammaPlus) * newp * (1 / (newM - newMe[senderNumber, receiverNumber] + 1))
+    } else if (step$typeS == "diff") {
+      pUndoStep <- (newGammaEplus[senderNumber, receiverNumber] / newGammaPlus) * (1 - newp) * (1 / (newM - newMe[senderNumber, receiverNumber] + 1)) * (1 / (newM - newMe[senderNumber, receiverNumber]))
     }
 
-    loglikSeq = logLikelihoodMC(1,seq,beta,list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
-    newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
+    loglikSeq <- logLikelihoodMC(1, seq, beta, list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+    newloglikSeq <- logLikelihoodMC(indexCore = 1, newseq, beta, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+  } else if (type == 3) { # Permutation
+    step <- stepPerm(seq, tieNames, m, me)
+    getNewKelMeMatrix <- getKelMeMatrix(step$newseq, actDfnodesLab)
+    newAuxDfE <- getAuxDfE(getNewKelMeMatrix$auxDf, sender, receiver)
+    auxDfE <- getAuxDfE(auxDf, sender, receiver)
 
+    newKel_g1 <- getNewKelMeMatrix$Kel_g1
+    newKel_ge1 <- getNewKelMeMatrix$Kel_ge1
+    newGammaEminus <- choose(newKel_ge1, 2) + newKel_g1
+    newGammaMinus <- sum(newGammaEminus)
+    newMe <- getNewKelMeMatrix$me
+    newGammaEplus <- choose(nrow(newseq) - newMe + 2, 2)
+    newGammaPlus <- sum(newGammaEplus)
+    newM <- nrow(newseq)
 
-  }else if(type == 3){ # Permutation
-    step = stepPerm(seq,tieNames,m,me)
-    getNewKelMeMatrix = getKelMeMatrix(step$newseq,actDfnodesLab)
-    newAuxDfE = getAuxDfE(getNewKelMeMatrix$auxDf, sender,receiver)
-    auxDfE = getAuxDfE(auxDf,sender,receiver)
+    sender1 <- as.integer(strsplit(step$sender[1], "V")[[1]][2])
+    sender2 <- as.integer(strsplit(step$sender[2], "V")[[1]][2])
+    receiver1 <- as.integer(strsplit(step$receiver[1], "V")[[1]][2])
+    receiver2 <- as.integer(strsplit(step$receiver[2], "V")[[1]][2])
 
-    newKel_g1 = getNewKelMeMatrix$Kel_g1
-    newKel_ge1 = getNewKelMeMatrix$Kel_ge1
-    newGammaEminus = choose(newKel_ge1,2) + newKel_g1
-    newGammaMinus = sum(newGammaEminus)
-    newMe = getNewKelMeMatrix$me
-    newGammaEplus = choose(nrow(newseq)-newMe+2,2)
-    newGammaPlus = sum(newGammaEplus)
-    newM = nrow(newseq)
+    probVec <- newMe[sender2, receiver2] / newM
+    probVec2 <- newMe[sender1, receiver1] / (newM - newMe[sender2, receiver2])
+    probVec3 <- newMe[sender1, receiver1] / newM
+    probVec4 <- newMe[sender2, receiver2] / (newM - newMe[sender1, receiver1])
 
-    sender1=as.integer(strsplit(step$sender[1],"V")[[1]][2])
-    sender2=as.integer(strsplit(step$sender[2],"V")[[1]][2])
-    receiver1=as.integer(strsplit(step$receiver[1],"V")[[1]][2])
-    receiver2=as.integer(strsplit(step$receiver[2],"V")[[1]][2])
-
-    probVec = newMe[sender2,receiver2]/newM
-    probVec2 = newMe[sender1,receiver1]/(newM-newMe[sender2,receiver2])
-    probVec3 = newMe[sender1,receiver1]/newM
-    probVec4 = newMe[sender2,receiver2]/(newM-newMe[sender1,receiver1])
-
-    pUndoStep = (probVec * probVec2 + robVec3 * probVec4 )*
-      (1/nrow(newseq[newseq$sender==paste("V",sender1,sep="") & newseq$receiver==paste("V",receiver1,sep=""),])) *
-      (1/nrow(newseq[newseq$sender==paste("V",sender2,sep="") & newseq$receiver==paste("V",receiver2,sep=""),]))
-    loglikSeq = logLikelihoodMC(1,seq,beta,list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
-    newloglikSeq = logLikelihoodMC(indexCore=1,newseq,beta,splitIndicesPerCore=list(1),actDfnodes=actDfnodes,net0=net0,formula=formula)
+    pUndoStep <- (probVec * probVec2 + robVec3 * probVec4) *
+      (1 / nrow(newseq[newseq$sender == paste("V", sender1, sep = "") & newseq$receiver == paste("V", receiver1, sep = ""), ])) *
+      (1 / nrow(newseq[newseq$sender == paste("V", sender2, sep = "") & newseq$receiver == paste("V", receiver2, sep = ""), ]))
+    loglikSeq <- logLikelihoodMC(1, seq, beta, list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+    newloglikSeq <- logLikelihoodMC(indexCore = 1, newseq, beta, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
   }
 
-  return(list("newseq"=newseq,"loglikSeq"=loglikSeq,"newloglikSeq"=newloglikSeq,
-              "step"=step,"pUndoStep"=pUndoStep))
+  return(list(
+    "newseq" = newseq, "loglikSeq" = loglikSeq, "newloglikSeq" = newloglikSeq,
+    "step" = step, "pUndoStep" = pUndoStep
+  ))
 }
 
 
@@ -454,44 +465,49 @@ stepMCMC = function(seq,type,actDfnodesLab,tieNames,formula,net0,beta){
 #'
 #' @export
 #'
-MCMC = function(nmax,seq,H,actDfnodes,formula,net0,beta,burnIn = TRUE,maxIter=10000,seqIter = 50,pShort=0.35,pAug = 0.35,pPerm = 0.3){
+MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta, burnIn = TRUE, maxIter = 10000, seqIter = 50, pShort = 0.35, pAug = 0.35, pPerm = 0.3) {
   # Compute initial quatities:
   # Type 1: augmentation, type 2: shortening, type 3: permutation
 
-  if(nmax>(maxIter-500)/seqIter) {maxIter=(nmax+501)*50}
+  if (nmax > (maxIter - 500) / seqIter) {
+    maxIter <- (nmax + 501) * 50
+  }
 
-  actDfnodesLab=actDfnodes$label
+  actDfnodesLab <- actDfnodes$label
 
-  tieNames = sapply(actDfnodesLab,function(x) sapply(actDfnodesLab, function(i) paste(x,i,sep="")))
-  tieNames = as.vector(tieNames)
+  tieNames <- sapply(actDfnodesLab, function(x) sapply(actDfnodesLab, function(i) paste(x, i, sep = "")))
+  tieNames <- as.vector(tieNames)
 
 
   permut <- vector(mode = "list", length = nmax)
 
-  acceptIndex = 0
-  for(i in 1:maxIter){
-
-    if(length(seq)==H){
-      type = sample(c(1,2,3),size=1,prob=c(pAug/(pAug+pPerm),0,pPerm/(pAug+pPerm)))
-    }else{
-      type = sample(c(1,2,3),size=1,prob=c(pAug,pShort,pPerm))
+  acceptIndex <- 0
+  for (i in 1:maxIter) {
+    if (length(seq) == H) {
+      type <- sample(c(1, 2, 3), size = 1, prob = c(pAug / (pAug + pPerm), 0, pPerm / (pAug + pPerm)))
+    } else {
+      type <- sample(c(1, 2, 3), size = 1, prob = c(pAug, pShort, pPerm))
     }
 
-    stepMCMC = stepMCMC(seq,type,actDfnodesLab,tieNames,formula,net0,beta)
+    stepMCMC <- stepMCMC(seq, type, actDfnodesLab, tieNames, formula, net0, beta)
 
-    u = runif(1,min=0,max=1)
-    accept =(u<= exp(stepMCMC$newloglikSeq-stepMCMC$loglikSeq)*stepMCMC$pUndoStep/stepMCMC$step$pDoStep)
-    if(accept){
-      acceptIndex = acceptIndex + 1
-      #if(accept & !acceptIndex %% 50){
-      seq = stepMCMC$newseq
+    u <- runif(1, min = 0, max = 1)
+    accept <- (u <= exp(stepMCMC$newloglikSeq - stepMCMC$loglikSeq) * stepMCMC$pUndoStep / stepMCMC$step$pDoStep)
+    if (accept) {
+      acceptIndex <- acceptIndex + 1
+      # if(accept & !acceptIndex %% 50){
+      seq <- stepMCMC$newseq
     }
   }
 
-  if(burnIn){
-    if(i>500 & !i%%50){permut = c(permut,seq)}
-  }else{
-    if(!i%%50){permut = c(permut,seq)}
+  if (burnIn) {
+    if (i > 500 & !i %% 50) {
+      permut <- c(permut, seq)
+    }
+  } else {
+    if (!i %% 50) {
+      permut <- c(permut, seq)
+    }
   }
 
   return(permut)
@@ -511,4 +527,3 @@ MCMC = function(nmax,seq,H,actDfnodes,formula,net0,beta,burnIn = TRUE,maxIter=10
 #
 #   return(resMCMC)
 # }
-
