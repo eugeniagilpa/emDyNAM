@@ -155,7 +155,7 @@ logLikelihoodMC <- function(indexCore, permut, beta, splitIndicesPerCore, actDfn
     )
     listExpandedDF <- GatherPreprocessingDF(formula, envir = envirPrepro)$listExpandedDF
 
-    resLikelihood[[i]] <- logLikelihood(listExpandedDF, beta)
+    resLikelihood[[i]] <- logLikChoice(listExpandedDF, beta)
   }
   return(unlist(resLikelihood))
 }
