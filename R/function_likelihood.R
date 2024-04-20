@@ -16,7 +16,7 @@ logLikelihood <- function(listExpandedDFChoice, listExpandedDFRate, beta, theta,
   return(logLikChoice$loglik + logLikRate$loglik + logLikTime)
 }
 
-#' log-likelihood computation with time information
+#' log-likelihood computation of the choice model
 #'
 #' @param listExpandedDF list returned from function GatherPreprocessingDF
 #' @param beta list of choice parameters with elements Crea and Del
@@ -66,13 +66,13 @@ logLikRate <- function(expandedDF, theta) {
     expandedDF$expandedDFCreation[, "event"], function(x) as.matrix(x) %*% theta$Crea
   )
 
-  xbCrea = as.data.frame(do.call(cbind, xbCrea))
+  xbCrea <- as.data.frame(do.call(cbind, xbCrea))
 
   xb_auxCrea <- by(
     expandedDF$expandedDFCreation[expandedDF$expandedDFCreation$selected == TRUE, !names(expandedDF$expandedDFCreation) %in% c("event", "selected")],
     expandedDF$expandedDFCreation[expandedDF$expandedDFCreation$selected == TRUE, "event"], function(x) as.matrix(x) %*% theta$Crea
   )
-  loglikCrea <- sum(unlist(xb_auxCrea) - apply(xbCrea,2,sum))
+  loglikCrea <- sum(unlist(xb_auxCrea) - apply(xbCrea, 2, sum))
 
 
   # Computation of loglikelihood for deletion events
@@ -81,13 +81,13 @@ logLikRate <- function(expandedDF, theta) {
     expandedDF$expandedDFDeletion[, "event"], function(x) as.matrix(x) %*% theta$Del
   )
 
-  xbDel = as.data.frame(do.call(cbind, xbDel))
+  xbDel <- as.data.frame(do.call(cbind, xbDel))
 
   xb_auxDel <- by(
     expandedDF$expandedDFDeletion[expandedDF$expandedDFDeletion$selected == TRUE, !names(expandedDF$expandedDFDeletion) %in% c("event", "selected")],
     expandedDF$expandedDFDeletion[expandedDF$expandedDFDeletion$selected == TRUE, "event"], function(x) as.matrix(x) %*% theta$Del
   )
-  loglikDel <- sum(unlist(xb_auxDel) - apply(xbDel,2,sum))
+  loglikDel <- sum(unlist(xb_auxDel) - apply(xbDel, 2, sum))
 
   return(list("loglik" = loglikCrea + loglikDel, "xb_auxCrea" = xb_auxCrea, "xbCrea" = xbCrea, "xb_auxDel" = xb_auxDel, "xbDel" = xbDel))
 }
@@ -104,20 +104,52 @@ logLikRate <- function(expandedDF, theta) {
 #' @export
 #'
 logLikTime <- function(logLikRate, initTime, endTime) {
+  # colLogSumExps!!! Todo en escala log
+  lambdaCreaDF <- exp(logLikRate$xb_auxCrea - apply(logLikRate$xbCrea, 2, sum))
+  lambdaDelDF <- exp(logLikRate$xb_auxDel - apply(logLikRate$xbDel, 2, sum))
 
-  lambdaCreaDF = exp(logLikRate$xb_auxCrea - apply(logLikRate$xbCrea,2,sum))
-  lambdaDelDF = exp(logLikRate$xb_auxDel - apply(logLikRate$xbDel,2,sum))
-
-  mu_alphaCrea <- sum(1/lambdaCreaDF[-length(lambdaCreaDF)])
-  sigma_alphaCrea <-sum(1/(lambdaCreaDF[-length(lambdaCreaDF)])^2)
+  mu_alphaCrea <- sum(1 / lambdaCreaDF[-length(lambdaCreaDF)])
+  sigma_alphaCrea <- sum(1 / (lambdaCreaDF[-length(lambdaCreaDF)])^2)
   logkappaCrea <- -log(lambdaCreaDF[length(lambdaCreaDF)]) - 0.5 * log(2 * pi * sigma_alphaCrea) - (endTime - initTime - mu_alphaCrea)^2 / (2 * sigma_alphaCrea)
 
-  mu_alphaDel <- sum(1/lambdaDelDF[-length(lambdaDelDF)])
-  sigma_alphaDel <- sum(1/(lambdaDelDF[-length(lambdaDelDF)])^2)
+  mu_alphaDel <- sum(1 / lambdaDelDF[-length(lambdaDelDF)])
+  sigma_alphaDel <- sum(1 / (lambdaDelDF[-length(lambdaDelDF)])^2)
   logkappaDel <- -log(lambdaDelDF[length(lambdaDelDF)]) - 0.5 * log(2 * pi * sigma_alphaDel) - (endTime - initTime - mu_alphaDel)^2 / (2 * sigma_alphaDel)
 
   return(logkappaCrea + logkappaDel)
 }
+
+
+
+#' log-likelihood computation with time information
+#'
+#' TO DO : change value of \eqn{\pi_{i_r}} from 1/n to corresponding one.
+#'
+#' @param rate dataframe with constant rate for creation and deletion
+#' @param initTime initial time of observation
+#' @param endTime end time of observation
+#' @param nactors number of actors
+#' @param R lenth of the sequence
+
+#'
+#' @return loglikelihood (creation + deletion of events models) (log-kappa with constant rate)
+#' @export
+#'
+logLikConstantRate <- function(rate, initTime, endTime, nactors, R) {
+
+  logkappaCrea <- nactors*rate$Crea*(endTime-initTime) + R * (log(nactors)+log(-rate$Crea)+log(endTime-initTime)) - log(factorial(R))
+
+  logkappaDel <- nactors*rate$Del*(endTime-initTime) + R * (log(nactors)+log(-rate$Del)+log(endTime-initTime)) - log(factorial(R))
+
+  logpiCrea = - R * log(nactors)
+  logpiDel = - R * log(nactors)
+
+  return(logkappaCrea + logkappaDel + logpiCrea + logpiDel)
+}
+
+
+
+
 
 
 
@@ -129,7 +161,7 @@ logLikTime <- function(logLikRate, initTime, endTime) {
 #' @return vector of loglikelihoods
 #' @export
 #'
-logLikelihoodMC <- function(indexCore, permut, beta, splitIndicesPerCore, actDfnodes = actDfnodes, net0 = net0, formula = formula) {
+logLikelihoodMC <- function(indexCore, permut, beta, theta, initTime, endTime, splitIndicesPerCore, actDfnodes = actDfnodes, net0 = net0, formula = formula) {
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resLikelihood <- vector("list", length(indicesCore))
 
@@ -155,7 +187,7 @@ logLikelihoodMC <- function(indexCore, permut, beta, splitIndicesPerCore, actDfn
     )
     listExpandedDF <- GatherPreprocessingDF(formula, envir = envirPrepro)$listExpandedDF
 
-    resLikelihood[[i]] <- logLikChoice(listExpandedDF, beta)
+    resLikelihood[[i]] <- logLikChoice(listExpandedDF, beta)$loglik + logLikConstantRate(theta, initTime, endTime, length(actDfnodes$label), nrow(seq))
   }
   return(unlist(resLikelihood))
 }

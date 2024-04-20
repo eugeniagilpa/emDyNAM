@@ -647,20 +647,20 @@ softEMAlgorithmForEach <- function(net0, net1, theta0, beta0, formula, nmax = 10
 #   net0 = sim$net0
 #   net1 = sim$net1
 #
-  # actDf <-dimnames(net0)[[2]]
-  # actDfnodes <- defineNodes(data.frame(label=colnames(net0)))
-  #
-  # nAct <- length(actDf)
-  # endTime <- 50
-  # nSimCrea <- 59 # from s501 and s502 data, number of ties created between t_0 and t_1
-  # nSimDel <- 56 # from s501 and s502 data, number of ties deleted between t_0 and t_1
-  # parmsCrea <- c(log(nSimCrea / 20 / nAct )) #indegree and outdegree of ego
-  # parmsDel <- c(log(nSimDel / 20 / (nAct-4))) #indegree and outdegree of ego
-  #
-  # theta0=data.frame("Crea"=parmsCrea,"Del"=parmsDel)
-  # beta0=data.frame("Crea"=c(0,0,0,0),"Del"=c(0,0,0,0))
-  # row.names(beta0) = c("indeg","outdeg","recip","trans")
-  # formula = "indeg + outdeg + recip + trans +inertia + tie(net0)"
+# actDf <-dimnames(net0)[[2]]
+# actDfnodes <- defineNodes(data.frame(label=colnames(net0)))
+#
+# nAct <- length(actDf)
+# endTime <- 50
+# nSimCrea <- 59 # from s501 and s502 data, number of ties created between t_0 and t_1
+# nSimDel <- 56 # from s501 and s502 data, number of ties deleted between t_0 and t_1
+# parmsCrea <- c(log(nSimCrea / 20 / nAct )) #indegree and outdegree of ego
+# parmsDel <- c(log(nSimDel / 20 / (nAct-4))) #indegree and outdegree of ego
+#
+# theta0=data.frame("Crea"=parmsCrea,"Del"=parmsDel)
+# beta0=data.frame("Crea"=c(0,0,0,0),"Del"=c(0,0,0,0))
+# row.names(beta0) = c("indeg","outdeg","recip","trans")
+# formula = "indeg + outdeg + recip + trans +inertia + tie(net0)"
 #
 #
 #   results[[i]] = softEMAlgorithmMC(nmax = seqIndex[chunk],net0=net0,net1=net1,
@@ -690,17 +690,17 @@ softEMAlgorithmForEach <- function(net0, net1, theta0, beta0, formula, nmax = 10
 #   actDf <-dimnames(net0)[[2]]
 #   actDfnodes <- defineNodes(data.frame(label=colnames(net0)))
 #
-  # nAct <- length(actDf)
-  # endTime <- 50
-  # nSimCrea <- 59 # from s501 and s502 data, number of ties created between t_0 and t_1
-  # nSimDel <- 56 # from s501 and s502 data, number of ties deleted between t_0 and t_1
-  # parmsCrea <- c(log(nSimCrea / 20 / nAct )) #indegree and outdegree of ego
-  # parmsDel <- c(log(nSimDel / 20 / (nAct-4))) #indegree and outdegree of ego
+# nAct <- length(actDf)
+# endTime <- 50
+# nSimCrea <- 59 # from s501 and s502 data, number of ties created between t_0 and t_1
+# nSimDel <- 56 # from s501 and s502 data, number of ties deleted between t_0 and t_1
+# parmsCrea <- c(log(nSimCrea / 20 / nAct )) #indegree and outdegree of ego
+# parmsDel <- c(log(nSimDel / 20 / (nAct-4))) #indegree and outdegree of ego
 
-  # theta0=data.frame("Crea"=parmsCrea,"Del"=parmsDel)
-  # beta0=data.frame("Crea"=c(0,0,0,0),"Del"=c(0,0,0,0))
-  # row.names(beta0) = c("indeg","outdeg","recip","trans")
-  # formula = "indeg + outdeg + recip + trans +inertia + tie(net0)"
+# theta0=data.frame("Crea"=parmsCrea,"Del"=parmsDel)
+# beta0=data.frame("Crea"=c(0,0,0,0),"Del"=c(0,0,0,0))
+# row.names(beta0) = c("indeg","outdeg","recip","trans")
+# formula = "indeg + outdeg + recip + trans +inertia + tie(net0)"
 #
 #
 #   results[[chunk]] = lapply(ceiling(10^seq(1,1.1,0.2)),softEMAlgorithmMC,net0=net0,net1=net1,

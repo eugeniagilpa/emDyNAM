@@ -102,7 +102,7 @@ deltaQ <- function(loglikPrev, loglikCur, w) {
 #' \emph{The annals of applied statistics, 4(2)}, 567.
 #'
 MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate = NULL, initTime = NULL, endTime = NULL,
-                          num_cores = 1,errType2 = 0.8, alpha = 0.9, gamma = 0.9, thr = 1e-3, maxIter = 10000, seqIter = 50,
+                          num_cores = 1, errType2 = 0.8, alpha = 0.9, gamma = 0.9, thr = 1e-3, maxIter = 10000, seqIter = 50,
                           pShort = 0.35, pAug = 0.35, pPerm = 0.3) {
   # net0 : network matrix in initial state
   # net1: network matrix in final state
@@ -164,9 +164,11 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate
     logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodMC,
       permut = permut,
       splitIndicesPerCore = splitIndicesPerCore,
-      beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula
+      beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula,
+      theta=theta, initTime=initTime, endTime=endTime,
     )
-  } else {
+
+      } else {
     logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodTimeMC,
       permut = permut,
       splitIndicesPerCore = splitIndicesPerCore,
@@ -202,11 +204,12 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate
     betaNew$Del <- betaDelAux$mean
 
 
-    if (is.null(formulaRate)){
+    if (is.null(formulaRate)) {
       logLikCur <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodMC,
-        permut = permut,
-        splitIndicesPerCore = splitIndicesPerCore,
-        beta = betaNew, actDfnodes = actDfnodes, net0 = net0, formula = formula
+                                 permut = permut,
+                                 splitIndicesPerCore = splitIndicesPerCore,
+                                 beta = betaNew, actDfnodes = actDfnodes, net0 = net0, formula = formula,
+                                 theta=theta, initTime=initTime, endTime=endTime,
       )
     } else {
       logLikCur <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodTimeMC,
@@ -245,11 +248,12 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate
       seCreaDF <- t(sapply(resPar, "[[", 3))
       seDelDF <- t(sapply(resPar, "[[", 4))
 
-      if (is.null(formulaRate)){
+      if (is.null(formulaRate)) {
         logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodMC,
-          permut = permut,
-          splitIndicesPerCore = splitIndicesPerCore,
-          beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula
+                                   permut = permut,
+                                   splitIndicesPerCore = splitIndicesPerCore,
+                                   beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula,
+                                   theta=theta, initTime=initTime, endTime=endTime,
         )
       } else {
         logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodTimeMC,
@@ -296,11 +300,12 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate
       seCreaDF <- t(sapply(resPar, "[[", 3))
       seDelDF <- t(sapply(resPar, "[[", 4))
 
-      if (is.null(formulaRate)){
+      if (is.null(formulaRate)) {
         logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodMC,
-          permut = permut,
-          splitIndicesPerCore = splitIndicesPerCore,
-          beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula
+                                   permut = permut,
+                                   splitIndicesPerCore = splitIndicesPerCore,
+                                   beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula,
+                                   theta=theta, initTime=initTime, endTime=endTime,
         )
       } else {
         logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodTimeMC,
@@ -321,5 +326,3 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate
     "permut" = permut, "betaCreaDF" = betaCreaDF, "betaDelDF" = betaDelDF
   ))
 }
-
-

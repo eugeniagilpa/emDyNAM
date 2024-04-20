@@ -29,24 +29,28 @@ EMPreprocessing <- function(X0, X1) {
 
 #' Gather preprocessing function
 #'
+#' TO DO: include Rate model / REM specification
 #'
 #' @param formula string formula with the effects for the model
 #' @param envir environment were dependentEvents, nodes and net0 are located.
 #'
-#' @return listExpandedDF (see [goldfish] for more)
+#' @return listExpandedDF (see [goldfish::estimate()] for more)
 #' @export
 #'
-GatherPreprocessingDF <- function(formula, envir = new.env()) {
+GatherPreprocessingDF <- function(formula, envir = new.env(), submodel = "choice") {
   # formula : string formula with the effects for the model
   # envir : environment were dependentEvents, nodes and net0 are located.
   # return: listExpandedDF
+
+  ##################
+  # model = rem
 
   # browser()
   formGather <- paste("depEvents ~", formula, sep = "")
 
   dataProcessed <- GatherPreprocessing(
     as.formula(formGather),
-    model = "DyNAM", subModel = "choice",
+    model = "DyNAM", subModel = submodel,
     progress = FALSE,
     envir = envir
   )
@@ -100,5 +104,5 @@ GatherPreprocessingDF <- function(formula, envir = new.env()) {
     expandedDFDeletion = subset(expandedDF, event %in% deletion_events)[, !names(expandedDFCreation) %in% c("inertia_netEvents", "tie_net0", "sender")]
   )
 
-  return(list(listExpandedDF=listExpandedDF,expandedDF = expandedDF))
+  return(list(listExpandedDF = listExpandedDF, expandedDF = expandedDF))
 }
