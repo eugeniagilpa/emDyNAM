@@ -532,7 +532,7 @@ stepMCMC <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,the
 #'
 #' @export
 #'
-jumpStepMCMC <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,theta, initTime, endTime,k=5) {
+stepPT <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,theta, initTime, endTime,k=5,temp=1) {
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1
   Kel_ge1 <- getKelMeMatrix$Kel_ge1
@@ -576,8 +576,8 @@ jumpStepMCMC <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta
       newM <- nrow(newseq)
     }
 
-    loglikSeq <- logLikelihoodMC(indexCore = 1, list(seq[,-which(colnames(seq)=="row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
-    newloglikSeq <- logLikelihoodMC(indexCore = 1, list(step$newseq[,-which(colnames(step$newseq)=="row")]), beta, theta, initTime, endTime,splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+    loglikSeq <- logLikelihoodMCTemp(indexCore = 1, list(seq[,-which(colnames(seq)=="row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula,temp)
+    newloglikSeq <- logLikelihoodMCTemp(indexCore = 1, list(step$newseq[,-which(colnames(step$newseq)=="row")]), beta, theta, initTime, endTime,splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula,temp)
 
 
     } else if (type == 2) { # Shortening
@@ -613,8 +613,8 @@ jumpStepMCMC <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta
       newM <- nrow(newseq)
     }
 
-    loglikSeq <- logLikelihoodMC(indexCore = 1, list(seq[,-which(colnames(seq)=="row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
-    newloglikSeq <- logLikelihoodMC(indexCore = 1, list(step$newseq[,-which(colnames(step$newseq)=="row")]), beta, theta, initTime, endTime,splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+    loglikSeq <- logLikelihoodMCTemp(indexCore = 1, list(seq[,-which(colnames(seq)=="row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula,temp)
+    newloglikSeq <- logLikelihoodMCTemp(indexCore = 1, list(step$newseq[,-which(colnames(step$newseq)=="row")]), beta, theta, initTime, endTime,splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula,temp)
   }
 
   return(list(
@@ -625,18 +625,43 @@ jumpStepMCMC <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta
 
 
 
+#' Parallel tempering step (multi-core)
+#'
+#' @description Performs an step of MCMC given a type:
+#' \item Type 1: augmentation of sequence.
+#' \item Type 2: shortening of sequence.
+#'
+#' @param seqs list of data frames, sequences of events for each temperature.
+#' @param type vector of integers, type of step for each chain.
+#' @param actDfnodesLab vector, node labs.
+#' @param tieNames vector, tie labs (e.g. "12" is a tie from sender 1 to receiver 2).
+#' @param formula formula, the one used in goldfish model.
+#' @param net0 matrix, initial observed network.
+#' @param beta list, estimator of choice parameters of the model (creation and deletion)
+#' @param theta dataframe, estimator of rate parameters of the model (creation and deletion) (constant)
+#' @param initTime initial time
+#' @param endTime end time
+#' @param T0 maximum temperature
+#'
+#' @return list of result of stepMCMC for each sequence with different temperatures.
+#'
+#' @export
+#'
+stepPTMC <- function(indexCore,splitIndicesPerCore,seqs, type, actDfnodesLab, tieNames, formula, net0, beta,theta, initTime, endTime,k,T0) {
+    temp = seq(1,T0,length=length(seqs))
+    indicesCore <- splitIndicesPerCore[[indexCore]]
+    stepPT <- vector("list", length(indicesCore))
+    for (i in seq_along(indicesCore)) {
+      stepPT[[i]] <- stepPT(seqs[[indicesCore[[i]]]], type[indicesCore[[i]]], actDfnodesLab, tieNames, formula, net0, beta,theta, initTime, endTime,k,temp[indicesCore[[i]]])
+    }
+    return(stepPT)
+  }
 
 
 
 
 
-
-
-
-
-
-
-#' MCMC function
+#' MCMC function (simple version with augmentation/shortening/permutation)
 #'
 #' @description Computes an MCMC chain and returns nmax sequences from the MCMC chain.
 #'
@@ -675,7 +700,7 @@ MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta,theta,initTime, e
 
   acceptIndex <- 0
   for (i in 1:maxIter) {
-    if (length(seq) == H) {
+    if (nrow(seq) == H) {
       type <- sampleVec(c(1, 2, 3), size = 1, prob = c(pAug / (pAug + pPerm), 0, pPerm / (pAug + pPerm)))
     } else {
       type <- sampleVec(c(1, 2, 3), size = 1, prob = c(pAug, pShort, pPerm))
@@ -705,6 +730,113 @@ MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta,theta,initTime, e
 
   return(permut)
 }
+
+#' Parallel tempering MCMC function (augmentation/shortening)
+#'
+#' @description Computes an MCMC chain and returns nmax sequences from the MCMC chain.
+#'
+#' @param nmax integer, number of sequences to be returned.
+#' @param seqsInit list of data frame, sequences from which start/continue MCMC chain. They must have all the same length.
+#' @param H integer, hamming distance between net0 and net1.
+#' @param actDfnodes object of type ´nodes´ from goldfish.
+#' @param formula formula, the one used in goldfish model.
+#' @param net0 matrix, initial observed network.
+#' @param beta list, estimator of parameters of the model (creation and deletion).
+#' @param burnIn boolean, indicates if burn in must be performed.
+#' @param maxIter integer, maximum number of steps of the MCMC chain.
+#' @param seqIter integer, number of steps between selected sequences.
+#' @param pShort float, probability of shortening step.
+#' @param pAugment float, probability of augmenting step.
+#' @param T0 initial maximal tempetature for the parallale tempering scheme/simulated annealing
+#'
+#' @return permut, list of sequences.
+#'
+#' @export
+#'
+PT_MCMC <- function(nmax, seqsInit, H, actDfnodes, formula, net0, beta,theta,initTime, endTime, burnIn = TRUE, maxIter = 10000, seqIter = 50, pShort = 0.5, pAug = 0.5,T0 = 100,num_cores=1) {
+  # Compute initial quatities:
+  # Type 1: augmentation, type 2: shortening
+
+  if (nmax > (maxIter - 500) / seqIter) {
+    maxIter <- (nmax + 501) * 50
+  }
+
+  actDfnodesLab <- actDfnodes$label
+
+  tieNames <- sapply(actDfnodesLab, function(x) sapply(actDfnodesLab, function(i) paste(x, i, sep = "-")))
+  tieNames <- as.vector(tieNames)
+
+  permut <- vector(mode = "list", length = nmax)
+
+
+  acceptIndex <- 0
+  for (i in 1:maxIter) {
+    if (nrow(seqsInit[[1]]) == H) {
+      type <- sampleVec(c(1, 2), size = length(seqsInit), prob = c(1, 0),replace=TRUE)
+    } else {
+      type <- sampleVec(c(1, 2), size = length(seqsInit), prob = c(pAug, pShort),replace=TRUE)
+    }
+
+    seqsInit = lapply(seqsInit,function(x) cbind(x,"row"=1:nrow(x)))
+
+
+    splitIndicesPerCore <- splitIndices(length(seqsInit), num_cores)
+    cl <- makeCluster(num_cores)
+    on.exit(stopCluster(cl))
+    clusterExport(cl, c("seqs", "type", "actDfnodesLab", "tieNames",
+                        "formula", "net0", "beta","theta", "initTime",
+                        "endTime","k","T0"))
+    clusterEvalQ(cl, {
+      library(goldfish)
+      NULL
+    })
+
+
+    clusterExport(cl, list(
+        "stepPT","stepPTMC","stepMCMC","getpDoAugment","getpDoShort","petpDoPerm",
+        "getKelMeMatrix","getAuxDfE","stepAugment","stepShort","stepPerm",
+        ""
+    ))
+
+
+    stepPT <- clusterApply(cl, seq_along(splitIndicesPerCore), stepPT,
+                           splitIndicesPerCore = splitIndicesPerCore,
+                           seqs=seqsInit, type=type, actDfnodesLab=actDfnodesLab,
+                           tieNames=tieNames, formula=formula, net0=net0,
+                           beta=beta,theta=theta, initTime=initTime,
+                           endTime=endTime,k=k,T0=T0,
+                            actDfnodes. = actDfnodes)
+
+
+    # First: check if the proposed new states are accepted
+    u <- runif(1, min = 0, max = 1)
+    accept <- (u <= exp(stepMCMC$newloglikSeq - stepMCMC$loglikSeq) * stepMCMC$pUndoStep / stepMCMC$step$pDoStep)
+    if (accept) {
+      acceptIndex <- acceptIndex + 1
+      # if(accept & !acceptIndex %% 50){
+      seq <- stepMCMC$newseq
+    }
+
+    # Second: check if there is swapping between ajdacent temperature sequences
+
+
+  }
+
+  if (burnIn) {
+    if (i > 500 & !i %% 50) {
+      permut <- c(permut, seq)
+    }
+  } else {
+    if (!i %% 50) {
+      permut <- c(permut, seq)
+    }
+  }
+
+  return(permut)
+}
+
+
+
 
 # MCMC_MC = function(indexCore,splitIndicesPerCore,permut = permut,beta=beta, burnIn = TRUE, H = H,actDfnodes=actDfnodes){
 #

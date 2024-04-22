@@ -51,6 +51,10 @@ logLikChoice <- function(listExpandedDf, beta) {
 }
 
 
+
+
+
+
 #' log-likelihood computation with time information
 #'
 #' @param listExpandedDF list returned from function GatherPreprocessingDF
@@ -191,6 +195,55 @@ logLikelihoodMC <- function(indexCore, permut, beta, theta, initTime, endTime, s
   }
   return(unlist(resLikelihood))
 }
+
+
+#' log-likelihood computation: Multi-Core with temperatures (parallel tempering)
+#'
+#' @description given parameters, sequences, formula, initial network and multi-core elements, computes log-likelihood of all the sequences.
+#'
+#' @return vector of loglikelihoods
+#' @export
+#'
+logLikelihoodMCTemp <- function(indexCore, permut, beta, theta, initTime, endTime, splitIndicesPerCore, actDfnodes = actDfnodes, net0 = net0, formula = formula,temp) {
+  indicesCore <- splitIndicesPerCore[[indexCore]]
+  resLikelihood <- vector("list", length(indicesCore))
+
+  for (i in seq_along(indicesCore)) {
+    seq <- permut[[indicesCore[[i]]]]
+    envirPrepro <- new.env()
+    seq$time <- seq(1, nrow(seq))
+    envirPrepro$seqTime <- seq
+    envirPrepro$actDfnodes <- actDfnodes
+    envirPrepro$net0 <- net0
+
+    local(
+      {
+        netEvents <- defineNetwork(nodes = actDfnodes, matrix = net0) |>
+          linkEvents(changeEvents = seqTime, nodes = actDfnodes)
+
+        depEvents <- defineDependentEvents(
+          seqTime,
+          nodes = actDfnodes, defaultNetwork = netEvents
+        )
+      },
+      envirPrepro
+    )
+    listExpandedDF <- GatherPreprocessingDF(formula, envir = envirPrepro)$listExpandedDF
+
+    resLikelihood[[i]] <- logLikChoice(listExpandedDF, beta)$loglik/temp + logLikConstantRate(theta, initTime, endTime, length(actDfnodes$label), nrow(seq))/temp
+  }
+  return(unlist(resLikelihood))
+}
+
+
+
+
+
+
+
+
+
+
 
 #' log-likelihood computation: Multi-Core with time
 #'
