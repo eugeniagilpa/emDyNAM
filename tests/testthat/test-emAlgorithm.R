@@ -1,6 +1,3 @@
-test_that("multiplication works", {
-  expect_equal(permute(), object)
-})
 
 
 test_that("Step Augment works", {
@@ -30,6 +27,8 @@ sequence <- EMPreprocessing(net0, net1)
 seq = sequence
 seq$row <- 1:nrow(seq)
 actDfnodesLab=actDfnodes$label
+tieNames <- sapply(actDfnodesLab, function(x) sapply(actDfnodesLab, function(i) paste(x, i, sep = "-")))
+
 
 getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
 Kel_g1 <- getKelMeMatrix$Kel_g1
@@ -81,6 +80,8 @@ test_that("Step Shortening works", {
   seq = rbind(sequence,sequence[1:20,])
   seq$row <- 1:nrow(seq)
   actDfnodesLab=actDfnodes$label
+  tieNames <- sapply(actDfnodesLab, function(x) sapply(actDfnodesLab, function(i) paste(x, i, sep = "-")))
+
 
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1
@@ -96,7 +97,7 @@ test_that("Step Shortening works", {
   vec.lengths = c()
   for(i in 1:100){
     set.seed(i)
-    step <- stepShort(seq, tieNames, gammaEminus, gammaMinus, m, me, auxDf)
+    step <- stepShort(seq, tieNames, gammaEminus, gammaMinus, m, me, Kel_g1, auxDf)
     vec.lengths = c(vec.lengths,nrow(step$newseq))
   }
 
@@ -132,6 +133,8 @@ test_that("Step Permutation works", {
   seq = sequence
   seq$row <- 1:nrow(seq)
   actDfnodesLab=actDfnodes$label
+  tieNames <- sapply(actDfnodesLab, function(x) sapply(actDfnodesLab, function(i) paste(x, i, sep = "-")))
+
 
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1

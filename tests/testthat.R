@@ -7,6 +7,8 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
+library(RSiena)
 library(emDyNAM)
+
 
 test_check("emDyNAM")

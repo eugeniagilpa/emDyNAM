@@ -3,28 +3,26 @@
 
 #' Get probability of doing a augmenting step.
 #'
-getpDoAugment <- function(gammaEplus,gammaPlus,p,m,me, sender, receiver, typeA, indexSR) {
-  if(typeA == "same"){
+getpDoAugment <- function(gammaEplus, gammaPlus, p, m, me, sender, receiver, typeA, indexSR) {
+  if (typeA == "same") {
     if (length(indexSR) < 1) {
-      pDoStep <- (gammaEplus[sender, receiver] / gammaPlus) * p * (1 / (m+1)) # change
+      pDoStep <- (gammaEplus[sender, receiver] / gammaPlus) * p * (1 / (m + 1)) # change
     } else {
       pDoStep <- (gammaEplus[sender, receiver] / gammaPlus) * p * (1 / (m - me[sender, receiver] + 1)) # change
-
     }
-  }else{
-    pDoStep <- (gammaEplus[sender, receiver] / gammaPlus) * p * (1 / (m - me[sender, receiver] + 1)) * (1/(m - me[sender, receiver]))# REVISE !!!!
+  } else {
+    pDoStep <- (gammaEplus[sender, receiver] / gammaPlus) * p * (1 / (m - me[sender, receiver] + 1)) * (1 / (m - me[sender, receiver])) # REVISE !!!!
   }
 
   return(pDoStep)
-
 }
 
 #' Get probability of doing a shortening step.
 #'
-getpDoShort <- function(gammaEminus,gammaMinus,p,uniqueR, sender, receiver, typeS) {
-  if(typeS == "same"){
-    pDoStep = (gammaEminus[sender, receiver] / gammaMinus) * p * (1 / uniqueR)
-  }else{
+getpDoShort <- function(gammaEminus, gammaMinus, p, uniqueR, sender, receiver, typeS) {
+  if (typeS == "same") {
+    pDoStep <- (gammaEminus[sender, receiver] / gammaMinus) * p * (1 / uniqueR)
+  } else {
     pDoStep <- (gammaEminus[sender, receiver] / gammaMinus) * (1 - p) * (1 / uniqueR) * (1 / (uniqueR - 1))
   }
 
@@ -33,7 +31,7 @@ getpDoShort <- function(gammaEminus,gammaMinus,p,uniqueR, sender, receiver, type
 
 #' Get probability of doing a permutation step.
 #'
-getpDoPerm <- function(probVec,probVec2,e1,e2, sender1, receiver1,sender2,receiver2,seq) {
+getpDoPerm <- function(probVec, probVec2, e1, e2, sender1, receiver1, sender2, receiver2, seq) {
   pDoStep <- probVec[e1] * probVec2[e2] * (1 / nrow(seq[seq$sender == sender1 & seq$receiver == receiver1, ])) * (1 / nrow(seq[seq$sender == sender2 & seq$receiver == receiver2, ]))
   return(pDoStep)
 }
@@ -177,9 +175,7 @@ stepAugment <- function(seq, tieNames, gammaEplus, gammaPlus, m, me, net0) {
     newseq[nEdges, "replace"] <- seq(initAction, (initAction + length(nEdges) - 1)) %% 2
     newseq$row <- seq(1, nrow(newseq))
 
-    pDoStep = getpDoAugment(gammaEplus,gammaPlus,p,m,me, sender, receiver, typeA, indexSR)
-
-
+    pDoStep <- getpDoAugment(gammaEplus, gammaPlus, p, m, me, sender, receiver, typeA, indexSR)
   } else if (typeA == "diff") {
     # Choose thow places separated at least from one tie different than e
     if (length(indexSR) < 1) {
@@ -233,7 +229,7 @@ stepAugment <- function(seq, tieNames, gammaEplus, gammaPlus, m, me, net0) {
     newseq[nEdges, "replace"] <- seq(initAction, (initAction + length(nEdges) - 1)) %% 2
     newseq$row <- seq(1, nrow(newseq))
 
-    pDoStep = getpDoAugment(gammaEplus,gammaPlus,p,m,me, sender, receiver, typeA, indexSR)
+    pDoStep <- getpDoAugment(gammaEplus, gammaPlus, p, m, me, sender, receiver, typeA, indexSR)
   }
 
   return(list(
@@ -262,7 +258,7 @@ stepAugment <- function(seq, tieNames, gammaEplus, gammaPlus, m, me, net0) {
 #'
 #' @export
 #'
-stepShort <- function(seq, tieNames, gammaEminus, gammaMinus, m, me, auxDf) {
+stepShort <- function(seq, tieNames, gammaEminus, gammaMinus, m, me, Kel_g1, auxDf) {
   # Choose element to be deleted:
   e <- sampleVec(tieNames, size = 1, prob = as.vector(t(gammaEminus / gammaMinus)))
 
@@ -287,7 +283,7 @@ stepShort <- function(seq, tieNames, gammaEminus, gammaMinus, m, me, auxDf) {
 
     place <- list(sampleRun = sampleRun, indexSampleRun = indexSampleRun)
 
-    pDoStep <- getpDoShort(gammaEminus,gammaMinus,p,length(unique(auxDfE$run)), sender, receiver, typeS)
+    pDoStep <- getpDoShort(gammaEminus, gammaMinus, p, length(unique(auxDfE$run)), sender, receiver, typeS)
   } else if (typeS == "diff") {
     # Choose two different e-runs, and delete the first element of each one of them
     sampleRun <- sampleVec(unique(auxDfE$run), size = 2, replace = FALSE)
@@ -302,7 +298,7 @@ stepShort <- function(seq, tieNames, gammaEminus, gammaMinus, m, me, auxDf) {
     newseq[nEdges, "replace"] <- seq(initAction, (initAction + length(nEdges) - 1)) %% 2
 
     place <- list(sampleRun = sampleRun, indexSampleRun = indexSampleRun)
-    pDoStep <- getpDoShort(gammaEminus,gammaMinus,p,length(unique(auxDfE$run)), sender, receiver, typeS)
+    pDoStep <- getpDoShort(gammaEminus, gammaMinus, p, length(unique(auxDfE$run)), sender, receiver, typeS)
   }
 
   return(list(
@@ -351,14 +347,11 @@ stepPerm <- function(seq, tieNames, m, me) {
   newseq[place2, ] <- auxRow
   rm(auxRow)
 
-
   nEdges <- which(newseq$sender == sender1 & newseq$receiver == receiver1)
   initAction <- as.integer(seq[which(seq$sender == sender1 & seq$receiver == receiver1), "replace"][1])
-  initAction.1 = c(initAction.1,initAction)
   newseq[nEdges, "replace"] <- seq(initAction, (initAction + length(nEdges) - 1)) %% 2
   nEdges <- which(newseq$sender == sender2 & newseq$receiver == receiver2)
   initAction <- as.integer(seq[which(seq$sender == sender2 & seq$receiver == receiver2), "replace"][1])
-  initAction.2 = c(initAction.2,initAction)
   newseq[nEdges, "replace"] <- seq(initAction, (initAction + length(nEdges) - 1)) %% 2
 
   newseq$row <- 1:nrow(newseq)
@@ -402,7 +395,7 @@ stepPerm <- function(seq, tieNames, m, me) {
 #'
 #' @export
 #'
-stepMCMC <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,theta, initTime, endTime) {
+stepMCMC <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta, theta, initTime, endTime) {
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1
   Kel_ge1 <- getKelMeMatrix$Kel_ge1
@@ -434,15 +427,15 @@ stepMCMC <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,the
 
     newp <- newKel_g1[step$sender, step$receiver] / newGammaEminus[step$sender, step$receiver]
     if ((length(unique(auxDfE$run)) == length(unique(newAuxDfE$run))) | step$typeA == "same") {
-      pUndoStep = getpDoShort(newGammaEminus,newGammaMinus,newp,length(unique(newAuxDfE$run)), step$sender, step$receiver, "same")
+      pUndoStep <- getpDoShort(newGammaEminus, newGammaMinus, newp, length(unique(newAuxDfE$run)), step$sender, step$receiver, "same")
     } else {
-      pUndoStep = getpDoShort(newGammaEminus,newGammaMinus,newp,length(unique(newAuxDfE$run)), step$sender, step$receiver, "diff")
+      pUndoStep <- getpDoShort(newGammaEminus, newGammaMinus, newp, length(unique(newAuxDfE$run)), step$sender, step$receiver, "diff")
     }
 
-    loglikSeq <- logLikelihoodMC(indexCore = 1, list(seq[,-which(colnames(seq)=="row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
-    newloglikSeq <- logLikelihoodMC(indexCore = 1, list(step$newseq[,-which(colnames(step$newseq)=="row")]), beta, theta, initTime, endTime,splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+    loglikSeq <- logLikelihoodMC(indexCore = 1, list(seq[, -which(colnames(seq) == "row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+    newloglikSeq <- logLikelihoodMC(indexCore = 1, list(step$newseq[, -which(colnames(step$newseq) == "row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
   } else if (type == 2) { # Shortening
-    step <- stepShort(seq, tieNames, gammaEminus, gammaMinus, m, me, auxDf)
+    step <- stepShort(seq, tieNames, gammaEminus, gammaMinus, m, me, Kel_g1, auxDf)
     getNewKelMeMatrix <- getKelMeMatrix(step$newseq, actDfnodesLab)
     newAuxDfE <- getAuxDfE(getNewKelMeMatrix$auxDf, sender, receiver)
     auxDfE <- getAuxDfE(auxDf, sender, receiver)
@@ -461,13 +454,13 @@ stepMCMC <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,the
     newindexSR <- which(step$newseq$sender == step$sender & step$newseq$receiver == step$receiver)
 
     if (step$typeS == "same") {
-      pUndoStep = getpDoAugment(newGammaEplus,newGammaPlus,newp,newM,newMe, step$sender, step$receiver, "same", newindexSR)
+      pUndoStep <- getpDoAugment(newGammaEplus, newGammaPlus, newp, newM, newMe, step$sender, step$receiver, "same", newindexSR)
     } else if (step$typeS == "diff") {
-      pUndoStep = getpDoAugment(newGammaEplus,newGammaPlus,newp,newM,newMe, step$sender, step$receiver, "diff", newindexSR)
-      }
+      pUndoStep <- getpDoAugment(newGammaEplus, newGammaPlus, newp, newM, newMe, step$sender, step$receiver, "diff", newindexSR)
+    }
 
-    loglikSeq <- logLikelihoodMC(indexCore = 1, list(seq[,-which(colnames(seq)=="row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
-    newloglikSeq <- logLikelihoodMC(indexCore = 1, list(step$newseq[,-which(colnames(step$newseq)=="row")]), beta, theta, initTime, endTime,splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+    loglikSeq <- logLikelihoodMC(indexCore = 1, list(seq[, -which(colnames(seq) == "row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+    newloglikSeq <- logLikelihoodMC(indexCore = 1, list(step$newseq[, -which(colnames(step$newseq) == "row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
   } else if (type == 3) { # Permutation
     step <- stepPerm(seq, tieNames, m, me)
     getNewKelMeMatrix <- getKelMeMatrix(step$newseq, actDfnodesLab)
@@ -492,9 +485,9 @@ stepMCMC <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,the
     # pUndoStep <- (probVec * probVec2 + probVec3 * probVec4) *
     #   (1 / nrow(newseq[newseq$sender == step$sender[1] & newseq$receiver == step$receiver[1], ])) *
     #   (1 / nrow(newseq[newseq$sender == step$sender[2] & newseq$receiver == step$receiver[2], ]))
-    pUndoStep = step$pDoStep
-    loglikSeq <- logLikelihoodMC(indexCore = 1, list(seq[,-which(colnames(seq)=="row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
-    newloglikSeq <- logLikelihoodMC(indexCore = 1, list(step$newseq[,-which(colnames(step$newseq)=="row")]), beta, theta, initTime, endTime,splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+    pUndoStep <- step$pDoStep
+    loglikSeq <- logLikelihoodMC(indexCore = 1, list(seq[, -which(colnames(seq) == "row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
+    newloglikSeq <- logLikelihoodMC(indexCore = 1, list(step$newseq[, -which(colnames(step$newseq) == "row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula)
   }
 
   return(list(
@@ -532,7 +525,7 @@ stepMCMC <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,the
 #'
 #' @export
 #'
-stepPT <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,theta, initTime, endTime,k=5,temp=1) {
+stepPT <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta, theta, initTime, endTime, k = 5, temp = 1) {
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1
   Kel_ge1 <- getKelMeMatrix$Kel_ge1
@@ -563,12 +556,12 @@ stepPT <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,theta
 
     newp <- newKel_g1[step$sender, step$receiver] / newGammaEminus[step$sender, step$receiver]
     if ((length(unique(auxDfE$run)) == length(unique(newAuxDfE$run))) | step$typeA == "same") {
-      pUndoStep = getpDoShort(newGammaEminus,newGammaMinus,newp,length(unique(newAuxDfE$run)), step$sender, step$receiver, "same")
+      pUndoStep <- getpDoShort(newGammaEminus, newGammaMinus, newp, length(unique(newAuxDfE$run)), step$sender, step$receiver, "same")
     } else {
-      pUndoStep = getpDoShort(newGammaEminus,newGammaMinus,newp,length(unique(newAuxDfE$run)), step$sender, step$receiver, "diff")
+      pUndoStep <- getpDoShort(newGammaEminus, newGammaMinus, newp, length(unique(newAuxDfE$run)), step$sender, step$receiver, "diff")
     }
 
-    for(i in 1:k){
+    for (i in 1:k) {
       step <- stepPerm(step$newseq, tieNames, newM, newMe)
       newMe <- getNewKelMeMatrix$me
       newGammaEplus <- choose(nrow(newseq) - newMe + 2, 2)
@@ -576,12 +569,10 @@ stepPT <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,theta
       newM <- nrow(newseq)
     }
 
-    loglikSeq <- logLikelihoodMCTemp(indexCore = 1, list(seq[,-which(colnames(seq)=="row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula,temp)
-    newloglikSeq <- logLikelihoodMCTemp(indexCore = 1, list(step$newseq[,-which(colnames(step$newseq)=="row")]), beta, theta, initTime, endTime,splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula,temp)
-
-
-    } else if (type == 2) { # Shortening
-    step <- stepShort(seq, tieNames, gammaEminus, gammaMinus, m, me, auxDf)
+    loglikSeq <- logLikelihoodMCTemp(indexCore = 1, list(seq[, -which(colnames(seq) == "row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula, temp)
+    newloglikSeq <- logLikelihoodMCTemp(indexCore = 1, list(step$newseq[, -which(colnames(step$newseq) == "row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula, temp)
+  } else if (type == 2) { # Shortening
+    step <- stepShort(seq, tieNames, gammaEminus, gammaMinus, m, me, Kel_g1, auxDf)
     getNewKelMeMatrix <- getKelMeMatrix(step$newseq, actDfnodesLab)
     newAuxDfE <- getAuxDfE(getNewKelMeMatrix$auxDf, sender, receiver)
     auxDfE <- getAuxDfE(auxDf, sender, receiver)
@@ -600,12 +591,12 @@ stepPT <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,theta
     newindexSR <- which(step$newseq$sender == step$sender & step$newseq$receiver == step$receiver)
 
     if (step$typeS == "same") {
-      pUndoStep = getpDoAugment(newGammaEplus,newGammaPlus,newp,newM,newMe, step$sender, step$receiver, "same", newindexSR)
+      pUndoStep <- getpDoAugment(newGammaEplus, newGammaPlus, newp, newM, newMe, step$sender, step$receiver, "same", newindexSR)
     } else if (step$typeS == "diff") {
-      pUndoStep = getpDoAugment(newGammaEplus,newGammaPlus,newp,newM,newMe, step$sender, step$receiver, "diff", newindexSR)
+      pUndoStep <- getpDoAugment(newGammaEplus, newGammaPlus, newp, newM, newMe, step$sender, step$receiver, "diff", newindexSR)
     }
 
-    for(i in 1:k){
+    for (i in 1:k) {
       step <- stepPerm(step$newseq, tieNames, newM, newMe)
       newMe <- getNewKelMeMatrix$me
       newGammaEplus <- choose(nrow(newseq) - newMe + 2, 2)
@@ -613,13 +604,23 @@ stepPT <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,theta
       newM <- nrow(newseq)
     }
 
-    loglikSeq <- logLikelihoodMCTemp(indexCore = 1, list(seq[,-which(colnames(seq)=="row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula,temp)
-    newloglikSeq <- logLikelihoodMCTemp(indexCore = 1, list(step$newseq[,-which(colnames(step$newseq)=="row")]), beta, theta, initTime, endTime,splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula,temp)
+    loglikSeq <- logLikelihoodMCTemp(indexCore = 1, list(seq[, -which(colnames(seq) == "row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula, temp)
+    newloglikSeq <- logLikelihoodMCTemp(indexCore = 1, list(step$newseq[, -which(colnames(step$newseq) == "row")]), beta, theta, initTime, endTime, splitIndicesPerCore = list(1), actDfnodes = actDfnodes, net0 = net0, formula = formula, temp)
+  }
+
+
+  u <- runif(1, min = 0, max = 1)
+  accept <- (u <= exp(newloglikSeq - loglikSeq) * pUndoStep / pDoStep)
+  if (!accept) {
+    acceptIndex <- acceptIndex + 1
+    # if(accept & !acceptIndex %% 50){
+    newseq <- seq
+    newloglikSeq <- loglikSeq
   }
 
   return(list(
-    "newseq" = newseq, "loglikSeq" = loglikSeq, "newloglikSeq" = newloglikSeq,
-    "step" = step, "pUndoStep" = pUndoStep
+    "newseq" = newseq, "newloglikSeq" = newloglikSeq,
+    "step" = step, "accept" = accept
   ))
 }
 
@@ -647,15 +648,15 @@ stepPT <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta,theta
 #'
 #' @export
 #'
-stepPTMC <- function(indexCore,splitIndicesPerCore,seqs, type, actDfnodesLab, tieNames, formula, net0, beta,theta, initTime, endTime,k,T0) {
-    temp = seq(1,T0,length=length(seqs))
-    indicesCore <- splitIndicesPerCore[[indexCore]]
-    stepPT <- vector("list", length(indicesCore))
-    for (i in seq_along(indicesCore)) {
-      stepPT[[i]] <- stepPT(seqs[[indicesCore[[i]]]], type[indicesCore[[i]]], actDfnodesLab, tieNames, formula, net0, beta,theta, initTime, endTime,k,temp[indicesCore[[i]]])
-    }
-    return(stepPT)
+stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, type, actDfnodesLab, tieNames, formula, net0, beta, theta, initTime, endTime, k, T0, nStepSwitch) {
+  temp <- seq(1, T0, length = length(seqs))
+  indicesCore <- splitIndicesPerCore[[indexCore]]
+  stepPT <- vector("list", length(indicesCore))
+  for (i in seq_along(indicesCore)) {
+    stepPT[[i]] <- lapply(1:nStepSwitch, stepPT(seqs[[indicesCore[[i]]]], type[indicesCore[[i]]], actDfnodesLab, tieNames, formula, net0, beta, theta, initTime, endTime, k, temp[indicesCore[[i]]]))
   }
+  return(stepPT)
+}
 
 
 
@@ -683,7 +684,7 @@ stepPTMC <- function(indexCore,splitIndicesPerCore,seqs, type, actDfnodesLab, ti
 #'
 #' @export
 #'
-MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta,theta,initTime, endTime, burnIn = TRUE, maxIter = 10000, seqIter = 50, pShort = 0.35, pAug = 0.35, pPerm = 0.3) {
+MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta, theta, initTime, endTime, burnIn = TRUE, maxIter = 10000, seqIter = 50, pShort = 0.35, pAug = 0.35, pPerm = 0.3) {
   # Compute initial quatities:
   # Type 1: augmentation, type 2: shortening, type 3: permutation
 
@@ -707,7 +708,7 @@ MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta,theta,initTime, e
     }
 
     seq$row <- 1:nrow(seq)
-    stepMCMC <- stepMCMC(seq, type, actDfnodesLab, tieNames, formula, net0, beta,theta, initTime, endTime)
+    stepMCMC <- stepMCMC(seq, type, actDfnodesLab, tieNames, formula, net0, beta, theta, initTime, endTime)
 
     u <- runif(1, min = 0, max = 1)
     accept <- (u <= exp(stepMCMC$newloglikSeq - stepMCMC$loglikSeq) * stepMCMC$pUndoStep / stepMCMC$step$pDoStep)
@@ -735,7 +736,8 @@ MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta,theta,initTime, e
 #'
 #' @description Computes an MCMC chain and returns nmax sequences from the MCMC chain.
 #'
-#' @param nmax integer, number of sequences to be returned.
+#' @param nmax integer, number of sequences to sampled.
+#' @param nPT integer, number of chains in the parallel tempering algorithm.
 #' @param seqsInit list of data frame, sequences from which start/continue MCMC chain. They must have all the same length.
 #' @param H integer, hamming distance between net0 and net1.
 #' @param actDfnodes object of type ´nodes´ from goldfish.
@@ -748,12 +750,13 @@ MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta,theta,initTime, e
 #' @param pShort float, probability of shortening step.
 #' @param pAugment float, probability of augmenting step.
 #' @param T0 initial maximal tempetature for the parallale tempering scheme/simulated annealing
+#' @param nStepExch number of mutation steps before a exchange
 #'
 #' @return permut, list of sequences.
 #'
 #' @export
 #'
-PT_MCMC <- function(nmax, seqsInit, H, actDfnodes, formula, net0, beta,theta,initTime, endTime, burnIn = TRUE, maxIter = 10000, seqIter = 50, pShort = 0.5, pAug = 0.5,T0 = 100,num_cores=1) {
+PT_MCMC <- function(nmax, seqsInit, H, actDfnodes, formula, net0, beta, theta, initTime, endTime, burnIn = TRUE, maxIter = 10000, seqIter = 50, pShort = 0.5, pAug = 0.5, T0 = 100, nStepExch = 10, num_cores = 1) {
   # Compute initial quatities:
   # Type 1: augmentation, type 2: shortening
 
@@ -766,26 +769,28 @@ PT_MCMC <- function(nmax, seqsInit, H, actDfnodes, formula, net0, beta,theta,ini
   tieNames <- sapply(actDfnodesLab, function(x) sapply(actDfnodesLab, function(i) paste(x, i, sep = "-")))
   tieNames <- as.vector(tieNames)
 
-  permut <- vector(mode = "list", length = nmax)
+  seqsPT <- vector(mode = "list", length = nPT) # get the initial permutations to start Parallel Tempering
 
 
   acceptIndex <- 0
   for (i in 1:maxIter) {
-    if (nrow(seqsInit[[1]]) == H) {
-      type <- sampleVec(c(1, 2), size = length(seqsInit), prob = c(1, 0),replace=TRUE)
+    if (nrow(seqsPT[[1]]) == H) {
+      type <- sampleVec(c(1, 2), size = length(seqsPT), prob = c(1, 0), replace = TRUE)
     } else {
-      type <- sampleVec(c(1, 2), size = length(seqsInit), prob = c(pAug, pShort),replace=TRUE)
+      type <- sampleVec(c(1, 2), size = length(seqsPT), prob = c(pAug, pShort), replace = TRUE)
     }
 
-    seqsInit = lapply(seqsInit,function(x) cbind(x,"row"=1:nrow(x)))
+    seqsPT <- lapply(seqsPT, function(x) cbind(x, "row" = 1:nrow(x)))
 
 
-    splitIndicesPerCore <- splitIndices(length(seqsInit), num_cores)
+    splitIndicesPerCore <- splitIndices(length(seqsPT), num_cores)
     cl <- makeCluster(num_cores)
     on.exit(stopCluster(cl))
-    clusterExport(cl, c("seqs", "type", "actDfnodesLab", "tieNames",
-                        "formula", "net0", "beta","theta", "initTime",
-                        "endTime","k","T0"))
+    clusterExport(cl, c(
+      "seqs", "type", "actDfnodesLab", "tieNames",
+      "formula", "net0", "beta", "theta", "initTime",
+      "endTime", "k", "T0","nStepExch"
+    ))
     clusterEvalQ(cl, {
       library(goldfish)
       NULL
@@ -793,46 +798,67 @@ PT_MCMC <- function(nmax, seqsInit, H, actDfnodes, formula, net0, beta,theta,ini
 
 
     clusterExport(cl, list(
-        "stepPT","stepPTMC","stepMCMC","getpDoAugment","getpDoShort","petpDoPerm",
-        "getKelMeMatrix","getAuxDfE","stepAugment","stepShort","stepPerm",
-        ""
+      "stepPT", "stepPTMC", "stepMCMC", "getpDoAugment", "getpDoShort", "petpDoPerm",
+      "getKelMeMatrix", "getAuxDfE", "stepAugment", "stepShort", "stepPerm",
+      ""
     ))
 
 
     stepPT <- clusterApply(cl, seq_along(splitIndicesPerCore), stepPT,
-                           splitIndicesPerCore = splitIndicesPerCore,
-                           seqs=seqsInit, type=type, actDfnodesLab=actDfnodesLab,
-                           tieNames=tieNames, formula=formula, net0=net0,
-                           beta=beta,theta=theta, initTime=initTime,
-                           endTime=endTime,k=k,T0=T0,
-                            actDfnodes. = actDfnodes)
+      splitIndicesPerCore = splitIndicesPerCore,
+      seqs = seqsPT, type = type, actDfnodesLab = actDfnodesLab,
+      tieNames = tieNames, formula = formula, net0 = net0,
+      beta = beta, theta = theta, initTime = initTime,
+      endTime = endTime, k = k, T0 = T0, nStepExch = nStepExch,
+      actDfnodes. = actDfnodes
+    )
 
-
-    # First: check if the proposed new states are accepted
-    u <- runif(1, min = 0, max = 1)
-    accept <- (u <= exp(stepMCMC$newloglikSeq - stepMCMC$loglikSeq) * stepMCMC$pUndoStep / stepMCMC$step$pDoStep)
-    if (accept) {
-      acceptIndex <- acceptIndex + 1
-      # if(accept & !acceptIndex %% 50){
-      seq <- stepMCMC$newseq
+    # Every 10 iterations, try to switch
+    order = sample(c(0,1),size=1,prob=c(0.5,0.5)) # True=1: Pairs of sequences 1-2, 3-4, ....
+                                                  # False=0: Paris of sequences 1, 2-3, 4-5, ...
+    if(order){
+      if(! nPT %% 2) {
+        tempPairs = data.frame(seq(1,nPT,by=2),seq(2,nPT,by=2))
+      }else{
+        tempPairs = data.frame(seq(1,nPT-1,by=2),seq(2,nPT,by=2))
+      }
+    }else{
+      if(! nPT %% 2) {
+        tempPairs = data.frame(seq(2,nPT-1,by=2),seq(3,nPT,by=2))
+      }else{
+        tempPairs = data.frame(seq(2,nPT,by=2),seq(3,nPT,by=2))
+      }
     }
 
-    # Second: check if there is swapping between ajdacent temperature sequences
+    # Exchange step!
+    # Accept or reject the change
+    logUnif = log(runif(nrow(tempPairs)))
+    for( i in 1:nrow(tempPairs)){
+      logMHRatio = min(0,stepPT[[tempPairs[i,1]]]$newloglikSeq*temp[tempPairs[i,1]]/temp[tempPairs[i,2]]+
+                stepPT[[tempPairs[i,2]]]$newloglikSeq*temp[tempPairs[i,2]]/temp[tempPairs[i,1]]-
+                stepPT[[tempPairs[i,1]]]$newloglikSeq-stepPT[[tempPairs[i,2]]]$newloglikSeq)
+      if(logUnif[i]<logMHRatio){
+        aux = steptPT[[tempPairs[i,1]]]
+        steptPT[[tempPairs[i,1]]] = steptPT[[tempPairs[i,2]]]
+        steptPT[[tempPairs[i,2]]] = aux
+        rm(aux)
+      }
+    }
 
 
+    if (burnIn) { # avoid, after burn in, to have switch and sample in the same step (not really needed)
+      if ((i-5) > 500 & !(i-5) %% 50) {
+        permut <- c(permut, stepPT[[1]]) # get a sample from the sequence with temperature 1
+      }
+    } else {
+      if (!(i-5) %% 50) {
+        permut <- c(permut, stepPT[[1]])
+      }
+    }
   }
 
-  if (burnIn) {
-    if (i > 500 & !i %% 50) {
-      permut <- c(permut, seq)
-    }
-  } else {
-    if (!i %% 50) {
-      permut <- c(permut, seq)
-    }
-  }
+  return(permut,stepPT)
 
-  return(permut)
 }
 
 
