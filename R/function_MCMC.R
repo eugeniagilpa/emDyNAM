@@ -800,7 +800,7 @@ PT_MCMC <- function(nmax, seqsInit, H, actDfnodes, formula, net0, beta, theta, i
     clusterExport(cl, list(
       "stepPT", "stepPTMC", "stepMCMC", "getpDoAugment", "getpDoShort", "petpDoPerm",
       "getKelMeMatrix", "getAuxDfE", "stepAugment", "stepShort", "stepPerm",
-      ""
+      "logLikelihoodMCTemp", "GatherPreprocessingDF","logLikChoice","logLikConstantRate"
     ))
 
 
