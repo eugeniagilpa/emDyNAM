@@ -648,9 +648,9 @@ stepPT <- function(seq, type, actDfnodesLab, tieNames, formula, net0, beta, thet
 #'
 #' @export
 #'
-stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, type, actDfnodesLab, tieNames, formula, net0, beta, theta, initTime, endTime, k, T0, nStepSwitch,
+stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, type, actDfnodesLab, tieNames, formula, net0, beta, theta, initTime, endTime, k, temp, nStepSwitch,
                      pAug,pShort) {
-  temp <- seq(1, T0, length = length(seqs))
+
   indicesCore <- splitIndicesPerCore[[indexCore]]
   stepPT <- vector("list", length(indicesCore))
   for (i in seq_along(indicesCore)) {
@@ -777,6 +777,8 @@ PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta, the
   }
   permute <- list()
 
+  temp <- seq(1, T0, length = length(seqs))
+
   acceptIndex <- 0
   for (i in 1:maxIter) {
     if (nrow(seqsPT[[1]]) == H) {
@@ -814,7 +816,7 @@ PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta, the
       seqs = seqsPT, type = type, actDfnodesLab = actDfnodesLab,
       tieNames = tieNames, formula = formula, net0 = net0,
       beta = beta, theta = theta, initTime = initTime,
-      endTime = endTime, k = k, T0 = T0, nStepExch = nStepExch,
+      endTime = endTime, k = k, temp = temp, nStepExch = nStepExch,
       pAug = pAug, pShort = pShort
     )
 
