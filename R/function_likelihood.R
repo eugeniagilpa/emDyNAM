@@ -24,8 +24,9 @@ logLikelihood <- function(listExpandedDFChoice, listExpandedDFRate, beta, theta,
 #' @return loglikelihood (creation + deletion of events models)
 #' @export
 #'
-logLikChoice <- function(listExpandedDf, beta) {
+logLikChoice <- function(listExpandedDF, beta) {
   # Computations of loglikelihood for creation events
+
   xbCrea <- by(
     listExpandedDF$expandedDFCreation[, !names(listExpandedDF$expandedDFCreation) %in% c("event", "selected")],
     listExpandedDF$expandedDFCreation[, "event"], function(x) as.matrix(x) %*% beta$Crea
@@ -46,6 +47,7 @@ logLikChoice <- function(listExpandedDf, beta) {
     listExpandedDF$expandedDFDeletion[listExpandedDF$expandedDFDeletion$selected == TRUE, "event"], function(x) as.matrix(x) %*% beta$Del
   )
   loglikDel <- sum(unlist(xb_auxDel) - sapply(xbDel, colLogSumExps))
+
 
   return(list("loglik" = loglikCrea + loglikDel, "xb_auxCrea" = xb_auxCrea, "xbCrea" = xbCrea, "xb_auxDel" = xb_auxDel, "xbDel" = xbDel))
 }
@@ -228,9 +230,9 @@ logLikelihoodMCTemp <- function(indexCore, permut, beta, theta, initTime, endTim
       },
       envirPrepro
     )
-    listExpandedDF <- GatherPreprocessingDF(formula, envir = envirPrepro)$listExpandedDF
+    listExpandedDF <- GatherPreprocessingDF(formula, envir = envirPrepro)
 
-    resLikelihood[[i]] <- logLikChoice(listExpandedDF, beta)$loglik/temp + logLikConstantRate(theta, initTime, endTime, length(actDfnodes$label), nrow(seq))/temp
+    resLikelihood[[i]] <- logLikChoice(listExpandedDF$listExpandedDF, beta)$loglik/temp + logLikConstantRate(theta, initTime, endTime, length(actDfnodes$label), nrow(seq))/temp
   }
   return(unlist(resLikelihood))
 }
