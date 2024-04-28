@@ -96,7 +96,9 @@ parameters <- function(seq, actDfnodes. = actDfnodes, net0. = net0, formula. = f
 #' @return list with goldfish estimators and their standard errors for each permuation
 #' @export
 #'
-parametersMC <- function(indexCore, splitIndicesPerCore, permut = permut, actDfnodes. = actDfnodes, net0. = net0, formula. = formula) {
+parametersMC <- function(indexCore, splitIndicesPerCore, permut = permut,
+                         actDfnodes. = actDfnodes, net0. = net0,
+                         formula. = formula) {
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resParameters <- vector("list", length(indicesCore))
   for (i in seq_along(indicesCore)) {

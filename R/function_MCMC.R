@@ -961,10 +961,11 @@ PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta,
       "seqsPT", "actDfnodesLab", "tieNames",
       "formula", "net0", "beta", "theta", "initTime",
       "endTime", "k", "T0", "nStepExch","pAug","pShort","splitIndicesPerCore",
-      "H","actDfnodesLab", "actDfnodes"
+      "H","actDfnodesLab", "actDfnodes","nAct"
     ))
     clusterEvalQ(cl, {
       library(goldfish)
+      library(matrixStats)
       NULL
     })
 
@@ -977,13 +978,14 @@ PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta,
     ))
 
 
-    resstepPT <- clusterApply(cl=cl, x=seq_along(splitIndicesPerCore),fun =stepPTMC,
+    resstepPT <- clusterApply(cl, seq_along(splitIndicesPerCore),stepPTMC,
       seqs = seqsPT,  splitIndicesPerCore = splitIndicesPerCore,H = H,
       actDfnodesLab = actDfnodesLab, actDfnodes = actDfnodes,
       tieNames = tieNames, formula = formula, net0 = net0, beta = beta,
       theta = theta, initTime = initTime, endTime = endTime, k = k, temp = temp,
       nStepExch = nStepExch, pAug = pAug, pShort = pShort
     )
+
 
 
     # Every 10 iterations, try to switch
