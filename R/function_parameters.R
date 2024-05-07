@@ -129,3 +129,162 @@ rubinsRule <- function(x, se, w) {
   se_total <- sqrt(v_within + (1 + 1 / length(w)) * v_between)
   return(list(mean = x_mean, se = se_total))
 }
+
+
+
+
+
+
+
+# Newton-Raphson --------------------
+
+estimateNR = function(parameters,initTime,endTime,actDfnodes,net0,
+                      formula,seqsEM,modelType = "Crea"){
+
+  envirPrepro <- new.env()
+
+  if(! "time" %in% colnames(seqsEM[[1]])){
+    seqsEM <- lapply(seqsEM, function(x) cbind(x, "time" = 1:nrow(x)))
+  }
+
+  envirPrepro$seqsTime <- seqsEM
+  envirPrepro$actDfnodes <- actDfnodes
+  envirPrepro$net0 <- net0
+
+  if(modelType == "Crea"){
+   envirPrepro$replaceIndex <- 1
+  }else{
+    envirPrepro$replaceIndex <- 0
+  }
+
+
+  formula <- paste("depEvents ~", formula, sep = "")
+
+  logLikelihood = vector("numeric",length=length(seqsEM))
+  score=vector("numeric",length=length(seqsEM))
+  informationMatrix=vector("list",length=length(seqsEM))
+
+  while (TRUE) {
+
+    for(i in 1:length(seqsEM)){ # TO DO: PARALLELIZE THIS
+    local(
+      {
+        netEvents <- defineNetwork(nodes = actDfnodes, matrix = net0) |>
+          linkEvents(changeEvents = seqsTime[[i]], nodes = actDfnodes)
+
+        depEvents <- defineDependentEvents(
+          seqsTime[[i]][seqsTime[[i]]$replace == replaceIndex, ],
+          nodes = actDfnodes,
+          defaultNetwork = netEvents,
+        )
+      },
+      envirPrepro
+    )
+
+
+    res <- estimate(
+      as.formula(formula),
+      estimationInit = list(
+        engine = "default_c",
+        initialParameters = parameters,
+        maxIterations = 0,
+        initialDamping = 1, dampingIncreaseFactor = 1, dampingDecreaseFactor = 1,
+        startTime = initTime,
+        endTime = endTime
+      ),
+      verbose = FALSE,
+      progress = FALSE,
+      envir = envirPrepro
+    )
+
+
+    logLikelihood[i]=res$logLikelihood
+    score[i]=res$finalScore
+    informationMatrix[[i]]=res$finalInformationMatrix
+    }
+
+
+  if (sum(logLikelihood) <= sum(logLikelihood.old) ||
+      any(is.na(logLikelihood)) ||
+      any(is.na(score)) ||
+      any(is.na(unlist(informationMatrix)))) {
+
+    # reset values
+    logLikelihood <- logLikelihood.old
+    parameters <- parameters.old
+    score <- score.old
+    informationMatrix <- informationMatrix.old
+    minDampingFactor <- minDampingFactor * dampingIncreaseFactor
+  } else {
+    logLikelihood.old <- logLikelihood
+    parameters.old <- parameters
+    score.old <- score
+    informationMatrix.old <- informationMatrix
+    minDampingFactor <- max(
+      1,
+      minDampingFactor / ifelse(isInitialEstimation, 1, dampingDecreaseFactor) # QUESTIONS
+    )
+  }
+
+
+  # Calculate the UPDATE distance taking into account the DAMPING
+  dampingFactor <- minDampingFactor
+
+
+  informationMatrixUnfixed <-
+    informationMatrix[idUnfixedCompnents, idUnfixedCompnents]
+  inverseInformationUnfixed <- try(
+    solve(informationMatrixUnfixed),
+    silent = TRUE
+  )
+  if (inherits(inverseInformationUnfixed, "try-error")) {
+    stop(
+      "Matrix cannot be inverted;",
+      " probably due to collinearity between parameters."
+    )
+  }
+
+  update <- rep(0, nParams)
+  update[idUnfixedCompnents] <-
+    (inverseInformationUnfixed %*% score[idUnfixedCompnents]) / dampingFactor
+
+
+
+  # check for stop criteria
+  if (max(abs(score)) <= maxScoreStopCriterion) {
+    isConverged <- TRUE
+    if (progress) {
+      cat(
+        "\nStopping as maximum absolute score is below ",
+        maxScoreStopCriterion, ".\n",
+        sep = ""
+      )
+    }
+
+    break
+  }
+  if (iIteration > maxIterations) {
+    if (progress) {
+      cat(
+        "\nStopping as maximum of ",
+        maxIterations,
+        " iterations have been reached. No convergence.\n"
+      )
+    }
+    break
+  }
+
+  parameters <- parameters + update
+
+  iIteration <- iIteration + 1
+  } # end of while
+
+
+stdErrors <- rep(0, nParams)
+stdErrors[idUnfixedCompnents] <- sqrt(diag(inverseInformationUnfixed))
+
+return(list(parameters = parameters,stdErrors = stdErrors))
+
+}
+
+
