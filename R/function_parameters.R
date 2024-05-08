@@ -138,8 +138,24 @@ rubinsRule <- function(x, se, w) {
 
 # Newton-Raphson --------------------
 
-estimateNR = function(parameters,initTime,endTime,actDfnodes,net0,
+estimateNR = function(parameters,fixedparameters=c(NA,NA,NA,NA,-20,-20),
+                      initTime,endTime,actDfnodes,net0,
                       formula,seqsEM,modelType = "Crea"){
+
+  initialDamping = 1
+  minDampingFactor = initialDamping
+  dampingIncreaseFactor = 1
+  dampingDecreaseFactor = 1 # is it better 2 and 3 (defaults in goldfish) QUESTION
+  iIteration <- 1
+  isConverged <- FALSE
+  isInitialEstimation <- TRUE
+  logLikelihood.old <- -Inf
+  parameters.old <- parameters
+  score.old <- NULL
+  informationMatrix.old <- NULL
+
+
+  idUnfixedCompnents = which(is.na(fixedparameters))
 
   envirPrepro <- new.env()
 
@@ -151,6 +167,11 @@ estimateNR = function(parameters,initTime,endTime,actDfnodes,net0,
   envirPrepro$actDfnodes <- actDfnodes
   envirPrepro$net0 <- net0
 
+  envirPrepro$fixedparameters <- fixedparameters
+  envirPrepro$initTime <- initTime
+  envirPrepro$endTime <- endTime
+
+
   if(modelType == "Crea"){
    envirPrepro$replaceIndex <- 1
   }else{
@@ -161,10 +182,12 @@ estimateNR = function(parameters,initTime,endTime,actDfnodes,net0,
   formula <- paste("depEvents ~", formula, sep = "")
 
   logLikelihood = vector("numeric",length=length(seqsEM))
-  score=vector("numeric",length=length(seqsEM))
+  score=vector("list",length=length(seqsEM))
   informationMatrix=vector("list",length=length(seqsEM))
 
   while (TRUE) {
+
+    envirPrepro$parameters <- parameters
 
     for(i in 1:length(seqsEM)){ # TO DO: PARALLELIZE THIS
     local(
@@ -187,6 +210,7 @@ estimateNR = function(parameters,initTime,endTime,actDfnodes,net0,
       estimationInit = list(
         engine = "default_c",
         initialParameters = parameters,
+        fixedParameters = fixedparameters,
         maxIterations = 0,
         initialDamping = 1, dampingIncreaseFactor = 1, dampingDecreaseFactor = 1,
         startTime = initTime,
@@ -199,14 +223,14 @@ estimateNR = function(parameters,initTime,endTime,actDfnodes,net0,
 
 
     logLikelihood[i]=res$logLikelihood
-    score[i]=res$finalScore
+    score[[i]]=res$finalScore
     informationMatrix[[i]]=res$finalInformationMatrix
     }
 
 
   if (sum(logLikelihood) <= sum(logLikelihood.old) ||
       any(is.na(logLikelihood)) ||
-      any(is.na(score)) ||
+      any(is.na(unlist(score))) ||
       any(is.na(unlist(informationMatrix)))) {
 
     # reset values
@@ -226,13 +250,20 @@ estimateNR = function(parameters,initTime,endTime,actDfnodes,net0,
     )
   }
 
+    isInitialEstimation <- FALSE
 
   # Calculate the UPDATE distance taking into account the DAMPING
   dampingFactor <- minDampingFactor
 
 
-  informationMatrixUnfixed <-
-    informationMatrix[idUnfixedCompnents, idUnfixedCompnents]
+
+  informationMatrixUnfixed <- Reduce('+',lapply(informationMatrix , "[",
+                                     idUnfixedCompnents, idUnfixedCompnents)) /
+                            length(idUnfixedCompnents)
+
+  scoreUnfixed <- Reduce('+',lapply(score , "[", idUnfixedCompnents)) /
+                  length(idUnfixedCompnents)
+
   inverseInformationUnfixed <- try(
     solve(informationMatrixUnfixed),
     silent = TRUE
@@ -246,7 +277,7 @@ estimateNR = function(parameters,initTime,endTime,actDfnodes,net0,
 
   update <- rep(0, nParams)
   update[idUnfixedCompnents] <-
-    (inverseInformationUnfixed %*% score[idUnfixedCompnents]) / dampingFactor
+    (inverseInformationUnfixed %*% scoreUnfixed) / dampingFactor
 
 
 
@@ -273,6 +304,7 @@ estimateNR = function(parameters,initTime,endTime,actDfnodes,net0,
     }
     break
   }
+
 
   parameters <- parameters + update
 
