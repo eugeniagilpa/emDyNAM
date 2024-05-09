@@ -138,14 +138,79 @@ rubinsRule <- function(x, se, w) {
 
 # Newton-Raphson --------------------
 
-estimateNR = function(parameters,fixedparameters=c(NA,NA,NA,NA,-20,-20),
-                      initTime,endTime,actDfnodes,net0,
-                      formula,seqsEM,modelType = "Crea"){
 
-  initialDamping = 1
-  minDampingFactor = initialDamping
-  dampingIncreaseFactor = 1
-  dampingDecreaseFactor = 1 # is it better 2 and 3 (defaults in goldfish) QUESTION
+auxEstimateNR <- function(seqTime, envirPrepro, formula) {
+  # for(i in 1:length(seqsEM)){ # TO DO: PARALLELIZE THIS
+
+  envirPrepro$seqTime <- seqTime
+
+  local(
+    {
+      netEvents <- defineNetwork(nodes = actDfnodes, matrix = net0) |>
+        linkEvents(changeEvents = seqTime, nodes = actDfnodes)
+
+      depEvents <- defineDependentEvents(
+        seqTime[seqTime$replace == replaceIndex, ],
+        nodes = actDfnodes,
+        defaultNetwork = netEvents,
+      )
+    },
+    envirPrepro
+  )
+
+
+  res <- estimate(
+    as.formula(formula),
+    estimationInit = list(
+      engine = "default_c",
+      initialParameters = parameters,
+      fixedParameters = fixedparameters,
+      maxIterations = 0,
+      initialDamping = 1, dampingIncreaseFactor = 1, dampingDecreaseFactor = 1,
+      startTime = initTime,
+      endTime = endTime
+    ),
+    verbose = FALSE,
+    progress = FALSE,
+    envir = envirPrepro
+  )
+
+
+  logLikelihood <- res$logLikelihood
+  score <- res$finalScore
+  informationMatrix <- res$finalInformationMatrix
+
+  return(list(
+    logLikelihood = logLikelihood,
+    score = score,
+    informationMatrix = informationMatrix
+  ))
+}
+
+
+auxEstimateNR_MC <- function(indexCore, splitIndicesPerCore, seqsTime = seqsTime,
+                             envirPrepro = envirPrepro, formula = formula) {
+  indicesCore <- splitIndicesPerCore[[indexCore]]
+  resParameters <- vector("list", length(indicesCore))
+  for (i in seq_along(indicesCore)) {
+    res[[i]] <- auxEstimateNR(seqsTime[[indicesCore[[i]]]], envirPrepro, formula)
+  }
+
+  return(res)
+}
+
+
+
+
+
+estimateNR <- function(parameters, fixedparameters = c(NA, NA, NA, NA, -20, -20),
+                       initTime, endTime, actDfnodes, net0,
+                       formula, seqsEM, modelType = "Crea",
+                       num_cores_parameters = 1) {
+  initialDamping <- 1
+  minDampingFactor <- initialDamping
+  dampingIncreaseFactor <- 1
+  dampingDecreaseFactor <- 1 # is it better 2 and 3 (defaults in goldfish) QUESTION
   iIteration <- 1
   isConverged <- FALSE
   isInitialEstimation <- TRUE
@@ -155,15 +220,17 @@ estimateNR = function(parameters,fixedparameters=c(NA,NA,NA,NA,-20,-20),
   informationMatrix.old <- NULL
 
 
-  idUnfixedCompnents = which(is.na(fixedparameters))
+  idUnfixedCompnents <- which(is.na(fixedparameters))
 
   envirPrepro <- new.env()
 
-  if(! "time" %in% colnames(seqsEM[[1]])){
-    seqsEM <- lapply(seqsEM, function(x) cbind(x, "time" = 1:nrow(x)))
+  seqsTime <- seqsEM
+
+  if (!"time" %in% colnames(seqsTime[[1]])) {
+    seqsTime <- lapply(seqsTime, function(x) cbind(x, "time" = 1:nrow(x)))
   }
 
-  envirPrepro$seqsTime <- seqsEM
+  # envirPrepro$seqsTime <- seqsEM
   envirPrepro$actDfnodes <- actDfnodes
   envirPrepro$net0 <- net0
 
@@ -172,151 +239,137 @@ estimateNR = function(parameters,fixedparameters=c(NA,NA,NA,NA,-20,-20),
   envirPrepro$endTime <- endTime
 
 
-  if(modelType == "Crea"){
-   envirPrepro$replaceIndex <- 1
-  }else{
+  if (modelType == "Crea") {
+    envirPrepro$replaceIndex <- 1
+  } else {
     envirPrepro$replaceIndex <- 0
   }
 
 
   formula <- paste("depEvents ~", formula, sep = "")
 
-  logLikelihood = vector("numeric",length=length(seqsEM))
-  score=vector("list",length=length(seqsEM))
-  informationMatrix=vector("list",length=length(seqsEM))
+  logLikelihood <- vector("numeric", length = length(seqsEM))
+  score <- vector("list", length = length(seqsEM))
+  informationMatrix <- vector("list", length = length(seqsEM))
 
   while (TRUE) {
-
     envirPrepro$parameters <- parameters
 
-    for(i in 1:length(seqsEM)){ # TO DO: PARALLELIZE THIS
-    local(
-      {
-        netEvents <- defineNetwork(nodes = actDfnodes, matrix = net0) |>
-          linkEvents(changeEvents = seqsTime[[i]], nodes = actDfnodes)
 
-        depEvents <- defineDependentEvents(
-          seqsTime[[i]][seqsTime[[i]]$replace == replaceIndex, ],
-          nodes = actDfnodes,
-          defaultNetwork = netEvents,
-        )
-      },
-      envirPrepro
-    )
+    if (iIteration == 1) {
+      splitIndicesPerCore2 <- splitIndices(length(seqsTime), num_cores_parameters)
+      cl2 <- makeCluster(num_cores_parameters)
+      on.exit(stopCluster(cl2))
+      clusterEvalQ(cl2, {
+        library(goldfish)
+        library(matrixStats)
+        NULL
+      })
 
 
-    res <- estimate(
-      as.formula(formula),
-      estimationInit = list(
-        engine = "default_c",
-        initialParameters = parameters,
-        fixedParameters = fixedparameters,
-        maxIterations = 0,
-        initialDamping = 1, dampingIncreaseFactor = 1, dampingDecreaseFactor = 1,
-        startTime = initTime,
-        endTime = endTime
-      ),
-      verbose = FALSE,
-      progress = FALSE,
-      envir = envirPrepro
-    )
-
-
-    logLikelihood[i]=res$logLikelihood
-    score[[i]]=res$finalScore
-    informationMatrix[[i]]=res$finalInformationMatrix
+      clusterExport(cl2, list(
+        "auxEstimateNR"
+      ))
     }
 
+    res <- clusterApply(cl2, seq_along(splitIndicesPerCore2), auxEstimateNR_MC,
+      seqsTime = seqsTime,
+      splitIndicesPerCore = splitIndicesPerCore2,
+      envirPrepro = envirPrepro, formula = formula
+    )
 
-  if (sum(logLikelihood) <= sum(logLikelihood.old) ||
+
+    logLikelihood <- sapply(res, "[[", 1)
+    score <- lapply(res, "[[", 2)
+    informationMatrix <- lapply(res, "[[", 3)
+
+    if (sum(logLikelihood) <= sum(logLikelihood.old) ||
       any(is.na(logLikelihood)) ||
       any(is.na(unlist(score))) ||
       any(is.na(unlist(informationMatrix)))) {
-
-    # reset values
-    logLikelihood <- logLikelihood.old
-    parameters <- parameters.old
-    score <- score.old
-    informationMatrix <- informationMatrix.old
-    minDampingFactor <- minDampingFactor * dampingIncreaseFactor
-  } else {
-    logLikelihood.old <- logLikelihood
-    parameters.old <- parameters
-    score.old <- score
-    informationMatrix.old <- informationMatrix
-    minDampingFactor <- max(
-      1,
-      minDampingFactor / ifelse(isInitialEstimation, 1, dampingDecreaseFactor) # QUESTIONS
-    )
-  }
+      # reset values
+      logLikelihood <- logLikelihood.old
+      parameters <- parameters.old
+      score <- score.old
+      informationMatrix <- informationMatrix.old
+      minDampingFactor <- minDampingFactor * dampingIncreaseFactor
+    } else {
+      logLikelihood.old <- logLikelihood
+      parameters.old <- parameters
+      score.old <- score
+      informationMatrix.old <- informationMatrix
+      minDampingFactor <- max(
+        1,
+        minDampingFactor / ifelse(isInitialEstimation, 1, dampingDecreaseFactor) # QUESTIONS
+      )
+    }
 
     isInitialEstimation <- FALSE
 
-  # Calculate the UPDATE distance taking into account the DAMPING
-  dampingFactor <- minDampingFactor
+    # Calculate the UPDATE distance taking into account the DAMPING
+    dampingFactor <- minDampingFactor
 
 
 
-  informationMatrixUnfixed <- Reduce('+',lapply(informationMatrix , "[",
-                                     idUnfixedCompnents, idUnfixedCompnents)) /
-                            length(idUnfixedCompnents)
+    informationMatrixUnfixed <- Reduce("+", lapply(
+      informationMatrix, "[",
+      idUnfixedCompnents, idUnfixedCompnents
+    )) /
+      length(idUnfixedCompnents)
 
-  scoreUnfixed <- Reduce('+',lapply(score , "[", idUnfixedCompnents)) /
-                  length(idUnfixedCompnents)
+    scoreUnfixed <- Reduce("+", lapply(score, "[", idUnfixedCompnents)) /
+      length(idUnfixedCompnents)
 
-  inverseInformationUnfixed <- try(
-    solve(informationMatrixUnfixed),
-    silent = TRUE
-  )
-  if (inherits(inverseInformationUnfixed, "try-error")) {
-    stop(
-      "Matrix cannot be inverted;",
-      " probably due to collinearity between parameters."
+    inverseInformationUnfixed <- try(
+      solve(informationMatrixUnfixed),
+      silent = TRUE
     )
-  }
-
-  update <- rep(0, nParams)
-  update[idUnfixedCompnents] <-
-    (inverseInformationUnfixed %*% scoreUnfixed) / dampingFactor
-
-
-
-  # check for stop criteria
-  if (max(abs(score)) <= maxScoreStopCriterion) {
-    isConverged <- TRUE
-    if (progress) {
-      cat(
-        "\nStopping as maximum absolute score is below ",
-        maxScoreStopCriterion, ".\n",
-        sep = ""
+    if (inherits(inverseInformationUnfixed, "try-error")) {
+      stop(
+        "Matrix cannot be inverted;",
+        " probably due to collinearity between parameters."
       )
     }
 
-    break
-  }
-  if (iIteration > maxIterations) {
-    if (progress) {
-      cat(
-        "\nStopping as maximum of ",
-        maxIterations,
-        " iterations have been reached. No convergence.\n"
-      )
+    update <- rep(0, nParams)
+    update[idUnfixedCompnents] <-
+      (inverseInformationUnfixed %*% scoreUnfixed) / dampingFactor
+
+
+
+    # check for stop criteria
+    if (max(abs(score)) <= maxScoreStopCriterion) {
+      isConverged <- TRUE
+      if (progress) {
+        cat(
+          "\nStopping as maximum absolute score is below ",
+          maxScoreStopCriterion, ".\n",
+          sep = ""
+        )
+      }
+
+      break
     }
-    break
-  }
+    if (iIteration > maxIterations) {
+      if (progress) {
+        cat(
+          "\nStopping as maximum of ",
+          maxIterations,
+          " iterations have been reached. No convergence.\n"
+        )
+      }
+      break
+    }
 
 
-  parameters <- parameters + update
+    parameters <- parameters + update
 
-  iIteration <- iIteration + 1
+    iIteration <- iIteration + 1
   } # end of while
 
 
-stdErrors <- rep(0, nParams)
-stdErrors[idUnfixedCompnents] <- sqrt(diag(inverseInformationUnfixed))
+  stdErrors <- rep(0, nParams)
+  stdErrors[idUnfixedCompnents] <- sqrt(diag(inverseInformationUnfixed))
 
-return(list(parameters = parameters,stdErrors = stdErrors))
-
+  return(list(parameters = parameters, stdErrors = stdErrors))
 }
-
-

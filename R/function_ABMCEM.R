@@ -165,10 +165,9 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate
       permut = permut,
       splitIndicesPerCore = splitIndicesPerCore,
       beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula,
-      theta=theta, initTime=initTime, endTime=endTime,
+      theta = theta, initTime = initTime, endTime = endTime,
     )
-
-      } else {
+  } else {
     logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodTimeMC,
       permut = permut,
       splitIndicesPerCore = splitIndicesPerCore,
@@ -206,10 +205,10 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate
 
     if (is.null(formulaRate)) {
       logLikCur <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodMC,
-                                 permut = permut,
-                                 splitIndicesPerCore = splitIndicesPerCore,
-                                 beta = betaNew, actDfnodes = actDfnodes, net0 = net0, formula = formula,
-                                 theta=theta, initTime=initTime, endTime=endTime,
+        permut = permut,
+        splitIndicesPerCore = splitIndicesPerCore,
+        beta = betaNew, actDfnodes = actDfnodes, net0 = net0, formula = formula,
+        theta = theta, initTime = initTime, endTime = endTime,
       )
     } else {
       logLikCur <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodTimeMC,
@@ -250,10 +249,10 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate
 
       if (is.null(formulaRate)) {
         logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodMC,
-                                   permut = permut,
-                                   splitIndicesPerCore = splitIndicesPerCore,
-                                   beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula,
-                                   theta=theta, initTime=initTime, endTime=endTime,
+          permut = permut,
+          splitIndicesPerCore = splitIndicesPerCore,
+          beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula,
+          theta = theta, initTime = initTime, endTime = endTime,
         )
       } else {
         logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodTimeMC,
@@ -302,10 +301,10 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate
 
       if (is.null(formulaRate)) {
         logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodMC,
-                                   permut = permut,
-                                   splitIndicesPerCore = splitIndicesPerCore,
-                                   beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula,
-                                   theta=theta, initTime=initTime, endTime=endTime,
+          permut = permut,
+          splitIndicesPerCore = splitIndicesPerCore,
+          beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula,
+          theta = theta, initTime = initTime, endTime = endTime,
         )
       } else {
         logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodTimeMC,
