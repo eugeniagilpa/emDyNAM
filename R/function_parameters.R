@@ -136,240 +136,251 @@ rubinsRule <- function(x, se, w) {
 
 
 
-# Newton-Raphson --------------------
+# Newton-Raphson -------------------
 
 
-auxEstimateNR <- function(seqTime, envirPrepro, formula) {
-  # for(i in 1:length(seqsEM)){ # TO DO: PARALLELIZE THIS
-
-  envirPrepro$seqTime <- seqTime
-
-  local(
-    {
-      netEvents <- defineNetwork(nodes = actDfnodes, matrix = net0) |>
-        linkEvents(changeEvents = seqTime, nodes = actDfnodes)
-
-      depEvents <- defineDependentEvents(
-        seqTime[seqTime$replace == replaceIndex, ],
-        nodes = actDfnodes,
-        defaultNetwork = netEvents,
-      )
-    },
-    envirPrepro
-  )
-
-
-  res <- estimate(
-    as.formula(formula),
-    estimationInit = list(
-      engine = "default_c",
-      initialParameters = parameters,
-      fixedParameters = fixedparameters,
-      maxIterations = 0,
-      initialDamping = 1, dampingIncreaseFactor = 1, dampingDecreaseFactor = 1,
-      startTime = initTime,
-      endTime = endTime
-    ),
-    verbose = FALSE,
-    progress = FALSE,
-    envir = envirPrepro
-  )
-
-
-  logLikelihood <- res$logLikelihood
-  score <- res$finalScore
-  informationMatrix <- res$finalInformationMatrix
-
-  return(list(
-    logLikelihood = logLikelihood,
-    score = score,
-    informationMatrix = informationMatrix
-  ))
-}
-
-
-auxEstimateNR_MC <- function(indexCore, splitIndicesPerCore, seqsTime = seqsTime,
-                             envirPrepro = envirPrepro, formula = formula) {
-  indicesCore <- splitIndicesPerCore[[indexCore]]
-  resParameters <- vector("list", length(indicesCore))
-  for (i in seq_along(indicesCore)) {
-    res[[i]] <- auxEstimateNR(seqsTime[[indicesCore[[i]]]], envirPrepro, formula)
-  }
-
-  return(res)
-}
+# auxEstimateNR <- function(seqTime, envirPrepro, formula) {
+#   # for(i in 1:length(seqsEM)){ # TO DO: PARALLELIZE THIS
+#
+#   envirPrepro$seqTime <- seqTime
+#
+#   local(
+#     {
+#       netEvents <- defineNetwork(nodes = actDfnodes, matrix = net0) |>
+#         linkEvents(changeEvents = seqTime, nodes = actDfnodes)
+#
+#       depEvents <- defineDependentEvents(
+#         seqTime[seqTime$replace == replaceIndex, ],
+#         nodes = actDfnodes,
+#         defaultNetwork = netEvents,
+#       )
+#     },
+#     envirPrepro
+#   )
+#
+#
+#   res <- estimate(
+#     as.formula(formula),
+#     estimationInit = list(
+#       engine = "default_c",
+#       initialParameters = parameters,
+#       fixedParameters = fixedparameters,
+#       maxIterations = 0,
+#       initialDamping = 1, dampingIncreaseFactor = 1, dampingDecreaseFactor = 1,
+#       startTime = initTime,
+#       endTime = endTime
+#     ),
+#     verbose = FALSE,
+#     progress = FALSE,
+#     envir = envirPrepro
+#   )
+#
+#
+#   logLikelihood <- res$logLikelihood
+#   score <- res$finalScore
+#   informationMatrix <- res$finalInformationMatrix
+#
+#   return(list(
+#     logLikelihood = logLikelihood,
+#     score = score,
+#     informationMatrix = informationMatrix
+#   ))
+# }
 
 
+# auxEstimateNR_MC <- function(indexCore, splitIndicesPerCore, seqsTime = seqsTime,
+#                              envirPrepro = envirPrepro, formula = formula) {
+#   indicesCore <- splitIndicesPerCore[[indexCore]]
+#   resParameters <- vector("list", length(indicesCore))
+#   for (i in seq_along(indicesCore)) {
+#     res[[i]] <- auxEstimateNR(seqsTime[[indicesCore[[i]]]], envirPrepro, formula)
+#   }
+#
+#   return(res)
+# }
+#
 
 
 
-estimateNR <- function(parameters, fixedparameters = c(NA, NA, NA, NA, -20, -20),
-                       initTime, endTime, actDfnodes, net0,
-                       formula, seqsEM, modelType = "Crea",
-                       num_cores_parameters = 1) {
+
+newtonraphsonStep <- function(parameters.old, fixedparameters = c(NA, NA, NA, NA, -20, -20),
+                       formula, seqsEM, modelType = "Crea", stats.old,
+                       stats.new, dampingIncreaseFactor = 2,
+                       dampingDecreaseFactor = 3,
+                       isInitialEstimation = FALSE
+                      ) {
   initialDamping <- 1
   minDampingFactor <- initialDamping
-  dampingIncreaseFactor <- 1
-  dampingDecreaseFactor <- 1 # is it better 2 and 3 (defaults in goldfish) QUESTION
-  iIteration <- 1
-  isConverged <- FALSE
+
   isInitialEstimation <- TRUE
-  logLikelihood.old <- -Inf
-  parameters.old <- parameters
-  score.old <- NULL
-  informationMatrix.old <- NULL
+
+  logLikelihood.old <- stats.old$logLikelihood
+  score.old <- stats.old$score
+  informationMatrix.old <- stats.old$informationMatrix
+
+  logLikelihood <- stats.new$logLikelihood
+  score <- stats.old$score
+  informationMatrix <- stats.old$informationMatrix
+
+
+  if (sum(logLikelihood) <= sum(logLikelihood.old) ||
+      any(is.na(logLikelihood)) ||
+      any(is.na(unlist(score))) ||
+      any(is.na(unlist(informationMatrix)))) {
+    # reset values
+    logLikelihood <- logLikelihood.old
+    parameters <- parameters.old
+    score <- score.old
+    informationMatrix <- informationMatrix.old
+    minDampingFactor <- minDampingFactor * dampingIncreaseFactor
+  } else {
+    logLikelihood.old <- logLikelihood
+    parameters.old <- parameters
+    score.old <- score
+    informationMatrix.old <- informationMatrix
+    minDampingFactor <- max(
+      1,
+      minDampingFactor / ifelse(isInitialEstimation, 1, dampingDecreaseFactor)
+    )
+  }
 
 
   idUnfixedCompnents <- which(is.na(fixedparameters))
 
-  envirPrepro <- new.env()
+  # Calculate the UPDATE distance taking into account the DAMPING
+  dampingFactor <- minDampingFactor
 
-  seqsTime <- seqsEM
 
-  if (!"time" %in% colnames(seqsTime[[1]])) {
-    seqsTime <- lapply(seqsTime, function(x) cbind(x, "time" = 1:nrow(x)))
+  scoreUnfixed <- Reduce("+", lapply(score, "[", idUnfixedCompnents)) /
+    length(idUnfixedCompnents)
+
+  informationMatrixUnfixed <- Reduce("+", lapply(
+    informationMatrix, "[",
+    idUnfixedCompnents, idUnfixedCompnents
+  )) /length(idUnfixedCompnents) -
+    scoreUnfixed %*% t(scoreUnfixed) / (length(idUnfixedCompnents)^2)
+
+
+  inverseInformationUnfixed <- try(
+    solve(informationMatrixUnfixed),
+    silent = TRUE
+  )
+  if (inherits(inverseInformationUnfixed, "try-error")) {
+    stop(
+      "Matrix cannot be inverted;",
+      " probably due to collinearity between parameters."
+    )
   }
 
-  # envirPrepro$seqsTime <- seqsEM
-  envirPrepro$actDfnodes <- actDfnodes
-  envirPrepro$net0 <- net0
+  update <- rep(0, nParams)
+  update[idUnfixedCompnents] <-
+    (inverseInformationUnfixed %*% scoreUnfixed) / dampingFactor
 
-  envirPrepro$fixedparameters <- fixedparameters
-  envirPrepro$initTime <- initTime
-  envirPrepro$endTime <- endTime
-
-
-  if (modelType == "Crea") {
-    envirPrepro$replaceIndex <- 1
-  } else {
-    envirPrepro$replaceIndex <- 0
-  }
-
-
-  formula <- paste("depEvents ~", formula, sep = "")
-
-  logLikelihood <- vector("numeric", length = length(seqsEM))
-  score <- vector("list", length = length(seqsEM))
-  informationMatrix <- vector("list", length = length(seqsEM))
-
-  while (TRUE) {
-    envirPrepro$parameters <- parameters
-
-
-    if (iIteration == 1) {
-      splitIndicesPerCore2 <- splitIndices(length(seqsTime), num_cores_parameters)
-      cl2 <- makeCluster(num_cores_parameters)
-      on.exit(stopCluster(cl2))
-      clusterEvalQ(cl2, {
-        library(goldfish)
-        library(matrixStats)
-        NULL
-      })
-
-
-      clusterExport(cl2, list(
-        "auxEstimateNR"
-      ))
-    }
-
-    res <- clusterApply(cl2, seq_along(splitIndicesPerCore2), auxEstimateNR_MC,
-      seqsTime = seqsTime,
-      splitIndicesPerCore = splitIndicesPerCore2,
-      envirPrepro = envirPrepro, formula = formula
-    )
-
-
-    logLikelihood <- sapply(res, "[[", 1)
-    score <- lapply(res, "[[", 2)
-    informationMatrix <- lapply(res, "[[", 3)
-
-    if (sum(logLikelihood) <= sum(logLikelihood.old) ||
-      any(is.na(logLikelihood)) ||
-      any(is.na(unlist(score))) ||
-      any(is.na(unlist(informationMatrix)))) {
-      # reset values
-      logLikelihood <- logLikelihood.old
-      parameters <- parameters.old
-      score <- score.old
-      informationMatrix <- informationMatrix.old
-      minDampingFactor <- minDampingFactor * dampingIncreaseFactor
-    } else {
-      logLikelihood.old <- logLikelihood
-      parameters.old <- parameters
-      score.old <- score
-      informationMatrix.old <- informationMatrix
-      minDampingFactor <- max(
-        1,
-        minDampingFactor / ifelse(isInitialEstimation, 1, dampingDecreaseFactor) # QUESTIONS
-      )
-    }
-
-    isInitialEstimation <- FALSE
-
-    # Calculate the UPDATE distance taking into account the DAMPING
-    dampingFactor <- minDampingFactor
-
-
-
-    informationMatrixUnfixed <- Reduce("+", lapply(
-      informationMatrix, "[",
-      idUnfixedCompnents, idUnfixedCompnents
-    )) /
-      length(idUnfixedCompnents)
-
-    scoreUnfixed <- Reduce("+", lapply(score, "[", idUnfixedCompnents)) /
-      length(idUnfixedCompnents)
-
-    inverseInformationUnfixed <- try(
-      solve(informationMatrixUnfixed),
-      silent = TRUE
-    )
-    if (inherits(inverseInformationUnfixed, "try-error")) {
-      stop(
-        "Matrix cannot be inverted;",
-        " probably due to collinearity between parameters."
-      )
-    }
-
-    update <- rep(0, nParams)
-    update[idUnfixedCompnents] <-
-      (inverseInformationUnfixed %*% scoreUnfixed) / dampingFactor
-
-
-
-    # check for stop criteria
-    if (max(abs(score)) <= maxScoreStopCriterion) {
-      isConverged <- TRUE
-      if (progress) {
-        cat(
-          "\nStopping as maximum absolute score is below ",
-          maxScoreStopCriterion, ".\n",
-          sep = ""
-        )
-      }
-
-      break
-    }
-    if (iIteration > maxIterations) {
-      if (progress) {
-        cat(
-          "\nStopping as maximum of ",
-          maxIterations,
-          " iterations have been reached. No convergence.\n"
-        )
-      }
-      break
-    }
-
-
-    parameters <- parameters + update
-
-    iIteration <- iIteration + 1
-  } # end of while
-
+  parameters <- parameters + update
 
   stdErrors <- rep(0, nParams)
   stdErrors[idUnfixedCompnents] <- sqrt(diag(inverseInformationUnfixed))
 
-  return(list(parameters = parameters, stdErrors = stdErrors))
+  return(list(parameters = parameters, stdErrors = stdErrors,
+              stats.old = list(logLikelihood = logLikelihood.old,
+                               score = score.old,
+                               informationMatrix = informationMatrix.old)))
+
+
+
+  #envirPrepro <- new.env()
+
+  #seqsTime <- seqsEM
+
+  # if (!"time" %in% colnames(seqsTime[[1]])) {
+  #   seqsTime <- lapply(seqsTime, function(x) cbind(x, "time" = 1:nrow(x)))
+  # }
+
+  # # envirPrepro$seqsTime <- seqsEM
+  # envirPrepro$actDfnodes <- actDfnodes
+  # envirPrepro$net0 <- net0
+  #
+  # envirPrepro$fixedparameters <- fixedparameters
+  # envirPrepro$initTime <- initTime
+  # envirPrepro$endTime <- endTime
+  #
+  #
+  # if (modelType == "Crea") {
+  #   envirPrepro$replaceIndex <- 1
+  # } else {
+  #   envirPrepro$replaceIndex <- 0
+  # }
+
+
+  # formula <- paste("depEvents ~", formula, sep = "")
+  #
+  # logLikelihood <- vector("numeric", length = length(seqsEM))
+  # score <- vector("list", length = length(seqsEM))
+  # informationMatrix <- vector("list", length = length(seqsEM))
+
+  # while (TRUE) {
+    # envirPrepro$parameters <- parameters
+    #
+    #
+    # if (iIteration == 1) {
+    #   splitIndicesPerCore2 <- splitIndices(length(seqsTime), num_cores_parameters)
+    #   cl2 <- makeCluster(num_cores_parameters)
+    #   on.exit(stopCluster(cl2))
+    #   clusterEvalQ(cl2, {
+    #     library(goldfish)
+    #     library(matrixStats)
+    #     NULL
+    #   })
+    #
+    #
+    #   clusterExport(cl2, list(
+    #     "auxEstimateNR"
+    #   ))
+    # }
+    #
+    # res <- clusterApply(cl2, seq_along(splitIndicesPerCore2), auxEstimateNR_MC,
+    #   seqsTime = seqsTime,
+    #   splitIndicesPerCore = splitIndicesPerCore2,
+    #   envirPrepro = envirPrepro, formula = formula
+    # )
+
+
+    # logLikelihood <- sapply(res, "[[", 1)
+    # score <- lapply(res, "[[", 2)
+    # informationMatrix <- lapply(res, "[[", 3)
+
+
+
+     # isInitialEstimation <- FALSE
+
+
+    # # check for stop criteria
+    # if (max(abs(score)) <= maxScoreStopCriterion) {
+    #   isConverged <- TRUE
+    #   if (progress) {
+    #     cat(
+    #       "\nStopping as maximum absolute score is below ",
+    #       maxScoreStopCriterion, ".\n",
+    #       sep = ""
+    #     )
+    #   }
+    #
+    #   break
+    # }
+    # if (iIteration > maxIterations) {
+    #   if (progress) {
+    #     cat(
+    #       "\nStopping as maximum of ",
+    #       maxIterations,
+    #       " iterations have been reached. No convergence.\n"
+    #     )
+    #   }
+    #   break
+    # }
+
+
+  # } # end of while
+
+
+
 }
