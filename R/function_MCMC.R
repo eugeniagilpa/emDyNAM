@@ -667,8 +667,9 @@ stepMCMC <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
 #' @export
 #'
 stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0,
-                   beta, theta, initTime, endTime, k = 5, temp = 1,
-                   pAug, pShort) {
+                   beta, theta, fixedparameters, initTime, endTime,
+                   k = 5, temp = 1,
+                   pAug, pShort, logLikelihoodStats) {
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1
   Kel_ge1 <- getKelMeMatrix$Kel_ge1
@@ -725,22 +726,30 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
       newM <- nrow(step$newseq)
     }
 
-    loglikSeq <- logLikelihoodMCTemp(
-      indexCore = 1,
-      list(seq[, -which(colnames(seq) == "row")]),
-      beta, theta, initTime, endTime,
-      splitIndicesPerCore = list(1),
-      actDfnodes = actDfnodes, net0 = net0,
-      formula = formula, temp
-    )
-    newloglikSeq <- logLikelihoodMCTemp(
-      indexCore = 1,
-      list(step$newseq[, -which(colnames(step$newseq) == "row")]),
-      beta, theta, initTime, endTime,
-      splitIndicesPerCore = list(1),
-      actDfnodes = actDfnodes, net0 = net0,
-      formula = formula, temp
-    )
+
+
+    newlogLikelihoodStats = getLogLikelihood(step$newseq, actDfnodes, net0, fixedparameters,
+                                beta, initTime, endTime, formula)
+
+    newloglikSeq <- newlogLikelihoodStats$resCrea$logLikelihood +
+      newlogLikelihoodStats$resDel$logLikelihood
+
+    # loglikSeq <- logLikelihoodMCTemp(
+    #   indexCore = 1,
+    #   list(seq[, -which(colnames(seq) == "row")]),
+    #   beta, theta, initTime, endTime,
+    #   splitIndicesPerCore = list(1),
+    #   actDfnodes = actDfnodes, net0 = net0,
+    #   formula = formula, temp
+    # )
+    # newloglikSeq <- logLikelihoodMCTemp(
+    #   indexCore = 1,
+    #   list(step$newseq[, -which(colnames(step$newseq) == "row")]),
+    #   beta, theta, initTime, endTime,
+    #   splitIndicesPerCore = list(1),
+    #   actDfnodes = actDfnodes, net0 = net0,
+    #   formula = formula, temp
+    # )
   } else if (type == 2) { # Shortening
     step <- stepShort(
       seq, tieNames, gammaEminus, gammaMinus, m, me,
@@ -789,35 +798,30 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
       newM <- nrow(step$newseq)
     }
 
-    loglikSeq <- logLikelihoodMCTemp(
-      indexCore = 1,
-      list(seq[, -which(colnames(seq) == "row")]),
-      beta, theta, initTime, endTime,
-      splitIndicesPerCore = list(1),
-      actDfnodes = actDfnodes,
-      net0 = net0, formula = formula, temp
-    )
-    newloglikSeq <- logLikelihoodMCTemp(
-      indexCore = 1,
-      list(step$newseq[, -which(colnames(step$newseq) == "row")]),
-      beta, theta, initTime, endTime,
-      splitIndicesPerCore = list(1),
-      actDfnodes = actDfnodes,
-      net0 = net0, formula = formula, temp
-    )
-  }
 
+    newlogLikelihoodStats = getLogLikelihood(step$newseq, actDfnodes, net0, fixedparameters,
+                                          beta, initTime, endTime, formula)
+
+    newloglikSeq <- newlogLikelihoodStats$resCrea$logLikelihood +
+      newlogLikelihoodStats$resDel$logLikelihood
+
+  }
+  loglikSeq <- logLikelihoodStats$resCrea$logLikelihood +
+                logLikelihoodStats$resDel$logLikelihood
 
   u <- runif(1, min = 0, max = 1)
   accept <- (u <= exp(newloglikSeq - loglikSeq) * pUndoStep / pDoStep)
   if (!accept) {
     newseq <- seq
+    newlogLikelihoodStats <- logLikelihoodStats
     newloglikSeq <- loglikSeq
   }
 
   return(list(
-    "newseq" = step$newseq, "newloglikSeq" = newloglikSeq,
-    "step" = step, "accept" = accept
+    "newseq" = step$newseq,
+    "step" = step, "accept" = accept,
+    "newlogLikelihoodStats" = newlogLikelihoodStats,
+    "newloglikSeq" = newloglikSeq
   ))
 }
 
@@ -850,12 +854,16 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
 #'
 stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
                      actDfnodes, tieNames, formula, net0, beta, theta,
+                     fixedparameters,
                      initTime, endTime, k, temp, nStepExch, pAug, pShort) {
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resStepPT <- vector("list", length(indicesCore))
 
   for (i in seq_along(indicesCore)) {
     seq <- seqs[[indicesCore[[i]]]]
+    logLikelihoodStats = getLogLikelihood(seq, actDfnodes, net0,
+                                          fixedparameters,beta, initTime,
+                                          endTime, formula)
 
     for (t in 1:nStepExch) {
       if (nrow(seq) == H) {
@@ -866,10 +874,12 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
 
       aux <- stepPT(
         seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0, beta,
-        theta, initTime, endTime, k, temp[indicesCore[[i]]], pAug, pShort
+        theta, initTime, endTime, k, temp[indicesCore[[i]]], pAug, pShort,
+        logLikelihoodStats
       )
 
       seq <- aux$newseq
+      logLikelihoodStats <- aux$newlogLikelihoodStats
     }
     resStepPT[[i]] <- aux
   }
@@ -991,7 +1001,8 @@ MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta, theta, initTime,
 #' @export
 #'
 PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta,
-                    theta, initTime, endTime, burnIn = TRUE, maxIter = 10000,
+                    theta, fixedparameters, initTime, endTime, burnIn = TRUE,
+                    maxIter = 10000,
                     seqIter = 50, T0 = 100, nStepExch = 10, num_cores = 1,
                     pAug = 0.5, pShort = 0.5) {
   # Compute initial quatities:
@@ -1029,7 +1040,7 @@ PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta,
       "seqsPT", "actDfnodesLab", "tieNames",
       "formula", "net0", "beta", "theta", "initTime",
       "endTime", "k", "T0", "nStepExch", "pAug", "pShort", "splitIndicesPerCore",
-      "H", "actDfnodesLab", "actDfnodes", "nAct"
+      "H", "actDfnodesLab", "actDfnodes", "nAct","fixedparameters"
     ))
     clusterEvalQ(cl, {
       library(goldfish)
@@ -1041,8 +1052,8 @@ PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta,
     clusterExport(cl, list(
       "stepPT", "stepPTMC", "stepMCMC", "getpDoAugment", "getpDoShort",
       "getpDoPerm", "getKelMeMatrix", "getAuxDfE", "stepAugment", "stepShort",
-      "stepPerm", "logLikelihoodMCTemp", "GatherPreprocessingDF", "logLikChoice",
-      "logLikConstantRate", "sampleVec"
+      "stepPerm", "getlogLikelihood", "GatherPreprocessingDF",
+      "sampleVec"
     ))
 
 
@@ -1050,7 +1061,8 @@ PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta,
       seqs = seqsPT, splitIndicesPerCore = splitIndicesPerCore, H = H,
       actDfnodesLab = actDfnodesLab, actDfnodes = actDfnodes,
       tieNames = tieNames, formula = formula, net0 = net0, beta = beta,
-      theta = theta, initTime = initTime, endTime = endTime, k = k, temp = temp,
+      theta = theta, fixedparameters = fixedparameters, initTime = initTime,
+      endTime = endTime, k = k, temp = temp,
       nStepExch = nStepExch, pAug = pAug, pShort = pShort
     )
 

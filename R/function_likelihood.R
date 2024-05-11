@@ -341,3 +341,104 @@ logLikelihoodTimeMC <- function(indexCore, permut, beta, theta, initTime,
   }
   return(unlist(resLikelihood))
 }
+
+
+
+
+
+getLogLikelihood = function(seq, actDfnodes, net0, fixedparameters,
+                            parameters, initTime, endTime, formula){
+
+
+  envirPrepro <- new.env()
+  if("row" %in% colnames(seq) ){
+    seqTime <- seq[, -which(colnames(seq) == "row")]
+  }else{
+    seqTime <- seq
+  }
+  seqTime <- cbind(seqTime,"time"=1:nrow(seqTime))
+  envirPrepro$seqTime <- seqTime
+  envirPrepro$actDfnodes <- actDfnodes
+  envirPrepro$net0 <- net0
+  envirPrepro$fixedparameters <- fixedparameters
+  envirPrepro$initTime <- initTime
+  envirPrepro$endTime <- endTime
+  envirPrepro$parameters <- parameters
+
+
+  # CREATION
+
+  envirPrepro$replaceIndex <- 1
+  formula <- paste("depEvents ~", formula, sep = "")
+
+  local(
+    {
+      netEvents <- defineNetwork(nodes = actDfnodes, matrix = net0) |>
+        linkEvents(changeEvents = seqTime, nodes = actDfnodes)
+
+      depEvents <- defineDependentEvents(
+        seqTime[seqTime$replace == replaceIndex, ],
+        nodes = actDfnodes,
+        defaultNetwork = netEvents,
+      )
+    },
+    envirPrepro
+  )
+
+  resCrea <- estimate(
+    as.formula(formula),
+    estimationInit = list(
+      engine = "default_c",
+      initialParameters = parameters$Crea,
+      fixedParameters = fixedparameters$Crea,
+      maxIterations = 0,
+      initialDamping = 1, dampingIncreaseFactor = 1, dampingDecreaseFactor = 1,
+      startTime = initTime,
+      endTime = endTime
+    ),
+    verbose = FALSE,
+    progress = FALSE,
+    envir = envirPrepro
+  )
+
+
+  # DELETION
+  envirPrepro$replaceIndex <- 0
+  formula <- paste("depEvents ~", formula, sep = "")
+
+  local(
+    {
+      netEvents <- defineNetwork(nodes = actDfnodes, matrix = net0) |>
+        linkEvents(changeEvents = seqTime, nodes = actDfnodes)
+
+      depEvents <- defineDependentEvents(
+        seqTime[seqTime$replace == replaceIndex, ],
+        nodes = actDfnodes,
+        defaultNetwork = netEvents,
+      )
+    },
+    envirPrepro
+  )
+
+  resDel <- estimate(
+    as.formula(formula),
+    estimationInit = list(
+      engine = "default_c",
+      initialParameters = parameters$Del,
+      fixedParameters = fixedparameters$Del,
+      maxIterations = 0,
+      initialDamping = 1, dampingIncreaseFactor = 1, dampingDecreaseFactor = 1,
+      startTime = initTime,
+      endTime = endTime
+    ),
+    verbose = FALSE,
+    progress = FALSE,
+    envir = envirPrepro
+  )
+
+
+ return(list(resCrea,resDel))
+
+}
+
+

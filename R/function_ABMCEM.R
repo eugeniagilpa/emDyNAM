@@ -101,16 +101,16 @@ deltaQ <- function(loglikPrev, loglikCur, w) {
 #' Maximum likelihood estimation for social network dynamics.
 #' \emph{The annals of applied statistics, 4(2)}, 567.
 #'
-MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate = NULL, initTime = NULL, endTime = NULL,
-                          num_cores = 1, errType2 = 0.8, alpha = 0.9, gamma = 0.9, thr = 1e-3, maxIter = 10000, seqIter = 50,
-                          pShort = 0.35, pAug = 0.35, pPerm = 0.3) {
-  # net0 : network matrix in initial state
-  # net1: network matrix in final state
-  # theta0 : initial parameters for sender (list of creation and deletion with
-  #          labels Crea and Del)
-  # beta0: initial parameters for receiver (list of creation and deletion with
-  #        labels Crea and Del)
-  # formula: string with formula for the model (only rhs of formula)
+MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
+                          fixedparameters = c(NA,NA,NA,20,20),
+                          formula,formulaRate = NULL, initTime = NULL,
+                          endTime = NULL, num_cores = 1, errType2 = 0.8,
+                          alpha = 0.9, gamma = 0.9, thr = 1e-3,
+                          maxIter = 10000, seqIter = 50,
+                          pShort = 0.5, pAug = 0.5, nPT = 1,
+                          T0 = 1, seqIter = 50, nStepExch = 10,
+                          maxIterPT = 10000,num_coresPT = 1) {
+
 
   actDfnodes <- defineNodes(data.frame(label = colnames(net0)))
 
@@ -126,57 +126,9 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate
   H <- nrow(sequence) # Humming distance
   # Creation of permutations
   # permut = permute(sequence, nmax = nmax)
-  permut <- MCMC(nmax = nmax, seq, H, actDfnodes, formula, net0, beta, burnIn = TRUE, maxIter, seqIter, pShort, pAug, pPerm)
+  # permut <- MCMC(nmax = nmax, seq, H, actDfnodes, formula, net0, beta, burnIn = TRUE, maxIter, seqIter, pShort, pAug, pPerm)
 
-  splitIndicesPerCore <- splitIndices(length(permut), num_cores)
-  cl <- makeCluster(num_cores)
-  on.exit(stopCluster(cl))
-  clusterExport(cl, c("net0", "actDfnodes", "nAct"))
-  clusterEvalQ(cl, {
-    library(goldfish)
-    library(matrixStats)
-    NULL
-  })
-
-
-  clusterExport(cl, list(
-    "softEMAlgorithm", "EMPreprocessing", "GatherPreprocessingDF",
-    "hardEMAlgorithm", "logLikelihood", "permute", "rubinsRule",
-    "parameters", "timeGenerator", "logLikelihood", "logLikChoice", "logLikRate",
-    "logLikTime"
-  ))
-
-
-  resPar <- clusterApply(cl, seq_along(splitIndicesPerCore), parametersMC,
-    permut = permut,
-    splitIndicesPerCore = splitIndicesPerCore, actDfnodes. = actDfnodes,
-    net0. = net0, formula. = formula
-  )
-
-  resPar <- unlist(resPar, recursive = FALSE)
-  betaCreaDF <- t(sapply(resPar, "[[", 1))
-  betaDelDF <- t(sapply(resPar, "[[", 2))
-  seCreaDF <- t(sapply(resPar, "[[", 3))
-  seDelDF <- t(sapply(resPar, "[[", 4))
-
-
-  if (is.null(formulaRate)) {
-    logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodMC,
-      permut = permut,
-      splitIndicesPerCore = splitIndicesPerCore,
-      beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula,
-      theta = theta, initTime = initTime, endTime = endTime,
-    )
-  } else {
-    logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodTimeMC,
-      permut = permut,
-      splitIndicesPerCore = splitIndicesPerCore,
-      beta = beta, theta = theta, actDfnodes = actDfnodes, net0 = net0,
-      formulaChoice = formula, formulaRate = formulaRate,
-      initTime = initTime, endTime = endTime
-    )
-  }
-  logLikPrev <- unlist(logLikPrev)
+  seqsPTinit = permute(sequence, nmax = nPT) # Initial sequences for Parallel Tempering initialization
 
 
   diff <- 1000
@@ -191,16 +143,23 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0, formula, formulaRate
       break
     }
 
-    c <- max(logLikPrev)
-    logsumExp <- c + log(sum(exp(logLikPrev - c)))
-    weights <- exp(logLikPrev - logsumExp)
+    # Perform Parallel-Tempering
+    seqsPT = PT_MCMC(nmax, nPT, seqsPTinit, H, actDfnodes, formula, net0, beta,
+                     theta, fixedparameters, initTime, endTime, burnIn = TRUE,
+                     maxIterPT, seqIter, T0 ,nStepExch, num_coresPT,
+                     pAug, pShort)
 
-    betaCreaAux <- rubinsRule(betaCreaDF, seCreaDF, weights)
-    betaDelAux <- rubinsRule(betaDelDF, seDelDF, weights)
+
+    # c <- max(logLikPrev)
+    # logsumExp <- c + log(sum(exp(logLikPrev - c)))
+    # weights <- exp(logLikPrev - logsumExp)
+
+    # betaCreaAux <- rubinsRule(betaCreaDF, seCreaDF, weights)
+    # betaDelAux <- rubinsRule(betaDelDF, seDelDF, weights)
     # diff= sqrt(norm(as.matrix(beta$Crea-betaCreaAux$mean))^2+norm(as.matrix(beta$Del-betaDelAux$mean))^2)
 
-    betaNew$Crea <- betaCreaAux$mean
-    betaNew$Del <- betaDelAux$mean
+    # betaNew$Crea <- betaCreaAux$mean
+    # betaNew$Del <- betaDelAux$mean
 
 
     if (is.null(formulaRate)) {
