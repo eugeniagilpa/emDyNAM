@@ -346,7 +346,7 @@ logLikelihoodTimeMC <- function(indexCore, permut, beta, theta, initTime,
 
 
 
-getLogLikelihood = function(seq, actDfnodes, net0, fixedparameters,
+getlogLikelihood = function(seq, actDfnodes, net0, fixedparameters,
                             parameters, initTime, endTime, formula){
 
 
@@ -369,7 +369,9 @@ getLogLikelihood = function(seq, actDfnodes, net0, fixedparameters,
   # CREATION
 
   envirPrepro$replaceIndex <- 1
-  formula <- paste("depEvents ~", formula, sep = "")
+  if((length(unlist(strsplit(formula,"~")))<2)){
+    formula <- paste("depEvents ~", formula, sep = "")
+  }
 
   local(
     {
@@ -404,7 +406,7 @@ getLogLikelihood = function(seq, actDfnodes, net0, fixedparameters,
 
   # DELETION
   envirPrepro$replaceIndex <- 0
-  formula <- paste("depEvents ~", formula, sep = "")
+  #formula <- paste("depEvents ~", formula, sep = "")
 
   local(
     {
@@ -437,7 +439,7 @@ getLogLikelihood = function(seq, actDfnodes, net0, fixedparameters,
   )
 
 
- return(list(resCrea,resDel))
+ return(list("resCrea" = resCrea,"resDel" = resDel))
 
 }
 

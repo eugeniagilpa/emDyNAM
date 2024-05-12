@@ -670,6 +670,7 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
                    beta, theta, fixedparameters, initTime, endTime,
                    k = 5, temp = 1,
                    pAug, pShort, logLikelihoodStats) {
+
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1
   Kel_ge1 <- getKelMeMatrix$Kel_ge1
@@ -683,7 +684,6 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
   gammaPlus <- sum(gammaEplus)
   m <- nrow(seq)
   auxDf <- getKelMeMatrix$auxDf
-
 
   if (type == 1) { # Augmentation
     step <- stepAugment(seq, tieNames, gammaEplus, gammaPlus, m, me, net0, pAug)
@@ -728,7 +728,7 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
 
 
 
-    newlogLikelihoodStats = getLogLikelihood(step$newseq, actDfnodes, net0, fixedparameters,
+    newlogLikelihoodStats = getlogLikelihood(step$newseq, actDfnodes, net0, fixedparameters,
                                 beta, initTime, endTime, formula)
 
     newloglikSeq <- newlogLikelihoodStats$resCrea$logLikelihood +
@@ -799,7 +799,7 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
     }
 
 
-    newlogLikelihoodStats = getLogLikelihood(step$newseq, actDfnodes, net0, fixedparameters,
+    newlogLikelihoodStats = getlogLikelihood(step$newseq, actDfnodes, net0, fixedparameters,
                                           beta, initTime, endTime, formula)
 
     newloglikSeq <- newlogLikelihoodStats$resCrea$logLikelihood +
@@ -821,7 +821,8 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
     "newseq" = step$newseq,
     "step" = step, "accept" = accept,
     "newlogLikelihoodStats" = newlogLikelihoodStats,
-    "newloglikSeq" = newloglikSeq
+    "newloglikSeq" = newloglikSeq,
+    "temp" = temp
   ))
 }
 
@@ -858,10 +859,11 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
                      initTime, endTime, k, temp, nStepExch, pAug, pShort) {
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resStepPT <- vector("list", length(indicesCore))
+  # browser()
 
   for (i in seq_along(indicesCore)) {
     seq <- seqs[[indicesCore[[i]]]]
-    logLikelihoodStats = getLogLikelihood(seq, actDfnodes, net0,
+    logLikelihoodStats = getlogLikelihood(seq, actDfnodes, net0,
                                           fixedparameters,beta, initTime,
                                           endTime, formula)
 
@@ -873,9 +875,12 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
       }
 
       aux <- stepPT(
-        seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0, beta,
-        theta, initTime, endTime, k, temp[indicesCore[[i]]], pAug, pShort,
-        logLikelihoodStats
+        seq = seq, type = type,actDfnodesLab = actDfnodesLab,
+        actDfnodes = actDfnodes, tieNames = tieNames, formula = formula,
+        net0 = net0, beta = beta, fixedparameters =fixedparameters,
+        theta = theta, initTime = initTime, endTime = endTime, k = k,
+        temp = temp[indicesCore[[i]]], pAug = pAug, pShort = pShort,
+        logLikelihoodStats = logLikelihoodStats
       )
 
       seq <- aux$newseq
@@ -1023,38 +1028,42 @@ PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta,
   if (is.data.frame(seqsPT)) {
     seqsPT <- permute(seqsPT, nmax = nPT)
   }
-  permute <- list()
+  seqsEM <- list()
 
   temp <- seq(1, T0, length = length(seqsPT))
 
   acceptIndex <- 0
+
+
+  splitIndicesPerCore <- splitIndices(length(seqsPT), num_cores)
+  cl <- makeCluster(num_cores)
+  on.exit(stopCluster(cl))
+  clusterExport(cl, c(
+  "actDfnodesLab", "tieNames",
+    "formula", "net0", "beta", "theta", "initTime",
+    "endTime", "k", "T0", "nStepExch", "pAug", "pShort", "splitIndicesPerCore",
+    "H", "actDfnodesLab", "actDfnodes", "nAct","fixedparameters"
+  ))
+  clusterEvalQ(cl, {
+    library(goldfish)
+    library(matrixStats)
+    NULL
+  })
+
+
+  clusterExport(cl, list(
+    "stepPT", "stepPTMC", "stepMCMC", "getpDoAugment", "getpDoShort",
+    "getpDoPerm", "getKelMeMatrix", "getAuxDfE", "stepAugment", "stepShort",
+    "stepPerm", "getlogLikelihood", "GatherPreprocessingDF",
+    "sampleVec"
+  ))
+
+
+
   for (i in 1:maxIter) {
     if (!"row" %in% colnames(seqsPT[[1]])) {
       seqsPT <- lapply(seqsPT, function(x) cbind(x, "row" = 1:nrow(x)))
     }
-
-    splitIndicesPerCore <- splitIndices(length(seqsPT), num_cores)
-    cl <- makeCluster(num_cores)
-    on.exit(stopCluster(cl))
-    clusterExport(cl, c(
-      "seqsPT", "actDfnodesLab", "tieNames",
-      "formula", "net0", "beta", "theta", "initTime",
-      "endTime", "k", "T0", "nStepExch", "pAug", "pShort", "splitIndicesPerCore",
-      "H", "actDfnodesLab", "actDfnodes", "nAct","fixedparameters"
-    ))
-    clusterEvalQ(cl, {
-      library(goldfish)
-      library(matrixStats)
-      NULL
-    })
-
-
-    clusterExport(cl, list(
-      "stepPT", "stepPTMC", "stepMCMC", "getpDoAugment", "getpDoShort",
-      "getpDoPerm", "getKelMeMatrix", "getAuxDfE", "stepAugment", "stepShort",
-      "stepPerm", "getlogLikelihood", "GatherPreprocessingDF",
-      "sampleVec"
-    ))
 
 
     resstepPT <- clusterApply(cl, seq_along(splitIndicesPerCore), stepPTMC,
@@ -1067,6 +1076,7 @@ PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta,
     )
 
 
+    resstepPT = unlist(resstepPT,recursive = FALSE)
 
     # Every 10 iterations, try to switch
     order <- sample(c(0, 1), size = 1, prob = c(0.5, 0.5)) # True=1: Pairs of sequences 1-2, 3-4, ....
@@ -1089,33 +1099,34 @@ PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta,
     # Accept or reject the change
     logUnif <- log(runif(nrow(tempPairs)))
     for (j in 1:nrow(tempPairs)) {
-      logMHRatio <- min(0, resstepPT[[tempPairs[j, 1]]]$newloglikSeq *
+      logMHRatio <- min(0,
+                        resstepPT[[tempPairs[j, 1]]]$newloglikSeq *
         temp[tempPairs[j, 1]] / temp[tempPairs[j, 2]] +
         resstepPT[[tempPairs[j, 2]]]$newloglikSeq *
           temp[tempPairs[j, 2]] / temp[tempPairs[j, 1]] -
         resstepPT[[tempPairs[j, 1]]]$newloglikSeq -
-        stepPT[[tempPairs[j, 2]]]$newloglikSeq)
+          resstepPT[[tempPairs[j, 2]]]$newloglikSeq)
       if (logUnif[j] < logMHRatio) {
-        aux <- steptPT[[tempPairs[j, 1]]]
-        ressteptPT[[tempPairs[j, 1]]] <- steptPT[[tempPairs[j, 2]]]
-        ressteptPT[[tempPairs[j, 2]]] <- aux
-        rm(aux)
+        auxPT <- resstepPT[[tempPairs[j, 1]]]
+        resstepPT[[tempPairs[j, 1]]] <- resstepPT[[tempPairs[j, 2]]]
+        resstepPT[[tempPairs[j, 2]]] <- auxPT
+        rm(auxPT)
       }
     }
 
 
     if (burnIn) { # avoid, after burn in, to have switch and sample in the same step (not really needed)
       if ((i - 5) > 500 & !(i - 5) %% seqIter) {
-        permut <- c(permut, stepPT[[1]]) # get a sample from the sequence with temperature 1
+        seqsEM <- c(seqsEM, list(resstepPT[1])) # get a sample from the sequence with temperature 1
       }
     } else {
       if (!(i - 5) %% seqIter) {
-        permut <- c(permut, stepPT[[1]])
+        seqsEM <- c(seqsEM, list(resstepPT[1]))
       }
     }
   }
 
-  return(permut, stepPT)
+  return(seqsEM, resstepPT)
 }
 
 

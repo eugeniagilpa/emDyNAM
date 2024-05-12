@@ -108,7 +108,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
                           alpha = 0.9, gamma = 0.9, thr = 1e-3,
                           maxIter = 10000, seqIter = 50,
                           pShort = 0.5, pAug = 0.5, nPT = 1,
-                          T0 = 1, seqIter = 50, nStepExch = 10,
+                          T0 = 1, nStepExch = 10,
                           maxIterPT = 10000,num_coresPT = 1) {
 
 
@@ -149,6 +149,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
                      maxIterPT, seqIter, T0 ,nStepExch, num_coresPT,
                      pAug, pShort)
 
+    # Compute new estimator from the sequences
 
     # c <- max(logLikPrev)
     # logsumExp <- c + log(sum(exp(logLikPrev - c)))
