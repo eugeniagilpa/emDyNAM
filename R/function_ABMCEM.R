@@ -119,8 +119,8 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
   # Initialization of parameters
   theta <- theta0
   beta <- beta0
-  fixedparameters = list("Crea"=(NA, NA, NA, NA, -20, -20),
-                         "Del" = (NA, NA, NA, NA, 20, 20))
+  fixedparameters = list("Crea"=c(NA, NA, NA, NA, -20, -20),
+                         "Del" = c(NA, NA, NA, NA, 20, 20))
   se <- data.frame(Crea = rep(0, nrow(beta)), Del = rep(0, nrow(beta)))
   row.names(se) <- row.names(beta)
   # Creation of sequence of events from initial data
@@ -263,7 +263,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
       se <- newNRstep$stdErrors
 
 
-      # Update on the permutations -> new MCMC
+      # Update on the number of permutations
 
       m_start <- sigmaHat^2 * (qnorm(alpha) + qnorm(errType2))^2 / deltaQ^2
 
@@ -278,7 +278,6 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
 
 
   return(list(
-    "logLik" = logLik, "beta" = beta, "se" = se, "index" = index, "diff" = diff,
-    "permut" = permut, "betaCreaDF" = betaCreaDF, "betaDelDF" = betaDelDF
+    "logLik" = logLik, "beta" = beta, "se" = se, "index" = index, "diff" = diff
   ))
 }
