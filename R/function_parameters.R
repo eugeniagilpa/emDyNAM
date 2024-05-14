@@ -203,88 +203,142 @@ rubinsRule <- function(x, se, w) {
 
 
 
-newtonraphsonStep <- function(parameters.old, fixedparameters = c(NA, NA, NA, NA, -20, -20),
-                       formula, seqsEM, modelType = "Crea", stats.old,
-                       stats.new, dampingIncreaseFactor = 2,
+newtonraphsonStep <- function(parameters, fixedparameters = c(NA, NA, NA, NA, -20, -20),
+                       formula, seqsEM,
+                       dampingIncreaseFactor = 2,
                        dampingDecreaseFactor = 3,
                        isInitialEstimation = FALSE
                       ) {
   initialDamping <- 1
   minDampingFactor <- initialDamping
 
+  stats.new = lapply(seqsEM,"[[","newlogLikelihoodStats")
+
+
   isInitialEstimation <- TRUE
 
-  logLikelihood.old <- stats.old$logLikelihood
-  score.old <- stats.old$score
-  informationMatrix.old <- stats.old$informationMatrix
+  logLikelihoodCrea.new <- sapply(unlist(lapply(stats.new,"[","resCrea"),recursive=FALSE),"[","logLikelihood")
+  scoreCrea.new <- lapply(unlist(lapply(stats.new,"[","resCrea"),recursive=FALSE),"[","finalScore")
+  informationMatrixCrea.new <- lapply(unlist(lapply(stats.new,"[","resCrea"),recursive=FALSE),"[","informationMatrix")
+  logLikelihoodDel.new <- sapply(unlist(lapply(stats.new,"[","resDel"),recursive=FALSE),"[","logLikelihood")
+  scoreDel.new <- lapply(unlist(lapply(stats.new,"[","resDel"),recursive=FALSE),"[","finalScore")
+  informationMatrixDel.new <- lapply(unlist(lapply(stats.new,"[","resDel"),recursive=FALSE),"[","informationMatrix")
 
-  logLikelihood <- stats.new$logLikelihood
-  score <- stats.old$score
-  informationMatrix <- stats.old$informationMatrix
 
-
-  if (sum(logLikelihood) <= sum(logLikelihood.old) ||
-      any(is.na(logLikelihood)) ||
-      any(is.na(unlist(score))) ||
-      any(is.na(unlist(informationMatrix)))) {
-    # reset values
-    logLikelihood <- logLikelihood.old
-    parameters <- parameters.old
-    score <- score.old
-    informationMatrix <- informationMatrix.old
-    minDampingFactor <- minDampingFactor * dampingIncreaseFactor
-  } else {
-    logLikelihood.old <- logLikelihood
-    parameters.old <- parameters
-    score.old <- score
-    informationMatrix.old <- informationMatrix
-    minDampingFactor <- max(
+  # if (sum(logLikelihoodCrea.new) <= sum(logLikelihoodCrea.old) ||
+  #     any(is.na(logLikelihoodCrea.new)) ||
+  #     any(is.na(unlist(scoreCrea.new))) ||
+  #     any(is.na(unlist(informationMatrixCrea.new)))) {
+  #   # reset values
+  #   logLikelihoodCrea.new <- logLikelihoodCrea.old
+  #   parameters$Crea <- parameters.old$Crea
+  #   scoreCrea.new <- scoreCrea.old
+  #   informationMatrixCrea.new <- informationMatrixCrea.old
+  #   minDampingFactorCrea <- minDampingFactorCrea * dampingIncreaseFactor
+  # } else {
+  #   logLikelihoodCrea.old <- logLikelihoodCrea.new
+  #   parameters.old$Crea <- parameters$Crea
+  #   scoreCrea.old <- scoreCrea.new
+  #   informationMatrixCrea.old <- informationMatrixCrea.new
+    minDampingFactorCrea <- max(
       1,
-      minDampingFactor / ifelse(isInitialEstimation, 1, dampingDecreaseFactor)
+      minDampingFactorCrea / ifelse(isInitialEstimation, 1, dampingDecreaseFactor)
     )
-  }
+  # }
 
 
-  idUnfixedCompnents <- which(is.na(fixedparameters))
+  # if (sum(logLikelihoodDel.new) <= sum(logLikelihoodDel.old) ||
+  #     any(is.na(logLikelihoodDel.new)) ||
+  #     any(is.na(unlist(scoreDel.new))) ||
+  #     any(is.na(unlist(informationMatrixDel.new)))) {
+  #   # reset values
+  #   logLikelihoodDel.new <- logLikelihoodDel.old
+  #   parameters$Del <- parameters.old$Del
+  #   scoreDel.new <- scoreDel.old
+  #   informationMatrixDel.new <- informationMatrixDel.old
+  #   minDampingFactorDel <- minDampingFactorDel * dampingInDelseFactor
+  # } else {
+  #   logLikelihoodDel.old <- logLikelihoodDel.new
+  #   parameters.old$Del <- parameters$Del
+  #   scoreDel.old <- scoreDel.new
+  #   informationMatrixDel.old <- informationMatrixDel.new
+    minDampingFactorDel <- max(
+      1,
+      minDampingFactorDel / ifelse(isInitialEstimation, 1, dampingDecreaseFactor)
+    )
+  # }
 
+
+
+  idUnfixedCompnentsCrea <- which(is.na(fixedparameters$Crea))
+  idUnfixedCompnentsDel <- which(is.na(fixedparameters$Del))
   # Calculate the UPDATE distance taking into account the DAMPING
-  dampingFactor <- minDampingFactor
+  dampingFactorCrea <- minDampingFactorCrea
+  dampingFactorDel <- minDampingFactorDel
 
 
-  scoreUnfixed <- Reduce("+", lapply(score, "[", idUnfixedCompnents)) /
-    length(idUnfixedCompnents)
+  scoreUnfixedCrea <- Reduce("+", lapply(scoreCrea.new, "[", idUnfixedCompnentsCrea)) /
+    length(idUnfixedCompnentsCrea)
+  scoreUnfixedDel <- Reduce("+", lapply(scoreDel.new, "[", idUnfixedCompnentsDel)) /
+    length(idUnfixedCompnentsDel)
 
-  informationMatrixUnfixed <- Reduce("+", lapply(
-    informationMatrix, "[",
-    idUnfixedCompnents, idUnfixedCompnents
-  )) /length(idUnfixedCompnents) -
-    scoreUnfixed %*% t(scoreUnfixed) / (length(idUnfixedCompnents)^2)
+  informationMatrixUnfixedCrea <- Reduce("+", lapply(
+    informationMatrixCrea.new, "[",
+    idUnfixedCompnentsCrea, idUnfixedCompnentsCrea
+  )) /length(idUnfixedCompnentsCrea) -
+    scoreUnfixedCrea %*% t(scoreUnfixedCrea) / (length(idUnfixedCompnentsCrea)^2)
+
+  informationMatrixUnfixedDel <- Reduce("+", lapply(
+    informationMatrixDel.new, "[",
+    idUnfixedCompnentsDel, idUnfixedCompnentsDel
+  )) /length(idUnfixedCompnentsDel) -
+    scoreUnfixedDel %*% t(scoreUnfixedDel) / (length(idUnfixedCompnentsDel)^2)
 
 
-  inverseInformationUnfixed <- try(
-    solve(informationMatrixUnfixed),
+  inverseInformationUnfixedCrea <- try(
+    solve(informationMatrixUnfixedCrea),
     silent = TRUE
   )
-  if (inherits(inverseInformationUnfixed, "try-error")) {
+
+  inverseInformationUnfixedDel <- try(
+    solve(informationMatrixUnfixedDel),
+    silent = TRUE
+  )
+
+  if (inherits(inverseInformationUnfixedCrea, "try-error")) {
     stop(
       "Matrix cannot be inverted;",
-      " probably due to collinearity between parameters."
+      " probably due to collinearity between parameters. CREA"
+    )
+  }
+  if (inherits(inverseInformationUnfixedDel, "try-error")) {
+    stop(
+      "Matrix cannot be inverted;",
+      " probably due to collinearity between parameters. DEL"
     )
   }
 
-  update <- rep(0, nParams)
-  update[idUnfixedCompnents] <-
-    (inverseInformationUnfixed %*% scoreUnfixed) / dampingFactor
+  updateCrea <- rep(0, length(parameters$Crea))
+  updateCrea[idUnfixedCompnentsCrea] <-
+    (inverseInformationUnfixedCrea %*% scoreUnfixedCrea) / dampingFactorCrea
 
-  parameters <- parameters + update
+  parameters$Crea <- parameters$Crea + updateCrea
 
-  stdErrors <- rep(0, nParams)
-  stdErrors[idUnfixedCompnents] <- sqrt(diag(inverseInformationUnfixed))
+  stdErrors = data.frame("Crea"=c(),"Del"=c())
+  stdErrors$Crea <- rep(0, length(parameters$Crea))
+  stdErrors$Crea[idUnfixedCompnents] <- sqrt(diag(inverseInformationUnfixedCrea))
 
-  return(list(parameters = parameters, stdErrors = stdErrors,
-              stats.old = list(logLikelihood = logLikelihood.old,
-                               score = score.old,
-                               informationMatrix = informationMatrix.old)))
+
+  updateDel <- rep(0, length(parameters$Del))
+  updateDel[idUnfixedCompnentsDel] <-
+    (inverseInformationUnfixedDel %*% scoreUnfixedDel) / dampingFactorDel
+
+  parameters$Del <- parameters$Del + updateDel
+
+  stdErrors$Del <- rep(0, length(parameters$Del))
+  stdErrors$Del[idUnfixedCompnents] <- sqrt(diag(inverseInformationUnfixedCrea))
+
+  return(list(parameters = parameters, stdErrors = stdErrors))
 
 
 

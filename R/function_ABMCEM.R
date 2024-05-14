@@ -109,7 +109,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
                           maxIter = 10000, seqIter = 50,
                           pShort = 0.5, pAug = 0.5, nPT = 1,
                           T0 = 1, nStepExch = 10,
-                          maxIterPT = 10000,num_coresPT = 1) {
+                          maxIterPT = 10000) {
 
 
   actDfnodes <- defineNodes(data.frame(label = colnames(net0)))
@@ -119,6 +119,8 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
   # Initialization of parameters
   theta <- theta0
   beta <- beta0
+  fixedparameters = list("Crea"=(NA, NA, NA, NA, -20, -20),
+                         "Del" = (NA, NA, NA, NA, 20, 20))
   se <- data.frame(Crea = rep(0, nrow(beta)), Del = rep(0, nrow(beta)))
   row.names(se) <- row.names(beta)
   # Creation of sequence of events from initial data
@@ -128,6 +130,29 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
   # permut = permute(sequence, nmax = nmax)
   # permut <- MCMC(nmax = nmax, seq, H, actDfnodes, formula, net0, beta, burnIn = TRUE, maxIter, seqIter, pShort, pAug, pPerm)
 
+  cl <- makeCluster(num_cores)
+  on.exit(stopCluster(cl))
+  clusterExport(cl, c(
+    "actDfnodesLab", "tieNames",
+    "formula", "net0", "beta", "theta", "initTime",
+    "endTime", "k", "T0", "nStepExch", "pAug", "pShort", "splitIndicesPerCore",
+    "H", "actDfnodesLab", "actDfnodes", "nAct","fixedparameters"
+  ))
+  clusterEvalQ(cl, {
+    library(goldfish)
+    library(matrixStats)
+    NULL
+  })
+
+  clusterExport(cl, list(
+    "stepPT", "stepPTMC", "stepMCMC", "getpDoAugment", "getpDoShort",
+    "getpDoPerm", "getKelMeMatrix", "getAuxDfE", "stepAugment", "stepShort",
+    "stepPerm", "getlogLikelihood", "GatherPreprocessingDF",
+    "sampleVec","getlogLikelihoodMC"
+  ))
+
+
+
   seqsPTinit = permute(sequence, nmax = nPT) # Initial sequences for Parallel Tempering initialization
 
 
@@ -135,6 +160,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
   index <- 0
   while (diff > thr) {
     # browser()
+    k <- 2
 
     cat("Index: ", index, "\n")
     cat("Diff: ", diff, "\n")
@@ -144,42 +170,36 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
     }
 
     # Perform Parallel-Tempering
-    seqsPT = PT_MCMC(nmax, nPT, seqsPTinit, H, actDfnodes, formula, net0, beta,
+    seqsEM = PT_MCMC(nmax, nPT, seqsPTinit, H, actDfnodes, formula, net0, beta,
                      theta, fixedparameters, initTime, endTime, burnIn = TRUE,
-                     maxIterPT, seqIter, T0 ,nStepExch, num_coresPT,
-                     pAug, pShort)
+                     maxIterPT, seqIter, T0 ,nStepExch,
+                     pAug, pShort, cl, num_cores)
 
     # Compute new estimator from the sequences
 
-    # c <- max(logLikPrev)
-    # logsumExp <- c + log(sum(exp(logLikPrev - c)))
-    # weights <- exp(logLikPrev - logsumExp)
-
-    # betaCreaAux <- rubinsRule(betaCreaDF, seCreaDF, weights)
-    # betaDelAux <- rubinsRule(betaDelDF, seDelDF, weights)
-    # diff= sqrt(norm(as.matrix(beta$Crea-betaCreaAux$mean))^2+norm(as.matrix(beta$Del-betaDelAux$mean))^2)
-
-    # betaNew$Crea <- betaCreaAux$mean
-    # betaNew$Del <- betaDelAux$mean
+    newNRstep = newtonraphsonStep(parameters.old = beta,
+                                fixedparameters = fixedparameters,
+                                formula = formula,
+                                seqsEM = seqsEM,
+                                dampingIncreaseFactor = 2,
+                                dampingDecreaseFactor = 3,
+                                isInitialEstimation = FALSE
+    )
 
 
-    if (is.null(formulaRate)) {
-      logLikCur <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodMC,
-        permut = permut,
-        splitIndicesPerCore = splitIndicesPerCore,
-        beta = betaNew, actDfnodes = actDfnodes, net0 = net0, formula = formula,
-        theta = theta, initTime = initTime, endTime = endTime,
-      )
-    } else {
-      logLikCur <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodTimeMC,
-        permut = permut,
-        splitIndicesPerCore = splitIndicesPerCore,
-        beta = betaNew, theta = theta, actDfnodes = actDfnodes, net0 = net0,
-        formulaChoice = formula, formulaRate = formulaRate,
-        initTime = initTime, endTime = endTime
-      )
-    }
-    logLikCur <- unlist(logLikCur)
+    splitIndicesPerCore <- splitIndices(length(seqsEM), num_cores)
+
+    logLikCur <- clusterApply(cl,seq_along(splitIndicesPerCore),getlogLikelihoodMC,
+                              seqsEM = seqsEM, beta = newNRstep$parameters,
+                              fixedparameters = fixedparameters,
+                              splitIndicesPerCore=splitIndicesPerCore,
+                              initTime=initTime, endTime=endTime,
+                              actDfnodes = actDfnodes, net0 = net0,
+                              formula = formula,temp = rep(1,length(seqsEM)))
+
+
+    logLikCur <- unlist(logLikCur,recursive=FALSE)
+
 
     w <- rep(1, length(logLikPrev)) / length(logLikPrev)
     sigmaHat <- sigmaHat(nmax, logLikPrev, logLikCur, w)
@@ -190,49 +210,57 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
 
 
     if (lowerBoud < 0) {
+      while(lowerBound<0){
       # Estimator is not accepted, new point must be sampled
-      newpermut <- MCMC(nmax = nmax / 2, permut[[length(permut)]], H, actDfnodes, formula, net0, beta, burnIn = FALSE, maxIter, seqIter, pShort, pAug, pPerm)
-      nmax <- nmax + (nmax0 / 2)
-      permut <- c(permut, newpermut)
+      # Perform Parallel-Tempering
+      nmax <- nmax + nmax/k
+      seqsEMaux = PT_MCMC(nmax/k, nPT, seqsPTinit, H, actDfnodes, formula, net0, beta,
+                       theta, fixedparameters, initTime, endTime, burnIn = TRUE,
+                       maxIterPT, seqIter, T0 ,nStepExch,
+                       pAug, pShort, cl, num_cores)
 
-      resPar <- clusterApply(cl, seq_along(splitIndicesPerCore), parametersMC,
-        permut = permut,
-        splitIndicesPerCore = splitIndicesPerCore, actDfnodes. = actDfnodes,
-        net0. = net0, formula. = formula
+      seqsEM = c(seqsEM,seqsEMaux)
+      # Compute new estimator from the sequences
+
+      newNRstep = newtonraphsonStep(parameters.old = beta,
+                                  fixedparameters = fixedparameters,
+                                  formula = formula,
+                                  seqsEM = seqsEM,
+                                  dampingIncreaseFactor = 2,
+                                  dampingDecreaseFactor = 3,
+                                  isInitialEstimation = FALSE
       )
 
-      resPar <- unlist(resPar, recursive = FALSE)
-      betaCreaDF <- t(sapply(resPar, "[[", 1))
-      betaDelDF <- t(sapply(resPar, "[[", 2))
-      seCreaDF <- t(sapply(resPar, "[[", 3))
-      seDelDF <- t(sapply(resPar, "[[", 4))
+      splitIndicesPerCore <- splitIndices(length(seqsEM), num_cores)
 
-      if (is.null(formulaRate)) {
-        logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodMC,
-          permut = permut,
-          splitIndicesPerCore = splitIndicesPerCore,
-          beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula,
-          theta = theta, initTime = initTime, endTime = endTime,
-        )
-      } else {
-        logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodTimeMC,
-          permut = permut,
-          splitIndicesPerCore = splitIndicesPerCore,
-          beta = beta, theta = theta, actDfnodes = actDfnodes, net0 = net0,
-          formulaChoice = formula, formulaRate = formulaRate,
-          initTime = initTime, endTime = endTime
-        )
+      logLikCur <- clusterApply(cl,seq_along(splitIndicesPerCore),getlogLikelihoodMC,
+                                seqsEM = seqsEM, beta = newNRstep$parameters,
+                                fixedparameters = fixedparameters,
+                                splitIndicesPerCore=splitIndicesPerCore,
+                                initTime=initTime, endTime=endTime,
+                                actDfnodes = actDfnodes, net0 = net0,
+                                formula = formula,temp = rep(1,length(seqsEM)))
+
+
+      logLikCur <- unlist(logLikCur,recursive=FALSE)
+
+
+      w <- rep(1, length(logLikPrev)) / length(logLikPrev)
+      sigmaHat <- sigmaHat(nmax, logLikPrev, logLikCur, w)
+      ase <- sqrt(sigmaHat / nmax)
+      deltaQ <- deltaQ(logLikPrev, logLikCur, w)
+      lowerBound <- deltaQ - qnorm(alpha) * ase # 80%
+
+      k=k+1
       }
-      logLikPrev <- unlist(logLikPrev)
     } else {
       # Update of the paremeter, next iteration
       index <- index + 1
       diff <- deltaQ + qnorm(gamma) * ase # 90%
 
 
-      beta <- betaNew
-      se$Crea <- betaCreaAux$se
-      se$Del <- betaDelAux$se
+      beta <- newNRstep$parameters
+      se <- newNRstep$stdErrors
 
 
       # Update on the permutations -> new MCMC
@@ -243,39 +271,8 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
         nmax <- m_start
       }
 
-      indexMaxlogLik <- which(logLikPrev == max(logLikPrev))
 
-      permut <- MCMC(nmax = nmax, permut[[indexMaxlogLik]], H, actDfnodes, formula, net0, beta, burnIn = TRUE, maxIter, seqIter, pShort, pAug, pPerm)
-
-      resPar <- clusterApply(cl, seq_along(splitIndicesPerCore), parametersMC,
-        permut = permut,
-        splitIndicesPerCore = splitIndicesPerCore, actDfnodes. = actDfnodes,
-        net0. = net0, formula. = formula
-      )
-
-      resPar <- unlist(resPar, recursive = FALSE)
-      betaCreaDF <- t(sapply(resPar, "[[", 1))
-      betaDelDF <- t(sapply(resPar, "[[", 2))
-      seCreaDF <- t(sapply(resPar, "[[", 3))
-      seDelDF <- t(sapply(resPar, "[[", 4))
-
-      if (is.null(formulaRate)) {
-        logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodMC,
-          permut = permut,
-          splitIndicesPerCore = splitIndicesPerCore,
-          beta = beta, actDfnodes = actDfnodes, net0 = net0, formula = formula,
-          theta = theta, initTime = initTime, endTime = endTime,
-        )
-      } else {
-        logLikPrev <- clusterApply(cl, seq_along(splitIndicesPerCore), logLikelihoodTimeMC,
-          permut = permut,
-          splitIndicesPerCore = splitIndicesPerCore,
-          beta = beta, theta = theta, actDfnodes = actDfnodes, net0 = net0,
-          formulaChoice = formula, formulaRate = formulaRate,
-          initTime = initTime, endTime = endTime
-        )
-      }
-      logLikPrev <- unlist(logLikPrev)
+      logLikPrev <- logLikCur
     }
   }
 

@@ -444,3 +444,33 @@ getlogLikelihood = function(seq, actDfnodes, net0, fixedparameters,
 }
 
 
+
+
+getlogLikelihoodMC <- function(indexCore, seqsEM, beta, fixedparameters,
+                                 splitIndicesPerCore,initTime, endTime,
+                                actDfnodes = actDfnodes, net0 = net0,
+                                formula = formula, temp) {
+  indicesCore <- splitIndicesPerCore[[indexCore]]
+  resLikelihood <- vector("list", length(indicesCore))
+
+    for (i in seq_along(indicesCore)) {
+    seq <- seqsEM[[indicesCore[i]]]$newseq
+    if("row" %in% colnames(seq)){
+      seq = seq[,-which(colnames(seq)=="row")]
+    }
+
+    auxLik <- getlogLikelihood(seq=seq, actDfnodes=actDfnodes,
+                     net0=net0,
+                     fixedparameters=fixedparameters,
+                     parameters = beta,
+                     initTime = initTime,endTime= endTime,
+                     formula=formula,temp[indicesCore[i]])
+    resLikelihood[[i]] <- (auxLik$resCrea$logLikelihood + auxLik$resDel$logLikelihood)/
+                          temp[indicesCore[i]]
+
+  }
+
+  return(resLikelihood)
+
+}
+
