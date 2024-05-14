@@ -177,7 +177,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
 
     # Compute new estimator from the sequences
 
-    newNRstep = newtonraphsonStep(parameters.old = beta,
+    newNRstep = newtonraphsonStep(parameters = beta,
                                 fixedparameters = fixedparameters,
                                 formula = formula,
                                 seqsEM = seqsEM,
