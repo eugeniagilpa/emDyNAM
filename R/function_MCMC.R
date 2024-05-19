@@ -190,12 +190,20 @@ stepAugment <- function(seq, tieNames, gammaEplus, gammaPlus, m, me, net0, pAug)
         seq
       )
     } else {
-      newseq <- rbind(
-        seq[1:(place - 1), ],
-        c(sender, receiver, 4, place),
-        c(sender, receiver, 4, place + 1),
-        seq[(place):m, ]
-      )
+      if (place == (m + 1)) {
+        newseq <- rbind(
+          seq[1:(place - 1), ],
+          c(sender, receiver, 4, place),
+          c(sender, receiver, 4, place + 1)
+        )
+      } else {
+        newseq <- rbind(
+          seq[1:(place - 1), ],
+          c(sender, receiver, 4, place),
+          c(sender, receiver, 4, place + 1),
+          seq[(place):m, ]
+        )
+      }
     }
 
     nEdges <- which(newseq$sender == sender & newseq$receiver == receiver)
@@ -476,6 +484,7 @@ stepMCMC <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
   gammaMinus <- sum(gammaEminus)
   me <- getKelMeMatrix$me
   gammaEplus <- choose(nrow(seq) - me + 2, 2)
+  diag(gammaEplus) <- 0
   gammaPlus <- sum(gammaEplus)
   m <- nrow(seq)
   auxDf <- getKelMeMatrix$auxDf
@@ -495,6 +504,7 @@ stepMCMC <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
     newGammaMinus <- sum(newGammaEminus)
     newMe <- getNewKelMeMatrix$me
     newGammaEplus <- choose(nrow(newseq) - newMe + 2, 2)
+    diag(newGammaEplus) <- 0
     newGammaPlus <- sum(newGammaEplus)
     newM <- nrow(newseq)
 
@@ -545,6 +555,7 @@ stepMCMC <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
     newGammaMinus <- sum(newGammaEminus)
     newMe <- getNewKelMeMatrix$me
     newGammaEplus <- choose(nrow(newseq) - newMe + 2, 2)
+    diag(newGammaEplus) <- 0
     newGammaPlus <- sum(newGammaEplus)
     newM <- nrow(newseq)
 
@@ -596,6 +607,7 @@ stepMCMC <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
     newGammaMinus <- sum(newGammaEminus)
     newMe <- getNewKelMeMatrix$me
     newGammaEplus <- choose(nrow(newseq) - newMe + 2, 2)
+    diag(newGammaEplus) <- 0
     newGammaPlus <- sum(newGammaEplus)
     newM <- nrow(newseq)
 
@@ -670,7 +682,7 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
                    beta, theta, fixedparameters, initTime, endTime,
                    k = 5, temp = 1,
                    pAug, pShort, logLikelihoodStats) {
-
+  # browser()
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1
   Kel_ge1 <- getKelMeMatrix$Kel_ge1
@@ -681,6 +693,7 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
   }
   me <- getKelMeMatrix$me
   gammaEplus <- choose(nrow(seq) - me + 2, 2)
+  diag(gammaEplus) <- 0
   gammaPlus <- sum(gammaEplus)
   m <- nrow(seq)
   auxDf <- getKelMeMatrix$auxDf
@@ -698,6 +711,7 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
     newGammaMinus <- sum(newGammaEminus)
     newMe <- getNewKelMeMatrix$me
     newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
+    diag(newGammaEplus) <- 0
     newGammaPlus <- sum(newGammaEplus)
     newM <- nrow(step$newseq)
 
@@ -722,17 +736,20 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
       step <- stepPerm(step$newseq, tieNames, newM, newMe)
       newMe <- getNewKelMeMatrix$me
       newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
+      diag(newGammaEplus) <- 0
       newGammaPlus <- sum(newGammaEplus)
       newM <- nrow(step$newseq)
     }
 
 
 
-    newlogLikelihoodStats = getlogLikelihood(step$newseq, actDfnodes, net0, fixedparameters,
-                                beta, initTime, endTime, formula)
+    newlogLikelihoodStats <- getlogLikelihood(
+      step$newseq, actDfnodes, net0, fixedparameters,
+      beta, initTime, endTime, formula
+    )
 
     newloglikSeq <- (newlogLikelihoodStats$resCrea$logLikelihood +
-      newlogLikelihoodStats$resDel$logLikelihood)/temp
+      newlogLikelihoodStats$resDel$logLikelihood) / temp
 
     # loglikSeq <- logLikelihoodMCTemp(
     #   indexCore = 1,
@@ -765,6 +782,7 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
     newGammaMinus <- sum(newGammaEminus)
     newMe <- getNewKelMeMatrix$me
     newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
+    diag(newGammaEplus) <- 0
     newGammaPlus <- sum(newGammaEplus)
     newM <- nrow(step$newseq)
 
@@ -794,20 +812,22 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
       step <- stepPerm(step$newseq, tieNames, newM, newMe)
       newMe <- getNewKelMeMatrix$me
       newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
+      diag(newGammaEplus) <- 0
       newGammaPlus <- sum(newGammaEplus)
       newM <- nrow(step$newseq)
     }
 
 
-    newlogLikelihoodStats = getlogLikelihood(step$newseq, actDfnodes, net0, fixedparameters,
-                                          beta, initTime, endTime, formula)
+    newlogLikelihoodStats <- getlogLikelihood(
+      step$newseq, actDfnodes, net0, fixedparameters,
+      beta, initTime, endTime, formula
+    )
 
     newloglikSeq <- (newlogLikelihoodStats$resCrea$logLikelihood +
-      newlogLikelihoodStats$resDel$logLikelihood)/temp
-
+      newlogLikelihoodStats$resDel$logLikelihood) / temp
   }
   loglikSeq <- (logLikelihoodStats$resCrea$logLikelihood +
-                logLikelihoodStats$resDel$logLikelihood)/temp
+    logLikelihoodStats$resDel$logLikelihood) / temp
 
   u <- runif(1, min = 0, max = 1)
   accept <- (u <= exp(newloglikSeq - loglikSeq) * pUndoStep / pDoStep)
@@ -815,6 +835,8 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
     newseq <- seq
     newlogLikelihoodStats <- logLikelihoodStats
     newloglikSeq <- loglikSeq
+  } else {
+    newseq <- step$newseq
   }
 
   return(list(
@@ -862,10 +884,14 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
   # browser()
 
   for (i in seq_along(indicesCore)) {
+    # cat("Index core ",i,"\n" )
     seq <- seqs[[indicesCore[[i]]]]
-    logLikelihoodStats = getlogLikelihood(seq, actDfnodes, net0,
-                                          fixedparameters,beta, initTime,
-                                          endTime, formula)
+    logLikelihoodStats <- getlogLikelihood(
+      seq, actDfnodes, net0,
+      fixedparameters, beta, initTime,
+      endTime, formula
+    )
+    # browser()
 
     for (t in 1:nStepExch) {
       if (nrow(seq) == H) {
@@ -874,14 +900,17 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
         type <- sampleVec(c(1, 2), size = 1, prob = c(pAug, pShort), replace = TRUE)
       }
 
+      # cat("t in nStepExch ", t,"\n")
       aux <- stepPT(
-        seq = seq, type = type,actDfnodesLab = actDfnodesLab,
+        seq = seq, type = type, actDfnodesLab = actDfnodesLab,
         actDfnodes = actDfnodes, tieNames = tieNames, formula = formula,
-        net0 = net0, beta = beta, fixedparameters =fixedparameters,
+        net0 = net0, beta = beta, fixedparameters = fixedparameters,
         theta = theta, initTime = initTime, endTime = endTime, k = k,
         temp = temp[indicesCore[[i]]], pAug = pAug, pShort = pShort,
         logLikelihoodStats = logLikelihoodStats
       )
+
+
 
       seq <- aux$newseq
       logLikelihoodStats <- aux$newlogLikelihoodStats
@@ -1005,16 +1034,16 @@ MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta, theta, initTime,
 #'
 #' @export
 #'
-PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta,
+PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                     theta, fixedparameters, initTime, endTime, burnIn = TRUE,
-                    maxIter = 10000,
+                    burnInIter = 500, maxIter = 10000,
                     seqIter = 50, T0 = 100, nStepExch = 10,
-                    pAug = 0.5, pShort = 0.5, cl = cl, num_cores=num_cores) {
+                    pAug = 0.5, pShort = 0.5, cl = cl, num_cores = num_cores) {
   # Compute initial quatities:
   # Type 1: augmentation, type 2: shortening
 
-  if (nmax > (maxIter - 500) / seqIter) {
-    maxIter <- (nmax + 501) * 50
+  if (nmax > (maxIter - burnInIter) / seqIter) {
+    maxIter <- (nmax + burnInIter + 1) * seqIter
   }
 
   actDfnodesLab <- actDfnodes$label
@@ -1032,16 +1061,21 @@ PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta,
 
   temp <- seq(1, T0, length = length(seqsPT))
 
-  acceptIndex <- 0
+  acceptSwitch <- data.frame("Accept" = 0, "Temp1" = 0, "Temp2" = 0)
 
+  # browser()
 
   splitIndicesPerCore <- splitIndices(length(seqsPT), num_cores)
 
-  for (i in 1:maxIter) {
+  iteration <- 0
+  i <- 0
+  # for (i in 1:maxIter) {
+  while (i < nmax) {
     if (!"row" %in% colnames(seqsPT[[1]])) {
       seqsPT <- lapply(seqsPT, function(x) cbind(x, "row" = 1:nrow(x)))
     }
-
+    # browser()
+    # cat("max iter i ", i , "\n")
 
     resstepPT <- clusterApply(cl, seq_along(splitIndicesPerCore), stepPTMC,
       seqs = seqsPT, splitIndicesPerCore = splitIndicesPerCore, H = H,
@@ -1052,59 +1086,85 @@ PT_MCMC <- function(nmax, nPT, seqsInit, H, actDfnodes, formula, net0, beta,
       nStepExch = nStepExch, pAug = pAug, pShort = pShort
     )
 
-
-    resstepPT = unlist(resstepPT,recursive = FALSE)
+    resstepPT <- unlist(resstepPT, recursive = FALSE)
 
     # Every 10 iterations, try to switch
     order <- sample(c(0, 1), size = 1, prob = c(0.5, 0.5)) # True=1: Pairs of sequences 1-2, 3-4, ....
     # False=0: Paris of sequences 1, 2-3, 4-5, ...
     if (order) {
-      if (!nPT %% 2) {
-        tempPairs <- data.frame(seq(1, nPT, by = 2), seq(2, nPT, by = 2))
+      if (nPT == 2) {
+        tempPairs <- data.frame(c(1), c(2))
       } else {
-        tempPairs <- data.frame(seq(1, nPT - 1, by = 2), seq(2, nPT, by = 2))
+        if (!nPT %% 2) {
+          tempPairs <- data.frame(seq(1, nPT, by = 2), seq(2, nPT, by = 2))
+        } else {
+          tempPairs <- data.frame(seq(1, nPT - 1, by = 2), seq(2, nPT, by = 2))
+        }
       }
     } else {
-      if (!nPT %% 2) {
-        tempPairs <- data.frame(seq(2, nPT - 1, by = 2), seq(3, nPT, by = 2))
+      if (nPT == 2) {
+        tempPairs <- data.frame(c(1), c(2))
       } else {
-        tempPairs <- data.frame(seq(2, nPT, by = 2), seq(3, nPT, by = 2))
+        if (!nPT %% 2) {
+          tempPairs <- data.frame(seq(2, nPT - 1, by = 2), seq(3, nPT, by = 2))
+        } else {
+          tempPairs <- data.frame(seq(2, nPT, by = 2), seq(3, nPT, by = 2))
+        }
       }
     }
+
 
     # Exchange step!
     # Accept or reject the change
     logUnif <- log(runif(nrow(tempPairs)))
     for (j in 1:nrow(tempPairs)) {
-      logMHRatio <- min(0,
-                        resstepPT[[tempPairs[j, 1]]]$newloglikSeq *
-        temp[tempPairs[j, 1]] / temp[tempPairs[j, 2]] +
-        resstepPT[[tempPairs[j, 2]]]$newloglikSeq *
-          temp[tempPairs[j, 2]] / temp[tempPairs[j, 1]] -
-        resstepPT[[tempPairs[j, 1]]]$newloglikSeq -
-          resstepPT[[tempPairs[j, 2]]]$newloglikSeq)
+      logMHRatio <- min(
+        0,
+        resstepPT[[tempPairs[j, 1]]]$newloglikSeq *
+          temp[tempPairs[j, 1]] / temp[tempPairs[j, 2]] +
+          resstepPT[[tempPairs[j, 2]]]$newloglikSeq *
+            temp[tempPairs[j, 2]] / temp[tempPairs[j, 1]] -
+          resstepPT[[tempPairs[j, 1]]]$newloglikSeq -
+          resstepPT[[tempPairs[j, 2]]]$newloglikSeq
+      )
       if (logUnif[j] < logMHRatio) {
+        acceptSwitch <- rbind(acceptSwitch, c("Accept" = TRUE, "Temp1" = tempPairs[j, 1], "Temp2" = tempPairs[j, 2]))
         auxPT <- resstepPT[[tempPairs[j, 1]]]
         resstepPT[[tempPairs[j, 1]]] <- resstepPT[[tempPairs[j, 2]]]
         resstepPT[[tempPairs[j, 2]]] <- auxPT
         rm(auxPT)
+      } else {
+        acceptSwitch <- rbind(acceptSwitch, c("Accept" = FALSE, "Temp1" = tempPairs[j, 1], "Temp2" = tempPairs[j, 2]))
       }
     }
 
 
     if (burnIn) { # avoid, after burn in, to have switch and sample in the same step (not really needed)
-      if ((i - 5) > 500 & !(i - 5) %% seqIter) {
+      if ((iteration - 5) > 500 & !(iteration - 5) %% seqIter) {
         seqsEM <- c(seqsEM, list(resstepPT[1])) # get a sample from the sequence with temperature 1
+        i <- i + 1
       }
     } else {
-      if (!(i - 5) %% seqIter) {
+      if (!(iteration - 5) %% seqIter) {
         seqsEM <- c(seqsEM, list(resstepPT[1]))
+        i <- i + 1
       }
     }
+    iteration <- iteration + 1
+    if (iteration > maxIter) break
   }
-  seqsEM = unlist(seqsEM,recursive=FALSE)
+  seqsEM <- unlist(seqsEM, recursive = FALSE)
+  acceptAug <- 0
+  acceptShort <- 0
+  acceptPerm <- 0
 
-  return("seqsEM"= seqsEM, "resstepPT" = resstepPT)
+  return(list(
+    "seqsEM" = seqsEM, "resstepPT" = resstepPT,
+    "acceptSwitch" = acceptSwitch,
+    "acceptAug" = acceptAug,
+    "acceptShort" = acceptShort,
+    "acceptPerm" = acceptPerm
+  ))
 }
 
 

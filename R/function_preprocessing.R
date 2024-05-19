@@ -46,9 +46,9 @@ GatherPreprocessingDF <- function(formula, envir = new.env(), submodel = "choice
   # model = rem
 
   # browser()
-  if((length(unlist(strsplit(formula,"~")))<2)){
+  if ((length(unlist(strsplit(formula, "~"))) < 2)) {
     formGather <- paste("depEvents ~", formula, sep = "")
-  }else{
+  } else {
     formGather <- formula
   }
 

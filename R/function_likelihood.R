@@ -346,17 +346,15 @@ logLikelihoodTimeMC <- function(indexCore, permut, beta, theta, initTime,
 
 
 
-getlogLikelihood = function(seq, actDfnodes, net0, fixedparameters,
-                            parameters, initTime, endTime, formula){
-
-
+getlogLikelihood <- function(seq, actDfnodes, net0, fixedparameters,
+                             parameters, initTime, endTime, formula) {
   envirPrepro <- new.env()
-  if("row" %in% colnames(seq) ){
+  if ("row" %in% colnames(seq)) {
     seqTime <- seq[, -which(colnames(seq) == "row")]
-  }else{
+  } else {
     seqTime <- seq
   }
-  seqTime <- cbind(seqTime,"time"=1:nrow(seqTime))
+  seqTime <- cbind(seqTime, "time" = 1:nrow(seqTime))
   envirPrepro$seqTime <- seqTime
   envirPrepro$actDfnodes <- actDfnodes
   envirPrepro$net0 <- net0
@@ -369,7 +367,7 @@ getlogLikelihood = function(seq, actDfnodes, net0, fixedparameters,
   # CREATION
 
   envirPrepro$replaceIndex <- 1
-  if((length(unlist(strsplit(formula,"~")))<2)){
+  if ((length(unlist(strsplit(formula, "~"))) < 2)) {
     formula <- paste("depEvents ~", formula, sep = "")
   }
 
@@ -406,7 +404,7 @@ getlogLikelihood = function(seq, actDfnodes, net0, fixedparameters,
 
   # DELETION
   envirPrepro$replaceIndex <- 0
-  #formula <- paste("depEvents ~", formula, sep = "")
+  # formula <- paste("depEvents ~", formula, sep = "")
 
   local(
     {
@@ -439,38 +437,36 @@ getlogLikelihood = function(seq, actDfnodes, net0, fixedparameters,
   )
 
 
- return(list("resCrea" = resCrea,"resDel" = resDel))
-
+  return(list("resCrea" = resCrea, "resDel" = resDel))
 }
 
 
 
 
 getlogLikelihoodMC <- function(indexCore, seqsEM, beta, fixedparameters,
-                                 splitIndicesPerCore,initTime, endTime,
-                                actDfnodes = actDfnodes, net0 = net0,
-                                formula = formula, temp) {
+                               splitIndicesPerCore, initTime, endTime,
+                               actDfnodes = actDfnodes, net0 = net0,
+                               formula = formula, temp) {
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resLikelihood <- vector("list", length(indicesCore))
-
-    for (i in seq_along(indicesCore)) {
+  browser()
+  for (i in seq_along(indicesCore)) {
     seq <- seqsEM[[indicesCore[i]]]$newseq
-    if("row" %in% colnames(seq)){
-      seq = seq[,-which(colnames(seq)=="row")]
+    if ("row" %in% colnames(seq)) {
+      seq <- seq[, -which(colnames(seq) == "row")]
     }
 
-    auxLik <- getlogLikelihood(seq=seq, actDfnodes=actDfnodes,
-                     net0=net0,
-                     fixedparameters=fixedparameters,
-                     parameters = beta,
-                     initTime = initTime,endTime= endTime,
-                     formula=formula,temp[indicesCore[i]])
-    resLikelihood[[i]] <- (auxLik$resCrea$logLikelihood + auxLik$resDel$logLikelihood)/
-                          temp[indicesCore[i]]
-
+    auxLik <- getlogLikelihood(
+      seq = seq, actDfnodes = actDfnodes,
+      net0 = net0,
+      fixedparameters = fixedparameters,
+      parameters = beta,
+      initTime = initTime, endTime = endTime,
+      formula = formula
+    )
+    resLikelihood[[i]] <- c("Crea" = auxLik$resCrea$logLikelihood, "Del" = auxLik$resDel$logLikelihood) /
+      temp[indicesCore[i]]
   }
 
   return(resLikelihood)
-
 }
-

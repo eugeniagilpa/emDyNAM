@@ -203,96 +203,74 @@ rubinsRule <- function(x, se, w) {
 
 
 
-newtonraphsonStep <- function(parameters, fixedparameters = c(NA, NA, NA, NA, -20, -20),
-                       formula, seqsEM,
-                       dampingIncreaseFactor = 2,
-                       dampingDecreaseFactor = 3,
-                       isInitialEstimation = FALSE
-                      ) {
+newtonraphsonStep <- function(parameters, fixedparameters,
+                              formula, seqsEM,
+                              dampingFactorCrea,
+                              dampingFactorDel) {
   initialDamping <- 1
-  minDampingFactor <- initialDamping
 
-  stats.new = lapply(seqsEM,"[[","newlogLikelihoodStats")
-
-
-  isInitialEstimation <- TRUE
-
-  logLikelihoodCrea.new <- sapply(unlist(lapply(stats.new,"[","resCrea"),recursive=FALSE),"[","logLikelihood")
-  scoreCrea.new <- lapply(unlist(lapply(stats.new,"[","resCrea"),recursive=FALSE),"[","finalScore")
-  informationMatrixCrea.new <- lapply(unlist(lapply(stats.new,"[","resCrea"),recursive=FALSE),"[","informationMatrix")
-  logLikelihoodDel.new <- sapply(unlist(lapply(stats.new,"[","resDel"),recursive=FALSE),"[","logLikelihood")
-  scoreDel.new <- lapply(unlist(lapply(stats.new,"[","resDel"),recursive=FALSE),"[","finalScore")
-  informationMatrixDel.new <- lapply(unlist(lapply(stats.new,"[","resDel"),recursive=FALSE),"[","informationMatrix")
+  stats.new <- lapply(seqsEM, "[[", "newlogLikelihoodStats")
 
 
-  # if (sum(logLikelihoodCrea.new) <= sum(logLikelihoodCrea.old) ||
-  #     any(is.na(logLikelihoodCrea.new)) ||
-  #     any(is.na(unlist(scoreCrea.new))) ||
-  #     any(is.na(unlist(informationMatrixCrea.new)))) {
-  #   # reset values
-  #   logLikelihoodCrea.new <- logLikelihoodCrea.old
-  #   parameters$Crea <- parameters.old$Crea
-  #   scoreCrea.new <- scoreCrea.old
-  #   informationMatrixCrea.new <- informationMatrixCrea.old
-  #   minDampingFactorCrea <- minDampingFactorCrea * dampingIncreaseFactor
-  # } else {
-  #   logLikelihoodCrea.old <- logLikelihoodCrea.new
-  #   parameters.old$Crea <- parameters$Crea
-  #   scoreCrea.old <- scoreCrea.new
-  #   informationMatrixCrea.old <- informationMatrixCrea.new
-    minDampingFactorCrea <- max(
-      1,
-      minDampingFactorCrea / ifelse(isInitialEstimation, 1, dampingDecreaseFactor)
-    )
-  # }
+  logLikelihoodCrea.new <- sapply(unlist(lapply(stats.new, "[", "resCrea"),
+    recursive = FALSE
+  ), "[", "logLikelihood")
+  scoreCrea.new <- unlist(
+    lapply(unlist(lapply(stats.new, "[", "resCrea"),
+      recursive = FALSE
+    ), "[", "finalScore"),
+    recursive = FALSE
+  )
+  informationMatrixCrea.new <- unlist(
+    lapply(
+      unlist(lapply(stats.new, "[", "resCrea"),
+        recursive = FALSE
+      ), "[",
+      "finalInformationMatrix"
+    ),
+    recursive = FALSE
+  )
+  logLikelihoodDel.new <- sapply(unlist(lapply(stats.new, "[", "resDel"),
+    recursive = FALSE
+  ), "[", "logLikelihood")
+  scoreDel.new <- unlist(
+    lapply(unlist(lapply(stats.new, "[", "resDel"),
+      recursive = FALSE
+    ), "[", "finalScore"),
+    recursive = FALSE
+  )
+  informationMatrixDel.new <- unlist(
+    lapply(
+      unlist(lapply(stats.new, "[", "resDel"),
+        recursive = FALSE
+      ), "[",
+      "finalInformationMatrix"
+    ),
+    recursive = FALSE
+  )
 
 
-  # if (sum(logLikelihoodDel.new) <= sum(logLikelihoodDel.old) ||
-  #     any(is.na(logLikelihoodDel.new)) ||
-  #     any(is.na(unlist(scoreDel.new))) ||
-  #     any(is.na(unlist(informationMatrixDel.new)))) {
-  #   # reset values
-  #   logLikelihoodDel.new <- logLikelihoodDel.old
-  #   parameters$Del <- parameters.old$Del
-  #   scoreDel.new <- scoreDel.old
-  #   informationMatrixDel.new <- informationMatrixDel.old
-  #   minDampingFactorDel <- minDampingFactorDel * dampingInDelseFactor
-  # } else {
-  #   logLikelihoodDel.old <- logLikelihoodDel.new
-  #   parameters.old$Del <- parameters$Del
-  #   scoreDel.old <- scoreDel.new
-  #   informationMatrixDel.old <- informationMatrixDel.new
-    minDampingFactorDel <- max(
-      1,
-      minDampingFactorDel / ifelse(isInitialEstimation, 1, dampingDecreaseFactor)
-    )
-  # }
+  idunfixedComponentsCrea <- which(is.na(fixedparameters$Crea))
+  idunfixedComponentsDel <- which(is.na(fixedparameters$Del))
 
-
-
-  idUnfixedCompnentsCrea <- which(is.na(fixedparameters$Crea))
-  idUnfixedCompnentsDel <- which(is.na(fixedparameters$Del))
   # Calculate the UPDATE distance taking into account the DAMPING
-  dampingFactorCrea <- minDampingFactorCrea
-  dampingFactorDel <- minDampingFactorDel
 
-
-  scoreUnfixedCrea <- Reduce("+", lapply(scoreCrea.new, "[", idUnfixedCompnentsCrea)) /
-    length(idUnfixedCompnentsCrea)
-  scoreUnfixedDel <- Reduce("+", lapply(scoreDel.new, "[", idUnfixedCompnentsDel)) /
-    length(idUnfixedCompnentsDel)
+  scoreUnfixedCrea <- Reduce("+", lapply(scoreCrea.new, "[", idunfixedComponentsCrea)) /
+    length(idunfixedComponentsCrea)
+  scoreUnfixedDel <- Reduce("+", lapply(scoreDel.new, "[", idunfixedComponentsDel)) /
+    length(idunfixedComponentsDel)
 
   informationMatrixUnfixedCrea <- Reduce("+", lapply(
     informationMatrixCrea.new, "[",
-    idUnfixedCompnentsCrea, idUnfixedCompnentsCrea
-  )) /length(idUnfixedCompnentsCrea) -
-    scoreUnfixedCrea %*% t(scoreUnfixedCrea) / (length(idUnfixedCompnentsCrea)^2)
+    idunfixedComponentsCrea, idunfixedComponentsCrea
+  )) / length(idunfixedComponentsCrea) -
+    scoreUnfixedCrea %*% t(scoreUnfixedCrea) / (length(idunfixedComponentsCrea)^2)
 
   informationMatrixUnfixedDel <- Reduce("+", lapply(
     informationMatrixDel.new, "[",
-    idUnfixedCompnentsDel, idUnfixedCompnentsDel
-  )) /length(idUnfixedCompnentsDel) -
-    scoreUnfixedDel %*% t(scoreUnfixedDel) / (length(idUnfixedCompnentsDel)^2)
+    idunfixedComponentsDel, idunfixedComponentsDel
+  )) / length(idunfixedComponentsDel) -
+    scoreUnfixedDel %*% t(scoreUnfixedDel) / (length(idunfixedComponentsDel)^2)
 
 
   inverseInformationUnfixedCrea <- try(
@@ -319,32 +297,83 @@ newtonraphsonStep <- function(parameters, fixedparameters = c(NA, NA, NA, NA, -2
   }
 
   updateCrea <- rep(0, length(parameters$Crea))
-  updateCrea[idUnfixedCompnentsCrea] <-
+  updateCrea[idunfixedComponentsCrea] <-
     (inverseInformationUnfixedCrea %*% scoreUnfixedCrea) / dampingFactorCrea
 
   parameters$Crea <- parameters$Crea + updateCrea
 
-  stdErrors = data.frame("Crea"=c(),"Del"=c())
-  stdErrors$Crea <- rep(0, length(parameters$Crea))
-  stdErrors$Crea[idUnfixedCompnents] <- sqrt(diag(inverseInformationUnfixedCrea))
+  stdErrors <- data.frame(
+    "Crea" = rep(0, length(parameters$Crea)),
+    "Del" = rep(0, length(parameters$Crea))
+  )
+  stdErrors$Crea[idunfixedComponentsCrea] <- sqrt(diag(inverseInformationUnfixedCrea))
 
 
   updateDel <- rep(0, length(parameters$Del))
-  updateDel[idUnfixedCompnentsDel] <-
+  updateDel[idunfixedComponentsDel] <-
     (inverseInformationUnfixedDel %*% scoreUnfixedDel) / dampingFactorDel
 
   parameters$Del <- parameters$Del + updateDel
 
   stdErrors$Del <- rep(0, length(parameters$Del))
-  stdErrors$Del[idUnfixedCompnents] <- sqrt(diag(inverseInformationUnfixedCrea))
+  stdErrors$Del[idunfixedComponentsDel] <- sqrt(diag(inverseInformationUnfixedCrea))
 
   return(list(parameters = parameters, stdErrors = stdErrors))
 
 
 
-  #envirPrepro <- new.env()
 
-  #seqsTime <- seqsEM
+  # if (sum(logLikelihoodCrea.new) <= sum(logLikelihoodCrea.old) ||
+  #     any(is.na(logLikelihoodCrea.new)) ||
+  #     any(is.na(unlist(scoreCrea.new))) ||
+  #     any(is.na(unlist(informationMatrixCrea.new)))) {
+  #   # reset values
+  #   logLikelihoodCrea.new <- logLikelihoodCrea.old
+  #   parameters$Crea <- parameters.old$Crea
+  #   scoreCrea.new <- scoreCrea.old
+  #   informationMatrixCrea.new <- informationMatrixCrea.old
+  #   minDampingFactorCrea <- minDampingFactorCrea * dampingIncreaseFactor
+  # } else {
+  #   logLikelihoodCrea.old <- logLikelihoodCrea.new
+  #   parameters.old$Crea <- parameters$Crea
+  #   scoreCrea.old <- scoreCrea.new
+  #   informationMatrixCrea.old <- informationMatrixCrea.new
+  #   dampingFactorCrea <- max(
+  #     1,
+  #     minDampingFactorCrea / dampingDecreaseFactor
+  #   )
+  # # }
+
+
+  # if (sum(logLikelihoodDel.new) <= sum(logLikelihoodDel.old) ||
+  #     any(is.na(logLikelihoodDel.new)) ||
+  #     any(is.na(unlist(scoreDel.new))) ||
+  #     any(is.na(unlist(informationMatrixDel.new)))) {
+  #   # reset values
+  #   logLikelihoodDel.new <- logLikelihoodDel.old
+  #   parameters$Del <- parameters.old$Del
+  #   scoreDel.new <- scoreDel.old
+  #   informationMatrixDel.new <- informationMatrixDel.old
+  #   minDampingFactorDel <- minDampingFactorDel * dampingInDecreaseFactor
+  # } else {
+  #   logLikelihoodDel.old <- logLikelihoodDel.new
+  #   parameters.old$Del <- parameters$Del
+  #   scoreDel.old <- scoreDel.new
+  #   informationMatrixDel.old <- informationMatrixDel.new
+  #   minDampingFactorDel <- max(
+  #     1,
+  #     minDampingFactorDel / dampingDecreaseFactor
+  #   )
+  # # }
+
+
+
+
+
+
+  # envirPrepro <- new.env()
+
+  # seqsTime <- seqsEM
 
   # if (!"time" %in% colnames(seqsTime[[1]])) {
   #   seqsTime <- lapply(seqsTime, function(x) cbind(x, "time" = 1:nrow(x)))
@@ -373,68 +402,65 @@ newtonraphsonStep <- function(parameters, fixedparameters = c(NA, NA, NA, NA, -2
   # informationMatrix <- vector("list", length = length(seqsEM))
 
   # while (TRUE) {
-    # envirPrepro$parameters <- parameters
-    #
-    #
-    # if (iIteration == 1) {
-    #   splitIndicesPerCore2 <- splitIndices(length(seqsTime), num_cores_parameters)
-    #   cl2 <- makeCluster(num_cores_parameters)
-    #   on.exit(stopCluster(cl2))
-    #   clusterEvalQ(cl2, {
-    #     library(goldfish)
-    #     library(matrixStats)
-    #     NULL
-    #   })
-    #
-    #
-    #   clusterExport(cl2, list(
-    #     "auxEstimateNR"
-    #   ))
-    # }
-    #
-    # res <- clusterApply(cl2, seq_along(splitIndicesPerCore2), auxEstimateNR_MC,
-    #   seqsTime = seqsTime,
-    #   splitIndicesPerCore = splitIndicesPerCore2,
-    #   envirPrepro = envirPrepro, formula = formula
-    # )
+  # envirPrepro$parameters <- parameters
+  #
+  #
+  # if (iIteration == 1) {
+  #   splitIndicesPerCore2 <- splitIndices(length(seqsTime), num_cores_parameters)
+  #   cl2 <- makeCluster(num_cores_parameters)
+  #   on.exit(stopCluster(cl2))
+  #   clusterEvalQ(cl2, {
+  #     library(goldfish)
+  #     library(matrixStats)
+  #     NULL
+  #   })
+  #
+  #
+  #   clusterExport(cl2, list(
+  #     "auxEstimateNR"
+  #   ))
+  # }
+  #
+  # res <- clusterApply(cl2, seq_along(splitIndicesPerCore2), auxEstimateNR_MC,
+  #   seqsTime = seqsTime,
+  #   splitIndicesPerCore = splitIndicesPerCore2,
+  #   envirPrepro = envirPrepro, formula = formula
+  # )
 
 
-    # logLikelihood <- sapply(res, "[[", 1)
-    # score <- lapply(res, "[[", 2)
-    # informationMatrix <- lapply(res, "[[", 3)
+  # logLikelihood <- sapply(res, "[[", 1)
+  # score <- lapply(res, "[[", 2)
+  # informationMatrix <- lapply(res, "[[", 3)
 
 
 
-     # isInitialEstimation <- FALSE
+  # isInitialEstimation <- FALSE
 
 
-    # # check for stop criteria
-    # if (max(abs(score)) <= maxScoreStopCriterion) {
-    #   isConverged <- TRUE
-    #   if (progress) {
-    #     cat(
-    #       "\nStopping as maximum absolute score is below ",
-    #       maxScoreStopCriterion, ".\n",
-    #       sep = ""
-    #     )
-    #   }
-    #
-    #   break
-    # }
-    # if (iIteration > maxIterations) {
-    #   if (progress) {
-    #     cat(
-    #       "\nStopping as maximum of ",
-    #       maxIterations,
-    #       " iterations have been reached. No convergence.\n"
-    #     )
-    #   }
-    #   break
-    # }
+  # # check for stop criteria
+  # if (max(abs(score)) <= maxScoreStopCriterion) {
+  #   isConverged <- TRUE
+  #   if (progress) {
+  #     cat(
+  #       "\nStopping as maximum absolute score is below ",
+  #       maxScoreStopCriterion, ".\n",
+  #       sep = ""
+  #     )
+  #   }
+  #
+  #   break
+  # }
+  # if (iIteration > maxIterations) {
+  #   if (progress) {
+  #     cat(
+  #       "\nStopping as maximum of ",
+  #       maxIterations,
+  #       " iterations have been reached. No convergence.\n"
+  #     )
+  #   }
+  #   break
+  # }
 
 
   # } # end of while
-
-
-
 }
