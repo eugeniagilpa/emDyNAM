@@ -681,7 +681,7 @@ stepMCMC <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
 stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0,
                    beta, theta, fixedparameters, initTime, endTime,
                    k = 5, temp = 1,
-                   pAug, pShort, logLikelihoodStats) {
+                   pAug, pShort,pPerm ,logLikelihoodStats) {
   # browser()
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1
@@ -825,7 +825,38 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
 
     newloglikSeq <- (newlogLikelihoodStats$resCrea$logLikelihood +
       newlogLikelihoodStats$resDel$logLikelihood) / temp
+  }else if(type == 3){
+    # Only permutations performed
+    step <- stepPerm(seq, tieNames, m, me)
+    newMe <- getNewKelMeMatrix$me
+    newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
+    diag(newGammaEplus) <- 0
+    newGammaPlus <- sum(newGammaEplus)
+    newM <- nrow(step$newseq)
+
+    for (i in 1:(k-1)) {
+      step <- stepPerm(step$newseq, tieNames, newM, newMe)
+      newMe <- getNewKelMeMatrix$me
+      newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
+      diag(newGammaEplus) <- 0
+      newGammaPlus <- sum(newGammaEplus)
+      newM <- nrow(step$newseq)
+    }
+
+    pDoStep <- step$pDoStep
+    pUndoStep <- step$pDoStep
+
+    newlogLikelihoodStats <- getlogLikelihood(
+      step$newseq, actDfnodes, net0, fixedparameters,
+      beta, initTime, endTime, formula
+    )
+
+    newloglikSeq <- (newlogLikelihoodStats$resCrea$logLikelihood +
+                       newlogLikelihoodStats$resDel$logLikelihood) / temp
+
   }
+
+
   loglikSeq <- (logLikelihoodStats$resCrea$logLikelihood +
     logLikelihoodStats$resDel$logLikelihood) / temp
 
@@ -878,7 +909,7 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
 stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
                      actDfnodes, tieNames, formula, net0, beta, theta,
                      fixedparameters,
-                     initTime, endTime, k, temp, nStepExch, pAug, pShort) {
+                     initTime, endTime, k, temp, nStepExch, pAug, pShort,pPerm) {
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resStepPT <- vector("list", length(indicesCore))
   # browser()
@@ -895,9 +926,13 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
 
     for (t in 1:nStepExch) {
       if (nrow(seq) == H) {
-        type <- sampleVec(c(1, 2), size = 1, prob = c(1, 0), replace = TRUE)
+        type <- sampleVec(c(1, 2, 3), size = 1,
+                          prob = c(pAug/(pAug+pPerm),pPerm/(pAug+pPerm)),
+                          replace = TRUE)
       } else {
-        type <- sampleVec(c(1, 2), size = 1, prob = c(pAug, pShort), replace = TRUE)
+        type <- sampleVec(c(1, 2, 3), size = 1,
+                          prob = c(pAug, pShort,pPerm),
+                          replace = TRUE)
       }
 
       # cat("t in nStepExch ", t,"\n")
@@ -907,6 +942,7 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
         net0 = net0, beta = beta, fixedparameters = fixedparameters,
         theta = theta, initTime = initTime, endTime = endTime, k = k,
         temp = temp[indicesCore[[i]]], pAug = pAug, pShort = pShort,
+        pPerm = pPerm,
         logLikelihoodStats = logLikelihoodStats
       )
 
@@ -1039,7 +1075,8 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                     theta, fixedparameters, initTime, endTime, burnIn = TRUE,
                     burnInIter = 500, maxIter = 10000,
                     seqIter = 50, T0 = 100, nStepExch = 10,
-                    pAug = 0.5, pShort = 0.5, cl = cl, num_cores = num_cores) {
+                    pAug = 0.35, pShort = 0.35, pPerm=0.3,
+                    cl = cl, num_cores = num_cores) {
   # Compute initial quatities:
   # Type 1: augmentation, type 2: shortening
 
@@ -1084,7 +1121,7 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
       tieNames = tieNames, formula = formula, net0 = net0, beta = beta,
       theta = theta, fixedparameters = fixedparameters, initTime = initTime,
       endTime = endTime, k = k, temp = temp,
-      nStepExch = nStepExch, pAug = pAug, pShort = pShort
+      nStepExch = nStepExch, pAug = pAug, pShort = pShort, pPerm = pPerm
     )
 
     resstepPT <- unlist(resstepPT, recursive = FALSE)
