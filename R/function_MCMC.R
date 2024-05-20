@@ -918,6 +918,7 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
     resStepPT[[i]] <- aux
   }
 
+  # add acceptances for augment and shortening
   return(resStepPT)
 }
 
@@ -1154,16 +1155,13 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     if (iteration > maxIter) break
   }
   seqsEM <- unlist(seqsEM, recursive = FALSE)
-  acceptAug <- 0
-  acceptShort <- 0
-  acceptPerm <- 0
+  # acceptAug <- 0
+  # acceptShort <- 0
+  # acceptPerm <- 0
 
   return(list(
-    "seqsEM" = seqsEM, "resstepPT" = resstepPT,
-    "acceptSwitch" = acceptSwitch,
-    "acceptAug" = acceptAug,
-    "acceptShort" = acceptShort,
-    "acceptPerm" = acceptPerm
+    "seqsEM" = seqsEM, "resstepPT" = lapply(resstepPT, "[", "newseq"),
+    "acceptSwitch" = acceptSwitch
   ))
 }
 

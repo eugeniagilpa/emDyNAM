@@ -196,12 +196,17 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
       pAug, pShort, cl, num_cores
     )
     # }
-    seqsPT <- unlist(lapply(seqsEM$resstepPT, "[", "newseq"), recursive = FALSE) # update sequences to start PT
+    seqsPT <- seqsEM$resstepPT
+      #unlist(lapply(seqsEM$resstepPT, "[", "newseq"), recursive = FALSE) # update sequences to start PT
+
+    logLikPrevCrea <- sapply(lapply(lapply(seqsEM$seqsEM,"[[",
+                                           "newlogLikelihoodStats"),"[[",
+                                    "resCrea"),"[[","logLikelihood")
+    logLikPrevDel <-sapply(lapply(lapply(seqsEM$seqsEM,"[[",
+                                         "newlogLikelihoodStats"),"[[",
+                                  "resDel"),"[[","logLikelihood")
+    logLikPrev <- logLikPrevCrea + logLikPrevDel #vector of likelihoods lambda^{t-1}
     # Compute new estimator from the sequences
-
-
-
-
 
     newNRstep <- newtonraphsonStep(
       parameters = beta,
@@ -213,7 +218,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
     )
 
 
-    splitIndicesPerCore <- splitIndices(length(seqsEM), num_cores)
+    splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
 
     logLikCur <- clusterApply(cl, seq_along(splitIndicesPerCore), getlogLikelihoodMC,
       seqsEM = seqsEM$seqsEM, beta = newNRstep$parameters,
@@ -221,13 +226,13 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
       splitIndicesPerCore = splitIndicesPerCore,
       initTime = initTime, endTime = endTime,
       actDfnodes = actDfnodes, net0 = net0,
-      formula = formula, temp = rep(1, length(seqsEM))
+      formula = formula, temp = rep(1, length(seqsEM$seqsEM))
     )
 
 
     logLikCur <- unlist(logLikCur, recursive = FALSE)
 
-    logLikCurEM <- sapply(logLikCur, sum)
+    logLikCurEM <- sapply(logLikCur, sum) #total likelihoods for each sequence (Crea+Del)
 
     w <- rep(1, length(logLikPrev)) / length(logLikPrev)
     sigmaHat <- sigmaHat(nmax, logLikPrev, logLikCurEM, w)
@@ -252,20 +257,32 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
         seqsEM <- c(seqsEM, seqsEMaux)
         # Compute new estimator from the sequences
 
+        seqsPT <- seqsEM$resstepPT
+
+        logLikPrevCrea <- c(logLikPrevCrea,
+                            sapply(lapply(lapply(seqsEMaux$seqsEM,"[[",
+                                               "newlogLikelihoodStats"),"[[",
+                                        "resCrea"),"[[","logLikelihood"))
+        logLikPrevDel <-c(logLikPrevDel,
+                          sapply(lapply(lapply(seqsEMaux$seqsEM,"[[",
+                                             "newlogLikelihoodStats"),"[[",
+                                      "resDel"),"[[","logLikelihood"))
+        logLikPrev <- logLikPrevCrea + logLikPrevDel #vector of likelihoods lambda^{t-1}
+
+         # Compute new estimator from the sequences
         newNRstep <- newtonraphsonStep(
           parameters.old = beta,
           fixedparameters = fixedparameters,
           formula = formula,
-          seqsEM = seqsEM$seqsEM, # TO DO: CHANGE THE OUT PUT OF SEQSem
-          dampingIncreaseFactor = 2,
-          dampingDecreaseFactor = 3
-        )
+          seqsEM = seqsEM$seqsEM,
+          dampingFactorCrea,
+          dampingFactorDel)
 
 
-        splitIndicesPerCore <- splitIndices(length(seqsEM), num_cores)
+        splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
 
         logLikCur <- clusterApply(cl, seq_along(splitIndicesPerCore), getlogLikelihoodMC,
-          seqsEM = seqsEM, beta = newNRstep$parameters,
+          seqsEM = seqsEM$seqsEM, beta = newNRstep$parameters,
           fixedparameters = fixedparameters,
           splitIndicesPerCore = splitIndicesPerCore,
           initTime = initTime, endTime = endTime,
@@ -325,9 +342,6 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
         )
       }
 
-      # logLikPrevDel <- logLikCurReduce[2]
-      #
-      # logLikPrev <- logLikCurEM
     }
   }
 
