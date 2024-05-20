@@ -116,7 +116,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
 
   # Initialization of parameters
   theta <- theta0
-  beta <- beta0
+
   fixedparameters <- data.frame(
     "Crea" = c(NA, NA, NA, NA, -20, -20),
     "Del" = c(NA, NA, NA, NA, 20, 20)
@@ -124,17 +124,20 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
   se <- data.frame(Crea = rep(0, nrow(beta)), Del = rep(0, nrow(beta)))
   row.names(se) <- row.names(beta)
   # Creation of sequence of events from initial data
-  sequence <- EMPreprocessing(net0, net1)
-  H <- nrow(sequence) # Humming distance
+  seq <- EMPreprocessing(net0, net1)
+  H <- nrow(seq) # Humming distance
 
-  acceptanceRates <- data.frame(
-    "Acc Aug" = 0, "Total Aug" = 0,
-    "Acc Short" = 0, "Total Short" = 0,
-    "Acc Perm" = 0, "Total Perm" = 0,
-    "Temp" = 0,
-    "Acc Switch" = 0, "Total Swithc" = 0,
-    "Temps Switch" = 0
-  )
+  if(any(!beta0==0)){
+    beta <- beta0
+  }else{ # all initial parameters are zero
+
+    parametersAux = parameters(seq, actDfnodes. = actDfnodes,
+                               net0. = net0, formula. = formula)
+
+    beta = data.frame("Crea" = parametersAux$betaCreaDF,
+                      "Del" = parametersAux$betaDelDF)
+  }
+
 
 
   # Creation of permutations
@@ -345,8 +348,12 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
     }
   }
 
+  acceptSwitch = table(seqsEM$acceptSwitch)
+  acceptDF = table(seqsEM$acceptDF)
 
   return(list(
-    "logLik" = logLikCur, "beta" = beta, "se" = se, "index" = index, "diff" = diff
+    "logLik" = logLikCur, "beta" = beta, "se" = se,
+    "index" = index, "diff" = diff, "acceptSwitch" =acceptSwitch,
+    "acceptDF" = acceptDF
   ))
 }
