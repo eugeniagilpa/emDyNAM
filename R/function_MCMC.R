@@ -682,7 +682,8 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
                    beta, theta, fixedparameters, initTime, endTime,
                    k = 5, temp = 1,
                    pAug, pShort,pPerm ,logLikelihoodStats) {
-  # browser()
+
+
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1
   Kel_ge1 <- getKelMeMatrix$Kel_ge1
@@ -734,6 +735,8 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
 
     for (i in 1:k) {
       step <- stepPerm(step$newseq, tieNames, newM, newMe)
+
+      getNewKelMeMatrix <- getKelMeMatrix(step$newseq, actDfnodesLab)
       newMe <- getNewKelMeMatrix$me
       newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
       diag(newGammaEplus) <- 0
@@ -810,12 +813,15 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
 
     for (i in 1:k) {
       step <- stepPerm(step$newseq, tieNames, newM, newMe)
+
+      getNewKelMeMatrix <- getKelMeMatrix(step$newseq, actDfnodesLab)
       newMe <- getNewKelMeMatrix$me
       newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
       diag(newGammaEplus) <- 0
       newGammaPlus <- sum(newGammaEplus)
       newM <- nrow(step$newseq)
     }
+
 
 
     newlogLikelihoodStats <- getlogLikelihood(
@@ -827,15 +833,20 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
       newlogLikelihoodStats$resDel$logLikelihood) / temp
   }else if(type == 3){
     # Only permutations performed
-    step <- stepPerm(seq, tieNames, m, me)
-    newMe <- getNewKelMeMatrix$me
-    newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
-    diag(newGammaEplus) <- 0
-    newGammaPlus <- sum(newGammaEplus)
-    newM <- nrow(step$newseq)
+      step <- stepPerm(seq, tieNames, m,me)
 
-    for (i in 1:(k-1)) {
+      getNewKelMeMatrix <- getKelMeMatrix(step$newseq, actDfnodesLab)
+      newMe <- getNewKelMeMatrix$me
+      newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
+      diag(newGammaEplus) <- 0
+      newGammaPlus <- sum(newGammaEplus)
+      newM <- nrow(step$newseq)
+
+
+    for (i in 1:k) {
       step <- stepPerm(step$newseq, tieNames, newM, newMe)
+
+      getNewKelMeMatrix <- getKelMeMatrix(step$newseq, actDfnodesLab)
       newMe <- getNewKelMeMatrix$me
       newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
       diag(newGammaEplus) <- 0
@@ -866,8 +877,10 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
     newseq <- seq
     newlogLikelihoodStats <- logLikelihoodStats
     newloglikSeq <- loglikSeq
+    acceptanceDF = data.frame("Type"=type, "Accept"=accept,"Temp"=temp)
   } else {
     newseq <- step$newseq
+    acceptanceDF = data.frame("Type"=type, "Accept"=accept,"Temp"=temp)
   }
 
   return(list(
@@ -875,7 +888,8 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
     "step" = step, "accept" = accept,
     "newlogLikelihoodStats" = newlogLikelihoodStats,
     "newloglikSeq" = newloglikSeq,
-    "temp" = temp
+    "temp" = temp,
+    "acceptanceDF" = acceptanceDF
   ))
 }
 
@@ -914,8 +928,13 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
   resStepPT <- vector("list", length(indicesCore))
   # browser()
 
+
+
   for (i in seq_along(indicesCore)) {
     # cat("Index core ",i,"\n" )
+
+    acceptanceDF = data.frame("Type"=c(), "Accept"=c(),"Temp"=c())
+
     seq <- seqs[[indicesCore[[i]]]]
     logLikelihoodStats <- getlogLikelihood(
       seq, actDfnodes, net0,
@@ -946,12 +965,12 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
         logLikelihoodStats = logLikelihoodStats
       )
 
-
+      acceptanceDF = rbind(acceptanceDF,aux$acceptanceDF)
 
       seq <- aux$newseq
       logLikelihoodStats <- aux$newlogLikelihoodStats
     }
-    resStepPT[[i]] <- aux
+    resStepPT[[i]] <- c(aux, acceptanceDF)
   }
 
   # add acceptances for augment and shortening
@@ -1084,6 +1103,7 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     maxIter <- (nmax + burnInIter + 1) * seqIter
   }
 
+  # browser()
   actDfnodesLab <- actDfnodes$label
 
   tieNames <- sapply(actDfnodesLab, function(x) {
@@ -1099,8 +1119,8 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
 
   temp <- seq(1, T0, length = length(seqsPT))
 
-  acceptSwitch <- data.frame("Accept" = 0, "Temp1" = 0, "Temp2" = 0)
-
+  acceptSwitch <- data.frame("Accept" = c(), "Temp1" = c(), "Temp2" = c())
+  acceptDF = data.frame("Type" =c(),"Accept"=c(),"Temp"=c())
   # browser()
 
   splitIndicesPerCore <- splitIndices(length(seqsPT), num_cores)
@@ -1125,6 +1145,13 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     )
 
     resstepPT <- unlist(resstepPT, recursive = FALSE)
+
+    acceptDFaux = lapply(resstepPT,function(x) data.frame(x$Type,x$Accept,x$Temp))
+    acceptDFaux = as.data.frame(do.call(rbind, acceptDFaux))
+    names(acceptDFaux) = c("Type","Accept","Temp")
+    acceptDF = rbind(acceptDF,acceptDFaux)
+
+
 
     # Every 10 iterations, try to switch
     order <- sample(c(0, 1), size = 1, prob = c(0.5, 0.5)) # True=1: Pairs of sequences 1-2, 3-4, ....
@@ -1166,13 +1193,13 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
           resstepPT[[tempPairs[j, 2]]]$newloglikSeq
       )
       if (logUnif[j] < logMHRatio) {
-        acceptSwitch <- rbind(acceptSwitch, c("Accept" = TRUE, "Temp1" = tempPairs[j, 1], "Temp2" = tempPairs[j, 2]))
+        acceptSwitch <- rbind(acceptSwitch, data.frame("Accept" = TRUE, "Temp1" = tempPairs[j, 1], "Temp2" = tempPairs[j, 2]))
         auxPT <- resstepPT[[tempPairs[j, 1]]]
         resstepPT[[tempPairs[j, 1]]] <- resstepPT[[tempPairs[j, 2]]]
         resstepPT[[tempPairs[j, 2]]] <- auxPT
         rm(auxPT)
       } else {
-        acceptSwitch <- rbind(acceptSwitch, c("Accept" = FALSE, "Temp1" = tempPairs[j, 1], "Temp2" = tempPairs[j, 2]))
+        acceptSwitch <- rbind(acceptSwitch, data.frame("Accept" = FALSE, "Temp1" = tempPairs[j, 1], "Temp2" = tempPairs[j, 2]))
       }
     }
 
@@ -1192,13 +1219,10 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     if (iteration > maxIter) break
   }
   seqsEM <- unlist(seqsEM, recursive = FALSE)
-  # acceptAug <- 0
-  # acceptShort <- 0
-  # acceptPerm <- 0
 
   return(list(
     "seqsEM" = seqsEM, "resstepPT" = lapply(resstepPT, "[", "newseq"),
-    "acceptSwitch" = acceptSwitch
+    "acceptSwitch" = acceptSwitch, "acceptDF" = acceptDF
   ))
 }
 

@@ -193,7 +193,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
       theta, fixedparameters, initTime, endTime,
       burnIn = FALSE,
       burnInIter = 0, maxIterPT, seqIter, T0, nStepExch,
-      pAug, pShort, cl, num_cores
+      pAug, pShort, pPerm, cl, num_cores
     )
     # }
     seqsPT <- seqsEM$resstepPT
