@@ -171,8 +171,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
 
   dampingIncreaseFactor <- 1
   dampingDecreaseFactor <- 3
-  logLikPrevCrea <- -Inf
-  logLikPrevDel <- -Inf
+
 
   diff <- 1000
   index <- 0
@@ -199,7 +198,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
       pAug, pShort, pPerm, cl, num_cores
     )
     # }
-    seqsPT <- seqsEM$resstepPT
+    seqsPT <- unlist(seqsEM$resstepPT,recursive = FALSE)
       #unlist(lapply(seqsEM$resstepPT, "[", "newseq"), recursive = FALSE) # update sequences to start PT
 
     logLikPrevCrea <- sapply(lapply(lapply(seqsEM$seqsEM,"[[",
@@ -245,22 +244,28 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
 
 
 
-    if (lowerBoud < 0) {
+    if (lowerBound < 0) {
       while (lowerBound < 0) {
         # Estimator is not accepted, new point must be sampled
         # Perform Parallel-Tempering
-        nmax <- nmax + nmax / k
+        nmax <- ceiling(nmax + nmax / k)
         seqsEMaux <- PT_MCMC(nmax / k, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
           theta, fixedparameters, initTime, endTime,
           burnIn = FALSE,
           burnInIter = 500, maxIterPT, seqIter, T0, nStepExch,
-          pAug, pShort, cl, num_cores
+          pAug, pShort, pPerm,cl, num_cores
         )
 
-        seqsEM <- c(seqsEM, seqsEMaux)
+        # seqsEM <- c(seqsEM, seqsEMaux) not possible!!
+        seqsEM$seqsEM = c(seqsEM$seqsEM, seqsEMaux$seqsEM)
+        seqsEM$resstepPT = c(seqsEM$resstepPT, seqsEMaux$resstepPT)
+        seqsEM$acceptSwitch = rbind(seqsEM$acceptSwitch, seqsEMaux$acceptSwitch)
+        seqsEM$acceptDF = rbind(seqsEM$acceptDF, seqsEMaux$acceptDF)
+        seqsEM$mcmcDiagDF = rbind(seqsEM$mcmcDiagDF, seqsEMaux$mcmcDiagDF)
+
         # Compute new estimator from the sequences
 
-        seqsPT <- seqsEM$resstepPT
+        seqsPT <- unlist(seqsEM$resstepPT,recursive = FALSE)
 
         logLikPrevCrea <- c(logLikPrevCrea,
                             sapply(lapply(lapply(seqsEMaux$seqsEM,"[[",
@@ -270,16 +275,19 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
                           sapply(lapply(lapply(seqsEMaux$seqsEM,"[[",
                                              "newlogLikelihoodStats"),"[[",
                                       "resDel"),"[[","logLikelihood"))
+
+
         logLikPrev <- logLikPrevCrea + logLikPrevDel #vector of likelihoods lambda^{t-1}
 
          # Compute new estimator from the sequences
         newNRstep <- newtonraphsonStep(
-          parameters.old = beta,
+          parameters = beta,
           fixedparameters = fixedparameters,
-          formula = formula,
-          seqsEM = seqsEM$seqsEM,
+          formula = formula ,
+          seqsEM=seqsEM$seqsEM,
           dampingFactorCrea,
-          dampingFactorDel)
+          dampingFactorDel
+          )
 
 
         splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
@@ -290,7 +298,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
           splitIndicesPerCore = splitIndicesPerCore,
           initTime = initTime, endTime = endTime,
           actDfnodes = actDfnodes, net0 = net0,
-          formula = formula, temp = rep(1, length(seqsEM))
+          formula = formula, temp = rep(1, length(seqsEM$seqsEM))
         )
 
 
@@ -351,9 +359,14 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
   acceptSwitch = table(seqsEM$acceptSwitch)
   acceptDF = table(seqsEM$acceptDF)
 
+  mcmcObj = tapply(seqsEM$mcmcDiagDF[,-ncol(seqsEM$mcmcDiagDF)],seqsEM$mcmcDiagDF$temp,mcmc,thin = seqIter)
+
+  geweke = lapply(mcmcObj,geweke.diag)
+  ess = lapply(mcmcObj,effectiveSize)
+
   return(list(
     "logLik" = logLikCur, "beta" = beta, "se" = se,
     "index" = index, "diff" = diff, "acceptSwitch" =acceptSwitch,
-    "acceptDF" = acceptDF
+    "acceptDF" = acceptDF, "geweke" = geweke, "ess" = ess
   ))
 }
