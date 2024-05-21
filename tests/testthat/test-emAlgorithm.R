@@ -37,13 +37,14 @@ test_that("Step Augment works", {
   gammaPlus <- sum(gammaEplus)
   m <- nrow(seq)
   auxDf <- getKelMeMatrix$auxDf
-  pAug = 0.5
+  pAug <- 0.5
 
   vec.lengths <- c()
   for (i in 1:100) {
     set.seed(i)
     step <- stepAugment(seq, tieNames, gammaEplus, gammaPlus, m, me, net0, pAug)
     vec.lengths <- c(vec.lengths, nrow(step$newseq))
+    # vec.lengths <- c(vec.lengths, anyNA(step$newseq))
   }
 
   expect_equal(vec.lengths, rep(nrow(seq) + 2, 100))
@@ -90,13 +91,15 @@ test_that("Step Shortening works", {
   gammaPlus <- sum(gammaEplus)
   m <- nrow(seq)
   auxDf <- getKelMeMatrix$auxDf
-  pShort = 0.5
+  pShort <- 0.5
 
   vec.lengths <- c()
   for (i in 1:100) {
     set.seed(i)
-    step <- stepShort(seq, tieNames, gammaEminus, gammaMinus, m, me, Kel_g1,
-                      auxDf, pShort)
+    step <- stepShort(
+      seq, tieNames, gammaEminus, gammaMinus, m, me, Kel_g1,
+      auxDf, pShort
+    )
     vec.lengths <- c(vec.lengths, nrow(step$newseq))
   }
 
