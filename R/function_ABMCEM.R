@@ -170,7 +170,9 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
   seqsPT <- permute(seq, nmax = nPT) # Initial sequences for Parallel Tempering initialization
 
   dampingIncreaseFactor <- 1
-  dampingDecreaseFactor <- 3
+  dampingDecreaseFactor <- 1
+  dampingFactorCrea = 1
+  dampingFactorDel = 1
 
 
   diff <- 1000
@@ -332,26 +334,26 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
         nmax <- ceiling(m_start)
       }
 
-      logLikCurReduce <- Reduce("+", logLikCur)
+      # logLikCurReduce <- Reduce("+", logLikCur)
 
-      if (logLikCurReduce[1] <= logLikPrevCrea) {
-        dampingFactorCrea <- dampingFactorCrea * dampingIncreaseFactor
-      } else {
-        dampingFactorCrea <- max(
-          1,
-          dampingFactorCrea / dampingDecreaseFactor
-        )
-      }
-      # logLikPrevCrea <- logLikCurReduce[1]
-
-      if (logLikCurReduce[2] <= logLikPrevDel) {
-        dampingFactorDel <- minDampingFactorDel * dampingIncreaseFactor
-      } else {
-        dampingFactorDel <- max(
-          1,
-          dampingFactorDel / dampingDecreaseFactor
-        )
-      }
+      # if (logLikCurReduce[1] <= logLikPrevCrea) {
+      #   dampingFactorCrea <- dampingFactorCrea * dampingIncreaseFactor
+      # } else {
+      #   dampingFactorCrea <- max(
+      #     1,
+      #     dampingFactorCrea / dampingDecreaseFactor
+      #   )
+      # }
+      # # logLikPrevCrea <- logLikCurReduce[1]
+      #
+      # if (logLikCurReduce[2] <= logLikPrevDel) {
+      #   dampingFactorDel <- minDampingFactorDel * dampingIncreaseFactor
+      # } else {
+      #   dampingFactorDel <- max(
+      #     1,
+      #     dampingFactorDel / dampingDecreaseFactor
+      #   )
+      # }
 
     }
   }
@@ -367,6 +369,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
   return(list(
     "logLik" = logLikCur, "beta" = beta, "se" = se,
     "index" = index, "diff" = diff, "acceptSwitch" =acceptSwitch,
-    "acceptDF" = acceptDF, "geweke" = geweke, "ess" = ess
+    "acceptDF" = acceptDF, "geweke" = geweke, "ess" = ess,
+    "acceptSwitchDF" = seqsEM$acceptSwitch
   ))
 }
