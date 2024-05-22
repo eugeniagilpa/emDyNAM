@@ -66,7 +66,7 @@ deltaQ <- function(loglikPrev, loglikCur, w) {
 #' @param gamma value for stopping rule. Default 0.9
 #' @param thr threshold for algorithm stop
 #' @param maxIter maximum number of iterations for MCMC
-#' @param seqIter number of MCMC steps beween samples
+#' @param thin number of MCMC steps beween samples
 #' @param pShort probability of shortening the sequence (MCMC)
 #' @param pAug probability of augmenting the sequence (MCMC)
 #' @param pPerm probability of permuting two elements of the sequence (MCMC)
@@ -106,7 +106,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
                           formula, formulaRate = NULL, initTime = NULL,
                           endTime = NULL, num_cores = 1, errType2 = 0.8,
                           alpha = 0.9, gamma = 0.9, thr = 1e-3,
-                          maxIter = 1000, seqIter = 50,
+                          maxIter = 1000, thin = 50,
                           pShort = 0.5, pAug = 0.5, nPT = 1,
                           T0 = 1, nStepExch = 10,
                           maxIterPT = 1000) {
@@ -127,22 +127,26 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
   seq <- EMPreprocessing(net0, net1)
   H <- nrow(seq) # Humming distance
 
-  if(any(!beta0==0)){
+  if (any(!beta0 == 0)) {
     beta <- beta0
-  }else{ # all initial parameters are zero
+  } else { # all initial parameters are zero
 
-    parametersAux = parameters(seq, actDfnodes. = actDfnodes,
-                               net0. = net0, formula. = formula)
+    parametersAux <- parameters(seq,
+      actDfnodes. = actDfnodes,
+      net0. = net0, formula. = formula
+    )
 
-    beta = data.frame("Crea" = parametersAux$betaCreaDF,
-                      "Del" = parametersAux$betaDelDF)
+    beta <- data.frame(
+      "Crea" = parametersAux$betaCreaDF,
+      "Del" = parametersAux$betaDelDF
+    )
   }
 
 
 
   # Creation of permutations
   # permut = permute(sequence, nmax = nmax)
-  # permut <- MCMC(nmax = nmax, seq, H, actDfnodes, formula, net0, beta, burnIn = TRUE, maxIter, seqIter, pShort, pAug, pPerm)
+  # permut <- MCMC(nmax = nmax, seq, H, actDfnodes, formula, net0, beta, burnIn = TRUE, maxIter, thin, pShort, pAug, pPerm)
 
   cl <- makeCluster(num_cores)
   on.exit(stopCluster(cl))
@@ -171,8 +175,8 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
 
   dampingIncreaseFactor <- 1
   dampingDecreaseFactor <- 1
-  dampingFactorCrea = 1
-  dampingFactorDel = 1
+  dampingFactorCrea <- 1
+  dampingFactorDel <- 1
 
 
   diff <- 1000
@@ -196,20 +200,28 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
     seqsEM <- PT_MCMC(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
       theta, fixedparameters, initTime, endTime,
       burnIn = FALSE,
-      burnInIter = 0, maxIterPT, seqIter, T0, nStepExch,
+      burnInIter = 0, maxIterPT, thin, T0, nStepExch,
       pAug, pShort, pPerm, cl, num_cores
     )
     # }
-    seqsPT <- unlist(seqsEM$resstepPT,recursive = FALSE)
-      #unlist(lapply(seqsEM$resstepPT, "[", "newseq"), recursive = FALSE) # update sequences to start PT
+    seqsPT <- unlist(seqsEM$resstepPT, recursive = FALSE)
+    # unlist(lapply(seqsEM$resstepPT, "[", "newseq"), recursive = FALSE) # update sequences to start PT
 
-    logLikPrevCrea <- sapply(lapply(lapply(seqsEM$seqsEM,"[[",
-                                           "newlogLikelihoodStats"),"[[",
-                                    "resCrea"),"[[","logLikelihood")
-    logLikPrevDel <-sapply(lapply(lapply(seqsEM$seqsEM,"[[",
-                                         "newlogLikelihoodStats"),"[[",
-                                  "resDel"),"[[","logLikelihood")
-    logLikPrev <- logLikPrevCrea + logLikPrevDel #vector of likelihoods lambda^{t-1}
+    logLikPrevCrea <- sapply(lapply(
+      lapply(
+        seqsEM$seqsEM, "[[",
+        "newlogLikelihoodStats"
+      ), "[[",
+      "resCrea"
+    ), "[[", "logLikelihood")
+    logLikPrevDel <- sapply(lapply(
+      lapply(
+        seqsEM$seqsEM, "[[",
+        "newlogLikelihoodStats"
+      ), "[[",
+      "resDel"
+    ), "[[", "logLikelihood")
+    logLikPrev <- logLikPrevCrea + logLikPrevDel # vector of likelihoods lambda^{t-1}
     # Compute new estimator from the sequences
 
     newNRstep <- newtonraphsonStep(
@@ -224,7 +236,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
 
     splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
 
-    logLikCur <- clusterApply(cl, seq_along(splitIndicesPerCore), getlogLikelihoodMC,
+    logLikCur <- clusterApplyLB(cl, seq_along(splitIndicesPerCore), getlogLikelihoodMC,
       seqsEM = seqsEM$seqsEM, beta = newNRstep$parameters,
       fixedparameters = fixedparameters,
       splitIndicesPerCore = splitIndicesPerCore,
@@ -236,7 +248,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
 
     logLikCur <- unlist(logLikCur, recursive = FALSE)
 
-    logLikCurEM <- sapply(logLikCur, sum) #total likelihoods for each sequence (Crea+Del)
+    logLikCurEM <- sapply(logLikCur, sum) # total likelihoods for each sequence (Crea+Del)
 
     w <- rep(1, length(logLikPrev)) / length(logLikPrev)
     sigmaHat <- sigmaHat(nmax, logLikPrev, logLikCurEM, w)
@@ -254,47 +266,59 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
         seqsEMaux <- PT_MCMC(nmax / k, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
           theta, fixedparameters, initTime, endTime,
           burnIn = FALSE,
-          burnInIter = 500, maxIterPT, seqIter, T0, nStepExch,
-          pAug, pShort, pPerm,cl, num_cores
+          burnInIter = 500, maxIterPT, thin, T0, nStepExch,
+          pAug, pShort, pPerm, cl, num_cores
         )
 
         # seqsEM <- c(seqsEM, seqsEMaux) not possible!!
-        seqsEM$seqsEM = c(seqsEM$seqsEM, seqsEMaux$seqsEM)
-        seqsEM$resstepPT = c(seqsEM$resstepPT, seqsEMaux$resstepPT)
-        seqsEM$acceptSwitch = rbind(seqsEM$acceptSwitch, seqsEMaux$acceptSwitch)
-        seqsEM$acceptDF = rbind(seqsEM$acceptDF, seqsEMaux$acceptDF)
-        seqsEM$mcmcDiagDF = rbind(seqsEM$mcmcDiagDF, seqsEMaux$mcmcDiagDF)
+        seqsEM$seqsEM <- c(seqsEM$seqsEM, seqsEMaux$seqsEM)
+        seqsEM$resstepPT <- c(seqsEM$resstepPT, seqsEMaux$resstepPT)
+        seqsEM$acceptSwitch <- rbind(seqsEM$acceptSwitch, seqsEMaux$acceptSwitch)
+        seqsEM$acceptDF <- rbind(seqsEM$acceptDF, seqsEMaux$acceptDF)
+        seqsEM$mcmcDiagDF <- rbind(seqsEM$mcmcDiagDF, seqsEMaux$mcmcDiagDF)
 
         # Compute new estimator from the sequences
 
-        seqsPT <- unlist(seqsEM$resstepPT,recursive = FALSE)
+        seqsPT <- unlist(seqsEM$resstepPT, recursive = FALSE)
 
-        logLikPrevCrea <- c(logLikPrevCrea,
-                            sapply(lapply(lapply(seqsEMaux$seqsEM,"[[",
-                                               "newlogLikelihoodStats"),"[[",
-                                        "resCrea"),"[[","logLikelihood"))
-        logLikPrevDel <-c(logLikPrevDel,
-                          sapply(lapply(lapply(seqsEMaux$seqsEM,"[[",
-                                             "newlogLikelihoodStats"),"[[",
-                                      "resDel"),"[[","logLikelihood"))
+        logLikPrevCrea <- c(
+          logLikPrevCrea,
+          sapply(lapply(
+            lapply(
+              seqsEMaux$seqsEM, "[[",
+              "newlogLikelihoodStats"
+            ), "[[",
+            "resCrea"
+          ), "[[", "logLikelihood")
+        )
+        logLikPrevDel <- c(
+          logLikPrevDel,
+          sapply(lapply(
+            lapply(
+              seqsEMaux$seqsEM, "[[",
+              "newlogLikelihoodStats"
+            ), "[[",
+            "resDel"
+          ), "[[", "logLikelihood")
+        )
 
 
-        logLikPrev <- logLikPrevCrea + logLikPrevDel #vector of likelihoods lambda^{t-1}
+        logLikPrev <- logLikPrevCrea + logLikPrevDel # vector of likelihoods lambda^{t-1}
 
-         # Compute new estimator from the sequences
+        # Compute new estimator from the sequences
         newNRstep <- newtonraphsonStep(
           parameters = beta,
           fixedparameters = fixedparameters,
-          formula = formula ,
-          seqsEM=seqsEM$seqsEM,
+          formula = formula,
+          seqsEM = seqsEM$seqsEM,
           dampingFactorCrea,
           dampingFactorDel
-          )
+        )
 
 
         splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
 
-        logLikCur <- clusterApply(cl, seq_along(splitIndicesPerCore), getlogLikelihoodMC,
+        logLikCur <- clusterApplyLB(cl, seq_along(splitIndicesPerCore), getlogLikelihoodMC,
           seqsEM = seqsEM$seqsEM, beta = newNRstep$parameters,
           fixedparameters = fixedparameters,
           splitIndicesPerCore = splitIndicesPerCore,
@@ -354,21 +378,23 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
       #     dampingFactorDel / dampingDecreaseFactor
       #   )
       # }
-
     }
   }
 
-  acceptSwitch = table(seqsEM$acceptSwitch)
-  acceptDF = table(seqsEM$acceptDF)
+  acceptSwitch <- table(seqsEM$acceptSwitch)
+  acceptDF <- table(seqsEM$acceptDF)
 
-  mcmcObj = tapply(seqsEM$mcmcDiagDF[,-ncol(seqsEM$mcmcDiagDF)],seqsEM$mcmcDiagDF$temp,mcmc,thin = seqIter)
+  mcmcObj <- tapply(seqsEM$mcmcDiagDF[, -ncol(seqsEM$mcmcDiagDF)],
+    seqsEM$mcmcDiagDF$temp, mcmc,
+    thin = thin
+  )
 
-  geweke = lapply(mcmcObj,geweke.diag)
-  ess = lapply(mcmcObj,effectiveSize)
+  geweke <- lapply(mcmcObj, geweke.diag)
+  ess <- lapply(mcmcObj, effectiveSize)
 
   return(list(
     "logLik" = logLikCur, "beta" = beta, "se" = se,
-    "index" = index, "diff" = diff, "acceptSwitch" =acceptSwitch,
+    "index" = index, "diff" = diff, "acceptSwitch" = acceptSwitch,
     "acceptDF" = acceptDF, "geweke" = geweke, "ess" = ess,
     "acceptSwitchDF" = seqsEM$acceptSwitch
   ))

@@ -681,9 +681,7 @@ stepMCMC <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
 stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0,
                    beta, theta, fixedparameters, initTime, endTime,
                    k = 5, temp = 1,
-                   pAug, pShort,pPerm ,logLikelihoodStats) {
-
-
+                   pAug, pShort, pPerm, logLikelihoodStats) {
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1
   Kel_ge1 <- getKelMeMatrix$Kel_ge1
@@ -831,16 +829,16 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
 
     newloglikSeq <- (newlogLikelihoodStats$resCrea$logLikelihood +
       newlogLikelihoodStats$resDel$logLikelihood) / temp
-  }else if(type == 3){
+  } else if (type == 3) {
     # Only permutations performed
-      step <- stepPerm(seq, tieNames, m,me)
+    step <- stepPerm(seq, tieNames, m, me)
 
-      getNewKelMeMatrix <- getKelMeMatrix(step$newseq, actDfnodesLab)
-      newMe <- getNewKelMeMatrix$me
-      newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
-      diag(newGammaEplus) <- 0
-      newGammaPlus <- sum(newGammaEplus)
-      newM <- nrow(step$newseq)
+    getNewKelMeMatrix <- getKelMeMatrix(step$newseq, actDfnodesLab)
+    newMe <- getNewKelMeMatrix$me
+    newGammaEplus <- choose(nrow(step$newseq) - newMe + 2, 2)
+    diag(newGammaEplus) <- 0
+    newGammaPlus <- sum(newGammaEplus)
+    newM <- nrow(step$newseq)
 
 
     for (i in 1:k) {
@@ -863,8 +861,7 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
     )
 
     newloglikSeq <- (newlogLikelihoodStats$resCrea$logLikelihood +
-                       newlogLikelihoodStats$resDel$logLikelihood) / temp
-
+      newlogLikelihoodStats$resDel$logLikelihood) / temp
   }
 
 
@@ -877,10 +874,10 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
     newseq <- seq
     newlogLikelihoodStats <- logLikelihoodStats
     newloglikSeq <- loglikSeq
-    acceptanceDF = data.frame("Type"=type, "Accept"=accept,"Temp"=temp)
+    acceptanceDF <- data.frame("Type" = type, "Accept" = accept, "Temp" = temp)
   } else {
     newseq <- step$newseq
-    acceptanceDF = data.frame("Type"=type, "Accept"=accept,"Temp"=temp)
+    acceptanceDF <- data.frame("Type" = type, "Accept" = accept, "Temp" = temp)
   }
 
   return(list(
@@ -923,19 +920,19 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
 stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
                      actDfnodes, tieNames, formula, net0, beta, theta,
                      fixedparameters,
-                     initTime, endTime, k, temp, nStepExch, pAug, pShort,pPerm) {
+                     initTime, endTime, k, temp, nStepExch, pAug, pShort, pPerm) {
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resStepPT <- vector("list", length(indicesCore))
-   #browser()
+  # browser()
 
-   idunfixedComponentsCrea <- which(is.na(fixedparameters$Crea))
-   idunfixedComponentsDel <- which(is.na(fixedparameters$Del))
+  idunfixedComponentsCrea <- which(is.na(fixedparameters$Crea))
+  idunfixedComponentsDel <- which(is.na(fixedparameters$Del))
 
   for (i in seq_along(indicesCore)) {
     # cat("Index core ",i,"\n" )
 
-    acceptanceDF = data.frame("Type"=c(), "Accept"=c(),"Temp"=c())
-    mcmcDiagDF = data.frame()
+    acceptanceDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c())
+    mcmcDiagDF <- data.frame()
 
     seq <- seqs[[indicesCore[[i]]]]
     logLikelihoodStats <- getlogLikelihood(
@@ -943,17 +940,21 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
       fixedparameters, beta, initTime,
       endTime, formula
     )
-   # browser()
+    # browser()
 
     for (t in 1:nStepExch) {
       if (nrow(seq) == H) {
-        type <- sampleVec(c(1, 2, 3), size = 1,
-                          prob = c(pAug/(pAug+pPerm),pPerm/(pAug+pPerm)),
-                          replace = TRUE)
+        type <- sampleVec(c(1, 2, 3),
+          size = 1,
+          prob = c(pAug / (pAug + pPerm), pPerm / (pAug + pPerm)),
+          replace = TRUE
+        )
       } else {
-        type <- sampleVec(c(1, 2, 3), size = 1,
-                          prob = c(pAug, pShort,pPerm),
-                          replace = TRUE)
+        type <- sampleVec(c(1, 2, 3),
+          size = 1,
+          prob = c(pAug, pShort, pPerm),
+          replace = TRUE
+        )
       }
 
       # cat("t in nStepExch ", t,"\n")
@@ -967,22 +968,30 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
         logLikelihoodStats = logLikelihoodStats
       )
 
-      acceptanceDF = rbind(acceptanceDF,aux$acceptanceDF)
-      scoreVec =  aux$newlogLikelihoodStats$resCrea$finalScore[idunfixedComponentsCrea] +
+      acceptanceDF <- rbind(acceptanceDF, aux$acceptanceDF)
+      scoreVec <- aux$newlogLikelihoodStats$resCrea$finalScore[idunfixedComponentsCrea] +
         aux$newlogLikelihoodStats$resDel$finalScore[idunfixedComponentsDel]
-      mcmcDiagDF = rbind(mcmcDiagDF,
-                         c("log" = aux$newloglikSeq,
-                          "score" = scoreVec,
-                           "temp"=temp[indicesCore[[i]]]))
+      mcmcDiagDF <- rbind(
+        mcmcDiagDF,
+        c(
+          "log" = aux$newloglikSeq,
+          "score" = scoreVec,
+          "temp" = temp[indicesCore[[i]]]
+        )
+      )
 
       seq <- aux$newseq
       logLikelihoodStats <- aux$newlogLikelihoodStats
     }
-    names(mcmcDiagDF)=c("log",
-                        paste("score",1:length(idunfixedComponentsCrea),sep=""),
-                        "temp")
-    resStepPT[[i]] <- list("aux" = aux, "acceptanceDF" = acceptanceDF,
-                           "mcmcDiagDF" = mcmcDiagDF)
+    names(mcmcDiagDF) <- c(
+      "log",
+      paste("score", 1:length(idunfixedComponentsCrea), sep = ""),
+      "temp"
+    )
+    resStepPT[[i]] <- list(
+      "aux" = aux, "acceptanceDF" = acceptanceDF,
+      "mcmcDiagDF" = mcmcDiagDF
+    )
   }
 
   # add acceptances for augment and shortening
@@ -1006,7 +1015,7 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
 #' @param beta list, estimator of parameters of the model (creation and deletion).
 #' @param burnIn boolean, indicates if burn in must be performed.
 #' @param maxIter integer, maximum number of steps of the MCMC chain.
-#' @param seqIter integer, number of steps between selected sequences.
+#' @param thin integer, number of steps between selected sequences.
 #' @param pShort float, probability of shortening step.
 #' @param pAug float, probability of augmenting step.
 #' @param pPerm float, probability of permutation step.
@@ -1016,12 +1025,12 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
 #' @export
 #'
 MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta, theta, initTime,
-                 endTime, burnIn = TRUE, maxIter = 10000, seqIter = 50,
+                 endTime, burnIn = TRUE, maxIter = 10000, thin = 50,
                  pShort = 0.35, pAug = 0.35, pPerm = 0.3) {
   # Compute initial quatities:
   # Type 1: augmentation, type 2: shortening, type 3: permutation
 
-  if (nmax > (maxIter - 500) / seqIter) {
+  if (nmax > (maxIter - 500) / thin) {
     maxIter <- (nmax + 501) * 50
   }
 
@@ -1091,7 +1100,7 @@ MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta, theta, initTime,
 #' @param beta list, estimator of parameters of the model (creation and deletion).
 #' @param burnIn boolean, indicates if burn in must be performed.
 #' @param maxIter integer, maximum number of steps of the MCMC chain.
-#' @param seqIter integer, number of steps between selected sequences.
+#' @param thin integer, number of steps between selected sequences.
 #' @param pShort float, probability of shortening step.
 #' @param pAug float, probability of augmenting step.
 #' @param T0 initial maximal tempetature for the parallale tempering scheme/
@@ -1105,14 +1114,14 @@ MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta, theta, initTime,
 PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                     theta, fixedparameters, initTime, endTime, burnIn = TRUE,
                     burnInIter = 500, maxIter = 10000,
-                    seqIter = 50, T0 = 100, nStepExch = 10,
-                    pAug = 0.35, pShort = 0.35, pPerm=0.3,
+                    thin = 50, T0 = 100, nStepExch = 10,
+                    pAug = 0.35, pShort = 0.35, pPerm = 0.3,
                     cl = cl, num_cores = num_cores) {
   # Compute initial quatities:
   # Type 1: augmentation, type 2: shortening
 
-  if (nmax > (maxIter - burnInIter) / seqIter) {
-    maxIter <- (nmax + burnInIter + 1) * seqIter
+  if (nmax > (maxIter - burnInIter) / thin) {
+    maxIter <- (nmax + burnInIter + 1) * thin
   }
 
   # browser()
@@ -1132,9 +1141,9 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
   temp <- seq(1, T0, length = length(seqsPT))
 
   acceptSwitch <- data.frame("Accept" = c(), "Temp1" = c(), "Temp2" = c())
-  acceptDF = data.frame("Type" =c(),"Accept"=c(),"Temp"=c())
-  mcmcDiagDF = data.frame()
-    # browser()
+  acceptDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c())
+  mcmcDiagDF <- data.frame()
+  # browser()
 
   splitIndicesPerCore <- splitIndices(length(seqsPT), num_cores)
 
@@ -1145,10 +1154,10 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     if (!"row" %in% colnames(seqsPT[[1]])) {
       seqsPT <- lapply(seqsPT, function(x) cbind(x, "row" = 1:nrow(x)))
     }
-     # browser()
+    # browser()
     # cat("max iter i ", i , "\n")
 
-    resstepPT <- clusterApply(cl, seq_along(splitIndicesPerCore), stepPTMC,
+    resstepPT <- clusterApplyLB(cl, seq_along(splitIndicesPerCore), stepPTMC,
       seqs = seqsPT, splitIndicesPerCore = splitIndicesPerCore, H = H,
       actDfnodesLab = actDfnodesLab, actDfnodes = actDfnodes,
       tieNames = tieNames, formula = formula, net0 = net0, beta = beta,
@@ -1159,15 +1168,23 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
 
     resstepPT <- unlist(resstepPT, recursive = FALSE)
 
-    acceptDFaux = lapply(resstepPT,function(x) x$acceptanceDF)
-    acceptDFaux = as.data.frame(do.call(rbind, acceptDFaux))
-    acceptDF = rbind(acceptDF,acceptDFaux)
+    acceptDFaux <- lapply(resstepPT, function(x) x$acceptanceDF)
+    acceptDFaux <- as.data.frame(do.call(rbind, acceptDFaux))
+    acceptDF <- rbind(acceptDF, acceptDFaux)
 
-    mcmcDiagDFaux = lapply(resstepPT,function(x) x$mcmcDiagDF)
-    mcmcDiagDFaux = as.data.frame(do.call(rbind, mcmcDiagDFaux))
-    mcmcDiagDF = rbind(mcmcDiagDF,mcmcDiagDFaux)
+    if(burnIn){
+      if(i> burnInIter){
+        mcmcDiagDFaux <- lapply(resstepPT, function(x) x$mcmcDiagDF)
+        mcmcDiagDFaux <- as.data.frame(do.call(rbind, mcmcDiagDFaux))
+        mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
+      }
+    }else{
+        mcmcDiagDFaux <- lapply(resstepPT, function(x) x$mcmcDiagDF)
+        mcmcDiagDFaux <- as.data.frame(do.call(rbind, mcmcDiagDFaux))
+        mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
+     }
 
-
+    # browser()
 
     # Every 10 iterations, try to switch
     order <- sample(c(0, 1), size = 1, prob = c(0.5, 0.5)) # True=1: Pairs of sequences 1-2, 3-4, ....
@@ -1221,23 +1238,21 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
 
 
     if (burnIn) { # avoid, after burn in, to have switch and sample in the same step (not really needed)
-      if ((iteration - 5) > 500 & !(iteration - 5) %% seqIter) {
+      if ((i - 5) > 500 & !(i - 5) %% thin) {
         seqsEM <- c(seqsEM, list(resstepPT[1]$aux)) # get a sample from the sequence with temperature 1
-        i <- i + 1
       }
     } else {
-      if (!(iteration - 5) %% seqIter) {
+      if (!(i - 5) %% thin) {
         seqsEM <- c(seqsEM, list(resstepPT[[1]]$aux))
-        i <- i + 1
       }
     }
-    iteration <- iteration + 1
-    if (iteration > maxIter) break
+    i <- i + 1
+    if (i > maxIter) break
   }
   # seqsEM <- unlist(seqsEM, recursive = FALSE)
-# browser()
+  # browser()
   return(list(
-    "seqsEM" = seqsEM, "resstepPT" = lapply(lapply(resstepPT,"[[","aux"),"[","newseq"),
+    "seqsEM" = seqsEM, "resstepPT" = lapply(lapply(resstepPT, "[[", "aux"), "[", "newseq"),
     "acceptSwitch" = acceptSwitch, "acceptDF" = acceptDF,
     "mcmcDiagDF" = mcmcDiagDF
   ))
