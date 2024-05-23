@@ -1147,10 +1147,10 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
 
   splitIndicesPerCore <- splitIndices(length(seqsPT), num_cores)
 
-  iteration <- 0
+  emSampled <- 0
   i <- 0
   # for (i in 1:maxIter) {
-  while (i < nmax) {
+  while (emSampled < nmax) {
     if (!"row" %in% colnames(seqsPT[[1]])) {
       seqsPT <- lapply(seqsPT, function(x) cbind(x, "row" = 1:nrow(x)))
     }
@@ -1165,14 +1165,6 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
       endTime = endTime, k = k, temp = temp,
       nStepExch = nStepExch, pAug = pAug, pShort = pShort, pPerm = pPerm
     )
-    # resstepPT=stepPTMC(5,
-    #                  seqs = seqsPT, splitIndicesPerCore = splitIndicesPerCore, H = H,
-    #                  actDfnodesLab = actDfnodesLab, actDfnodes = actDfnodes,
-    #                  tieNames = tieNames, formula = formula, net0 = net0, beta = beta,
-    #                  theta = theta, fixedparameters = fixedparameters, initTime = initTime,
-    #                  endTime = endTime, k = k, temp = temp,
-    #                  nStepExch = nStepExch, pAug = pAug, pShort = pShort, pPerm = pPerm
-    #                )
 
     resstepPT <- unlist(resstepPT, recursive = FALSE)
 
@@ -1246,19 +1238,21 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
 
 
     if (burnIn) { # avoid, after burn in, to have switch and sample in the same step (not really needed)
-      if ((i - 5) > 500 & !(i - 5) %% thin) {
+      if ((i - 5) > burnInIter & !(i - 5) %% thin) {
         seqsEM <- c(seqsEM, list(resstepPT[1]$aux)) # get a sample from the sequence with temperature 1
-      }
+        emSampled = emSampled + 1
+        }
     } else {
       if (!(i - 5) %% thin) {
         seqsEM <- c(seqsEM, list(resstepPT[[1]]$aux))
+        emSampled = emSampled + 1
       }
     }
     i <- i + 1
     if (i > maxIter) break
   }
-  # seqsEM <- unlist(seqsEM, recursive = FALSE)
-  # browser()
+
+
   return(list(
     "seqsEM" = seqsEM, "resstepPT" = lapply(lapply(resstepPT, "[[", "aux"), "[", "newseq"),
     "acceptSwitch" = acceptSwitch, "acceptDF" = acceptDF,
