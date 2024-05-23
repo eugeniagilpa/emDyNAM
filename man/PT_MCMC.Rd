@@ -20,12 +20,13 @@ PT_MCMC(
   burnIn = TRUE,
   burnInIter = 500,
   maxIter = 10000,
-  seqIter = 50,
+  thin = 50,
   T0 = 100,
   nStepExch = 10,
   pAug = 0.35,
   pShort = 0.35,
   pPerm = 0.3,
+  k = 5,
   cl = cl,
   num_cores = num_cores
 )
@@ -49,7 +50,7 @@ PT_MCMC(
 
 \item{maxIter}{integer, maximum number of steps of the MCMC chain.}
 
-\item{seqIter}{integer, number of steps between selected sequences.}
+\item{thin}{integer, number of steps between selected sequences.}
 
 \item{T0}{initial maximal tempetature for the parallale tempering scheme/
 simulated annealing}

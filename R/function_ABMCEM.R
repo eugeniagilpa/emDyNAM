@@ -107,7 +107,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
                           endTime = NULL, num_cores = 1, errType2 = 0.8,
                           alpha = 0.9, gamma = 0.9, thr = 1e-3,
                           maxIter = 1000, thin = 50,
-                          pShort = 0.5, pAug = 0.5, nPT = 1,
+                          pShort = 0.5, pAug = 0.5, k=5 ,nPT = 1,
                           T0 = 1, nStepExch = 10,
                           maxIterPT = 1000) {
   actDfnodes <- defineNodes(data.frame(label = colnames(net0)))
@@ -201,7 +201,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
       theta, fixedparameters, initTime, endTime,
       burnIn = FALSE,
       burnInIter = 0, maxIterPT, thin, T0, nStepExch,
-      pAug, pShort, pPerm, cl, num_cores
+      pAug, pShort, pPerm, k,cl, num_cores
     )
     # }
     seqsPT <- unlist(seqsEM$resstepPT, recursive = FALSE)
@@ -267,7 +267,7 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
           theta, fixedparameters, initTime, endTime,
           burnIn = FALSE,
           burnInIter = 500, maxIterPT, thin, T0, nStepExch,
-          pAug, pShort, pPerm, cl, num_cores
+          pAug, pShort, pPerm, k,cl, num_cores
         )
 
         # seqsEM <- c(seqsEM, seqsEMaux) not possible!!

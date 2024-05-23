@@ -17,7 +17,7 @@ MCMC(
   endTime,
   burnIn = TRUE,
   maxIter = 10000,
-  seqIter = 50,
+  thin = 50,
   pShort = 0.35,
   pAug = 0.35,
   pPerm = 0.3
@@ -42,7 +42,7 @@ MCMC(
 
 \item{maxIter}{integer, maximum number of steps of the MCMC chain.}
 
-\item{seqIter}{integer, number of steps between selected sequences.}
+\item{thin}{integer, number of steps between selected sequences.}
 
 \item{pShort}{float, probability of shortening step.}
 

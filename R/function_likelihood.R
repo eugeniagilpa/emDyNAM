@@ -388,13 +388,14 @@ getlogLikelihood <- function(seq, actDfnodes, net0, fixedparameters,
   resCrea <- estimate(
     as.formula(formula),
     estimationInit = list(
-      engine = "default_c",
+      engine = "default",
       initialParameters = parameters$Crea,
       fixedParameters = fixedparameters$Crea,
       maxIterations = 0,
       initialDamping = 1, dampingIncreaseFactor = 1, dampingDecreaseFactor = 1,
       startTime = initTime,
-      endTime = endTime
+      endTime = endTime,
+      onlyScore = TRUE
     ),
     verbose = FALSE,
     progress = FALSE,
@@ -462,7 +463,7 @@ getlogLikelihoodMC <- function(indexCore, seqsEM, beta, fixedparameters,
       fixedparameters = fixedparameters,
       parameters = beta,
       initTime = initTime, endTime = endTime,
-      formula = formula
+      formula = formula,
     )
     resLikelihood[[i]] <- c("Crea" = auxLik$resCrea$logLikelihood, "Del" = auxLik$resDel$logLikelihood) /
       temp[indicesCore[i]]

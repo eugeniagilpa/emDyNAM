@@ -923,13 +923,13 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
                      initTime, endTime, k, temp, nStepExch, pAug, pShort, pPerm) {
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resStepPT <- vector("list", length(indicesCore))
-  # browser()
+   # browser()
 
   idunfixedComponentsCrea <- which(is.na(fixedparameters$Crea))
   idunfixedComponentsDel <- which(is.na(fixedparameters$Del))
 
   for (i in seq_along(indicesCore)) {
-    # cat("Index core ",i,"\n" )
+     # cat("Index core ",i,"\n" )
 
     acceptanceDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c())
     mcmcDiagDF <- data.frame()
@@ -944,7 +944,7 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
 
     for (t in 1:nStepExch) {
       if (nrow(seq) == H) {
-        type <- sampleVec(c(1, 2, 3),
+        type <- sampleVec(c(1, 3),
           size = 1,
           prob = c(pAug / (pAug + pPerm), pPerm / (pAug + pPerm)),
           replace = TRUE
@@ -1115,7 +1115,7 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                     theta, fixedparameters, initTime, endTime, burnIn = TRUE,
                     burnInIter = 500, maxIter = 10000,
                     thin = 50, T0 = 100, nStepExch = 10,
-                    pAug = 0.35, pShort = 0.35, pPerm = 0.3,
+                    pAug = 0.35, pShort = 0.35, pPerm = 0.3, k = 5,
                     cl = cl, num_cores = num_cores) {
   # Compute initial quatities:
   # Type 1: augmentation, type 2: shortening
@@ -1154,8 +1154,8 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     if (!"row" %in% colnames(seqsPT[[1]])) {
       seqsPT <- lapply(seqsPT, function(x) cbind(x, "row" = 1:nrow(x)))
     }
-    # browser()
-    # cat("max iter i ", i , "\n")
+     # browser()
+    cat("Iter i ", i , "\n")
 
     resstepPT <- clusterApplyLB(cl, seq_along(splitIndicesPerCore), stepPTMC,
       seqs = seqsPT, splitIndicesPerCore = splitIndicesPerCore, H = H,
@@ -1165,6 +1165,14 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
       endTime = endTime, k = k, temp = temp,
       nStepExch = nStepExch, pAug = pAug, pShort = pShort, pPerm = pPerm
     )
+    # resstepPT=stepPTMC(5,
+    #                  seqs = seqsPT, splitIndicesPerCore = splitIndicesPerCore, H = H,
+    #                  actDfnodesLab = actDfnodesLab, actDfnodes = actDfnodes,
+    #                  tieNames = tieNames, formula = formula, net0 = net0, beta = beta,
+    #                  theta = theta, fixedparameters = fixedparameters, initTime = initTime,
+    #                  endTime = endTime, k = k, temp = temp,
+    #                  nStepExch = nStepExch, pAug = pAug, pShort = pShort, pPerm = pPerm
+    #                )
 
     resstepPT <- unlist(resstepPT, recursive = FALSE)
 

@@ -21,9 +21,10 @@ MCEMalgorithm(
   gamma = 0.9,
   thr = 0.001,
   maxIter = 1000,
-  seqIter = 50,
+  thin = 50,
   pShort = 0.5,
   pAug = 0.5,
+  k = 5,
   nPT = 1,
   T0 = 1,
   nStepExch = 10,
@@ -61,7 +62,7 @@ MCEMalgorithm(
 
 \item{maxIter}{maximum number of iterations for MCMC}
 
-\item{seqIter}{number of MCMC steps beween samples}
+\item{thin}{number of MCMC steps beween samples}
 
 \item{pShort}{probability of shortening the sequence (MCMC)}
 
