@@ -424,13 +424,14 @@ getlogLikelihood <- function(seq, actDfnodes, net0, fixedparameters,
   resDel <- estimate(
     as.formula(formula),
     estimationInit = list(
-      engine = "default_c",
+      engine = "default",
       initialParameters = parameters$Del,
       fixedParameters = fixedparameters$Del,
       maxIterations = 0,
       initialDamping = 1, dampingIncreaseFactor = 1, dampingDecreaseFactor = 1,
       startTime = initTime,
-      endTime = endTime
+      endTime = endTime,
+      onlyScore = TRUE
     ),
     verbose = FALSE,
     progress = FALSE,
