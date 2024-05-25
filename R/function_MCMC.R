@@ -1236,10 +1236,10 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
       }
     }
 
-
+  # browser()
     if (burnIn) { # avoid, after burn in, to have switch and sample in the same step (not really needed)
       if ((i - 5) > burnInIter & !(i - 5) %% thin) {
-        seqsEM <- c(seqsEM, list(resstepPT[1]$aux)) # get a sample from the sequence with temperature 1
+        seqsEM <- c(seqsEM, list(resstepPT[[1]]$aux)) # get a sample from the sequence with temperature 1
         emSampled = emSampled + 1
         }
     } else {
