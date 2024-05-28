@@ -1024,65 +1024,92 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
 #'
 #' @export
 #'
-MCMC <- function(nmax, seq, H, actDfnodes, formula, net0, beta, theta, initTime,
-                 endTime, burnIn = TRUE, maxIter = 10000, thin = 50,
-                 pShort = 0.35, pAug = 0.35, pPerm = 0.3) {
-  # Compute initial quatities:
-  # Type 1: augmentation, type 2: shortening, type 3: permutation
+MCMC <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
+                 theta, fixedparameters, initTime, endTime, burnIn = TRUE,
+                 burnInIter = 500, maxIter = 10000, thin = 50,
+                 pAug = 0.35, pShort = 0.35, pPerm = 0.3, k = 5
+                ) {
+    # Compute initial quatities:
+    # Type 1: augmentation, type 2: shortening
 
-  if (nmax > (maxIter - 500) / thin) {
-    maxIter <- (nmax + 501) * 50
+    if (nmax > (maxIter - burnInIter) / thin) {
+      maxIter <- (nmax + burnInIter + 1) * thin
+    }
+
+    # browser()
+    actDfnodesLab <- actDfnodes$label
+
+    tieNames <- sapply(actDfnodesLab, function(x) {
+      sapply(actDfnodesLab, function(i) paste(x, i, sep = "-"))
+    })
+    tieNames <- as.vector(tieNames)
+
+
+    seqsEM <- list()
+
+    acceptDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c())
+    mcmcDiagDF <- data.frame()
+    # browser()
+
+    emSampled <- 0
+    i <- 1
+
+    while (emSampled < nmax) {
+      if (!"row" %in% colnames(seqInit)) {
+        seqInit <- cbind(seqInit, "row" = 1:nrow(seqInit))
+      }
+      # browser()
+      cat("Iter i ", i , "\n")
+
+      resstepPT <- stepPTMC(1,seqs = list(seqInit), splitIndicesPerCore = list(1), H = H,
+                            actDfnodesLab = actDfnodesLab, actDfnodes = actDfnodes,
+                            tieNames = tieNames, formula = formula, net0 = net0, beta = beta,
+                            theta = theta, fixedparameters = fixedparameters, initTime = initTime,
+                            endTime = endTime, k = k, temp = 1,
+                            nStepExch = 1, pAug = pAug, pShort = pShort, pPerm = pPerm
+      )
+
+      resstepPT <- unlist(resstepPT, recursive = FALSE)
+      seqInit = resstepPT$aux$newseq
+
+      acceptDFaux <- resstepPT$acceptanceDF
+      acceptDF <- rbind(acceptDF, acceptDFaux)
+
+      if(burnIn){
+        if(i> burnInIter){
+          mcmcDiagDFaux <- resstepPT$mcmcDiagDF
+          mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
+        }
+      }else{
+        mcmcDiagDFaux <- resstepPT$mcmcDiagDF
+        mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
+      }
+
+
+      if (burnIn) { # avoid, after burn in, to have switch and sample in the same step (not really needed)
+        if (i > burnInIter & !i %% thin) {
+          seqsEM <- c(seqsEM, list(resstepPT$aux)) # get a sample from the sequence with temperature 1
+          emSampled = emSampled + 1
+        }
+      } else {
+        if (!i %% thin) {
+          seqsEM <- c(seqsEM, list(resstepPT$aux))
+          emSampled = emSampled + 1
+        }
+      }
+      i <- i + 1
+      if (i > maxIter) break
+    }
+
+    return(list(
+      "seqsEM" = seqsEM, "resstepPT" = resstepPT$aux$newseq,
+      "acceptDF" = acceptDF, "mcmcDiagDF" = mcmcDiagDF
+    ))
   }
 
-  actDfnodesLab <- actDfnodes$label
-
-  tieNames <- sapply(actDfnodesLab, function(x) {
-    sapply(actDfnodesLab, function(i) paste(x, i, sep = "-"))
-  })
-  tieNames <- as.vector(tieNames)
-
-  permut <- vector(mode = "list", length = nmax)
-
-  acceptIndex <- 0
-  for (i in 1:maxIter) {
-    if (nrow(seq) == H) {
-      type <- sampleVec(c(1, 2, 3), size = 1, prob = c(
-        pAug / (pAug + pPerm),
-        0, pPerm / (pAug + pPerm)
-      ))
-    } else {
-      type <- sampleVec(c(1, 2, 3), size = 1, prob = c(pAug, pShort, pPerm))
-    }
-
-    seq$row <- 1:nrow(seq)
-    stepMCMC <- stepMCMC(
-      seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0,
-      beta, theta, initTime, endTime, pAug, pShort
-    )
 
 
-    u <- runif(1, min = 0, max = 1)
-    accept <- (u <= exp(stepMCMC$newloglikSeq - stepMCMC$loglikSeq) *
-      stepMCMC$pUndoStep / stepMCMC$step$pDoStep)
-    if (accept) {
-      acceptIndex <- acceptIndex + 1
-      # if(accept & !acceptIndex %% 50){
-      seq <- stepMCMC$newseq
-    }
-  }
 
-  if (burnIn) {
-    if (i > 500 & !i %% 50) {
-      permut <- c(permut, seq)
-    }
-  } else {
-    if (!i %% 50) {
-      permut <- c(permut, seq)
-    }
-  }
-
-  return(permut)
-}
 
 #' Parallel tempering MCMC function (augmentation/shortening)
 #'
@@ -1148,7 +1175,7 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
   splitIndicesPerCore <- splitIndices(length(seqsPT), num_cores)
 
   emSampled <- 0
-  i <- 0
+  i <- 1
   # for (i in 1:maxIter) {
   while (emSampled < nmax) {
     if (!"row" %in% colnames(seqsPT[[1]])) {
@@ -1167,6 +1194,8 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     )
 
     resstepPT <- unlist(resstepPT, recursive = FALSE)
+
+    seqsPT = lapply(lapply(resstepPT, "[[", "aux"), "[", "newseq")
 
     acceptDFaux <- lapply(resstepPT, function(x) x$acceptanceDF)
     acceptDFaux <- as.data.frame(do.call(rbind, acceptDFaux))

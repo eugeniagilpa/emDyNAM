@@ -6,27 +6,28 @@
 \usage{
 MCMC(
   nmax,
-  seq,
+  seqInit,
   H,
   actDfnodes,
   formula,
   net0,
   beta,
   theta,
+  fixedparameters,
   initTime,
   endTime,
   burnIn = TRUE,
+  burnInIter = 500,
   maxIter = 10000,
   thin = 50,
-  pShort = 0.35,
   pAug = 0.35,
-  pPerm = 0.3
+  pShort = 0.35,
+  pPerm = 0.3,
+  k = 5
 )
 }
 \arguments{
 \item{nmax}{integer, number of sequences to be returned.}
-
-\item{seq}{data frame, sequence from which start/continue MCMC chain.}
 
 \item{H}{integer, hamming distance between net0 and net1.}
 
@@ -44,11 +45,13 @@ MCMC(
 
 \item{thin}{integer, number of steps between selected sequences.}
 
-\item{pShort}{float, probability of shortening step.}
-
 \item{pAug}{float, probability of augmenting step.}
 
+\item{pShort}{float, probability of shortening step.}
+
 \item{pPerm}{float, probability of permutation step.}
+
+\item{seq}{data frame, sequence from which start/continue MCMC chain.}
 }
 \value{
 permut, list of sequences.
