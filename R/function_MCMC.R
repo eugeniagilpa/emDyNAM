@@ -6,7 +6,7 @@
 getpDoAugment <- function(gammaEplus, gammaPlus, p, m, me, sender, receiver,
                           typeA, indexSR, pAug) {
   if (typeA == "same") {
-    if (length(indexSR) < 1) {
+    if (length(indexSR) < 1) { #   indexSR <- which(seq$sender == sender & seq$receiver == receiver)
       pDoStep <- (gammaEplus[sender, receiver] / gammaPlus) * p *
         (1 / (m + 1)) * pAug
     } else {
@@ -14,7 +14,7 @@ getpDoAugment <- function(gammaEplus, gammaPlus, p, m, me, sender, receiver,
         (1 / (m - me[sender, receiver] + 1)) * pAug
     }
   } else {
-    pDoStep <- (gammaEplus[sender, receiver] / gammaPlus) * p *
+    pDoStep <- (gammaEplus[sender, receiver] / gammaPlus) * (1 - p) *
       (1 / (m - me[sender, receiver] + 1)) * (1 / (m - me[sender, receiver])) *
       pAug
   }
@@ -870,14 +870,18 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
 
   u <- runif(1, min = 0, max = 1)
   accept <- (u <= exp(newloglikSeq - loglikSeq) * pUndoStep / pDoStep)
+  acceptanceDF <- data.frame("Type" = type, "Accept" = accept, "Temp" = temp,
+                             "logLikStatsCrea" = logLikelihoodStats$resCrea$logLikelihood,
+                             "logLikStatsDel" = logLikelihoodStats$resDel$logLikelihood
+                             "newLogLikStatsCrea" = newlogLikelihoodStats$resCrea$logLikelihood,
+                             "newLogLikStatsDel" = newlogLikelihoodStats$resDel$logLikelihood)
   if (!accept) {
     newseq <- seq
     newlogLikelihoodStats <- logLikelihoodStats
     newloglikSeq <- loglikSeq
-    acceptanceDF <- data.frame("Type" = type, "Accept" = accept, "Temp" = temp)
+
   } else {
     newseq <- step$newseq
-    acceptanceDF <- data.frame("Type" = type, "Accept" = accept, "Temp" = temp)
   }
 
   return(list(
@@ -931,7 +935,10 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
   for (i in seq_along(indicesCore)) {
      # cat("Index core ",i,"\n" )
 
-    acceptanceDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c())
+    acceptanceDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c(),
+                               "logLikStatsCrea" = c(), "logLikStatsDel" =c(),
+                                "newLogLikStatsCrea" = c(),
+                               "newLogLikStatsDel" = c())
     mcmcDiagDF <- data.frame()
 
     seq <- seqs[[indicesCore[[i]]]]
@@ -1168,7 +1175,11 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
   temp <- seq(1, T0, length = length(seqsPT))
 
   acceptSwitch <- data.frame("Accept" = c(), "Temp1" = c(), "Temp2" = c())
-  acceptDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c())
+  acceptDF <- data.frame("Type" = type, "Accept" = accept, "Temp" = temp,
+                         "logLikStatsCrea" = logLikelihoodStats$resCrea$logLikelihood,
+                         "logLikStatsDel" = logLikelihoodStats$resDel$logLikelihood
+                         "newLogLikStatsCrea" = newlogLikelihoodStats$resCrea$logLikelihood,
+                         "newLogLikStatsDel" = newlogLikelihoodStats$resDel$logLikelihood)
   mcmcDiagDF <- data.frame()
   # browser()
 
@@ -1195,7 +1206,7 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
 
     resstepPT <- unlist(resstepPT, recursive = FALSE)
 
-    seqsPT = lapply(lapply(resstepPT, "[[", "aux"), "[", "newseq")
+    seqsPT = unlist(lapply(lapply(resstepPT, "[[", "aux"), "[", "newseq"),recursive=FALSE)
 
     acceptDFaux <- lapply(resstepPT, function(x) x$acceptanceDF)
     acceptDFaux <- as.data.frame(do.call(rbind, acceptDFaux))
