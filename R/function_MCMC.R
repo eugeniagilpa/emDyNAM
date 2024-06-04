@@ -64,9 +64,9 @@ getpDoPerm <- function(probVec, probVec2, e1, e2, sender1, receiver1, sender2,
 #' getKelMeMatrix(seq, actDfnodes = c(1, 2, 3))
 getKelMeMatrix <- function(seq, actDfnodesLab) {
   if (!"row" %in% colnames(seq)) {
-    seq <- cbind(seq, "row" = as.integer(rownames(seq)))
+    seq <- cbind(seq, "row" = 1:nrow(seq))
   }
-
+# browser()
 
   auxDf <- lapply(actDfnodesLab, function(x) {
     lapply(actDfnodesLab, function(i) {
@@ -89,10 +89,23 @@ getKelMeMatrix <- function(seq, actDfnodesLab) {
 
   for (i in 1:nrow(Kel_g1)) {
     for (j in 1:ncol(Kel_g1)) {
+      # browser()
       auxDfE <- getAuxDfE(auxDf, i, j)
       table <- table(auxDfE$run)
-      Kel_ge1[i, j] <- length(table)
-      Kel_g1[i, j] <- sum(table > 1)
+      cat("\n i ",i," j ",j,"\n")
+      print(table)
+      auxKel = 1
+      Kel_g1[i, j] = 0
+      index = 2
+      while(auxKel > 0){
+        auxKel = sum(table>=index)
+        if(auxKel == 0 ) break
+        auxIndex = which(table>=index)
+        Kel_g1[i, j] <- Kel_g1[i, j] + sum(table[auxIndex] - (index -1))
+        index = index + 1
+      }
+
+      Kel_ge1[i, j] <- sum(table) + Kel_g1[i,j]
 
       #   if (nrow(auxDf[[i]][[j]]) > 0) {
       #     Kel_ge1[i, j] <- nrow(auxDf[[i]][[j]][auxDf[[i]][[j]]$rowDiff != 1, ])
@@ -123,6 +136,7 @@ getKelMeMatrix <- function(seq, actDfnodesLab) {
 #' @export
 #'
 getAuxDfE <- function(auxDf, sender, receiver) {
+  browser()
   auxDfE <- auxDf[[sender]][[receiver]]
   indexNo1 <- which(auxDfE$rowDiff != 1)
   auxDfE$run <- rep(0, nrow(auxDfE))
@@ -872,7 +886,7 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
   accept <- (u <= exp(newloglikSeq - loglikSeq) * pUndoStep / pDoStep)
   acceptanceDF <- data.frame("Type" = type, "Accept" = accept, "Temp" = temp,
                              "logLikStatsCrea" = logLikelihoodStats$resCrea$logLikelihood,
-                             "logLikStatsDel" = logLikelihoodStats$resDel$logLikelihood
+                             "logLikStatsDel" = logLikelihoodStats$resDel$logLikelihood,
                              "newLogLikStatsCrea" = newlogLikelihoodStats$resCrea$logLikelihood,
                              "newLogLikStatsDel" = newlogLikelihoodStats$resDel$logLikelihood)
   if (!accept) {
@@ -1177,7 +1191,7 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
   acceptSwitch <- data.frame("Accept" = c(), "Temp1" = c(), "Temp2" = c())
   acceptDF <- data.frame("Type" = type, "Accept" = accept, "Temp" = temp,
                          "logLikStatsCrea" = logLikelihoodStats$resCrea$logLikelihood,
-                         "logLikStatsDel" = logLikelihoodStats$resDel$logLikelihood
+                         "logLikStatsDel" = logLikelihoodStats$resDel$logLikelihood,
                          "newLogLikStatsCrea" = newlogLikelihoodStats$resCrea$logLikelihood,
                          "newLogLikStatsDel" = newlogLikelihoodStats$resDel$logLikelihood)
   mcmcDiagDF <- data.frame()
