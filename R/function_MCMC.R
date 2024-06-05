@@ -40,10 +40,15 @@ getpDoShort <- function(gammaEminus, gammaMinus, p, uniqueR, sender, receiver,
 #' Get probability of doing a permutation step.
 #'
 getpDoPerm <- function(probVec, probVec2, e1, e2, sender1, receiver1, sender2,
-                       receiver2, seq) {
-  pDoStep <- probVec[e1] * probVec2[e2] *
-    (1 / nrow(seq[seq$sender == sender1 & seq$receiver == receiver1, ])) *
-    (1 / nrow(seq[seq$sender == sender2 & seq$receiver == receiver2, ]))
+                       receiver2, me) {
+
+
+  pDoStep <- (probVec[e1] * probVec2[e2] + probVec[e2] * probVec2[e1]) *
+    (1/me[sender1,receiver1]) * (1/me[sender2,receiver2])
+
+  # pDoStep <- probVec[e1] * probVec2[e2] *
+  #   (1 / nrow(seq[seq$sender == sender1 & seq$receiver == receiver1, ])) *
+  #   (1 / nrow(seq[seq$sender == sender2 & seq$receiver == receiver2, ]))
   return(pDoStep)
 }
 
@@ -442,9 +447,11 @@ stepPerm <- function(seq, tieNames, m, me) {
 
   newseq$row <- 1:nrow(newseq)
 
-  pDoStep <- probVec[e1] * probVec2[e2] *
-    (1 / nrow(seq[seq$sender == sender1 & seq$receiver == receiver1, ])) *
-    (1 / nrow(seq[seq$sender == sender2 & seq$receiver == receiver2, ]))
+  pDoStep <- getpDoPerm(probVec, probVec2, e1, e2, sender1, receiver1, sender2,
+                                    receiver2, me)
+  # pDoStep <- probVec[e1] * probVec2[e2] *
+  #   (1 / nrow(seq[seq$sender == sender1 & seq$receiver == receiver1, ])) *
+  #   (1 / nrow(seq[seq$sender == sender2 & seq$receiver == receiver2, ]))
 
   return(list(
     newseq = newseq, sender = c(sender1, sender2),
