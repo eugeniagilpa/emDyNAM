@@ -353,7 +353,7 @@ stepShort <- function(seq, tieNames, gammaEminus, gammaMinus, m, me, Kel_g1,
 
     pDoStep <- getpDoShort(
       gammaEminus, gammaMinus, p,
-      length(unique(auxDfE$run)), sender, receiver,
+      length(which(table(auxDfE$run) > 1)), sender, receiver,
       typeS, pShort
     )
   } else if (typeS == "diff") {
@@ -527,7 +527,7 @@ stepMCMC <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
     if ((length(unique(auxDfE$run)) == length(unique(newAuxDfE$run))) | step$typeA == "same") {
       pUndoStep <- getpDoShort(
         newGammaEminus, newGammaMinus, newp,
-        length(unique(newAuxDfE$run)), step$sender,
+        length(which(table(newAuxDfE$run) > 1)), step$sender,
         step$receiver, "same", pShort
       )
     } else {
@@ -734,7 +734,7 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
     if ((length(unique(auxDfE$run)) == length(unique(newAuxDfE$run))) | step$typeA == "same") {
       pUndoStep <- getpDoShort(
         newGammaEminus, newGammaMinus, newp,
-        length(unique(newAuxDfE$run)), step$sender,
+        length(which(table(newAuxDfE$run) > 1)), step$sender,
         step$receiver, "same", pShort
       )
     } else {
