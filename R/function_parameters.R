@@ -256,21 +256,19 @@ newtonraphsonStep <- function(parameters, fixedparameters,
   # Calculate the UPDATE distance taking into account the DAMPING
 
   scoreUnfixedCrea <- Reduce("+", lapply(scoreCrea.new, "[", idunfixedComponentsCrea)) /
-    length(idunfixedComponentsCrea)
+    length(seqsEM)
   scoreUnfixedDel <- Reduce("+", lapply(scoreDel.new, "[", idunfixedComponentsDel)) /
-    length(idunfixedComponentsDel)
+    length(seqsEM)
 
   informationMatrixUnfixedCrea <- Reduce("+", lapply(
     informationMatrixCrea.new, "[",
-    idunfixedComponentsCrea, idunfixedComponentsCrea
-  )) / length(idunfixedComponentsCrea) -
-    scoreUnfixedCrea %*% t(scoreUnfixedCrea) / (length(idunfixedComponentsCrea)^2)
+    idunfixedComponentsCrea)) / length(seqsEM) -
+    scoreUnfixedCrea %*% t(scoreUnfixedCrea) / (length(seqsEM)^2)
 
   informationMatrixUnfixedDel <- Reduce("+", lapply(
     informationMatrixDel.new, "[",
-    idunfixedComponentsDel, idunfixedComponentsDel
-  )) / length(idunfixedComponentsDel) -
-    scoreUnfixedDel %*% t(scoreUnfixedDel) / (length(idunfixedComponentsDel)^2)
+    idunfixedComponentsDel)) / length(seqsEM) -
+    scoreUnfixedDel %*% t(scoreUnfixedDel) / (length(seqsEM)^2)
 
 
   inverseInformationUnfixedCrea <- try(
