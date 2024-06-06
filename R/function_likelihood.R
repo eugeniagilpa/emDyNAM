@@ -451,7 +451,7 @@ getlogLikelihoodMC <- function(indexCore, seqsEM, beta, fixedparameters,
                                formula = formula, temp) {
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resLikelihood <- vector("list", length(indicesCore))
-  browser()
+  # browser()
   for (i in seq_along(indicesCore)) {
     seq <- seqsEM[[indicesCore[i]]]$newseq
     if ("row" %in% colnames(seq)) {
@@ -472,3 +472,66 @@ getlogLikelihoodMC <- function(indexCore, seqsEM, beta, fixedparameters,
 
   return(resLikelihood)
 }
+
+
+
+
+
+getlogLikelihoodRate <- function(seq, actDfnodes, parameters,
+                                 initTime, endTime, temp) {
+
+  n = length(actDfnodes$label)
+  t = endTime - initTime
+
+  # CREATION
+    R = nrow(seq[seq$replace==1,])
+    aux = n  *parameters$Crea * t
+    logLikelihood = -aux+R*log(aux)-log(factorial(R))
+    score = -n*t + R/parameters$Crea
+    informationMatrix = R/(parameters$Crea)^2
+
+    resCrea = list("logLikelihood" = logLikelihood/temp,
+                "score" = score/temp,
+                "informationMatrix" = informationMatrix/temp^2)
+  # DELETION
+    R = nrow(seq[seq$replace==0,])
+    aux = n*parameters$Del*t
+    logLikelihood = -aux+R*log(aux)-log(factorial(R))
+    score = -n*t + R/parameters$Del
+    informationMatrix = R/(parameters$Del)^2
+
+    resDel = list("logLikelihood" = logLikelihood/temp,
+                "score" = score/temp,
+                "informationMatrix" = informationMatrix/temp^2)
+
+  return(list("resCrea" = resCrea, "resDel" = resDel))
+}
+
+
+
+
+getlogLikelihoodRateMC <- function(seqs, theta, initTime, endTime,
+                               actDfnodes = actDfnodes, temp) {
+
+  for (i in length(seqs)) {
+    seq <- seqs[[i]]$newseq
+    if ("row" %in% colnames(seq)) {
+      seq <- seq[, -which(colnames(seq) == "row")]
+    }
+
+    auxLik <- getlogLikelihoodRate(
+      seq = seq, actDfnodes = actDfnodes,
+      parameters = theta,
+      initTime = initTime, endTime = endTime,
+      temp = temp[i]
+    )
+    resLikelihood[[i]] <- c("Crea" = auxLik$resCrea$logLikelihood,
+                            "Del" = auxLik$resDel$logLikelihod)
+  }
+
+  return(resLikelihood)
+}
+
+
+
+
