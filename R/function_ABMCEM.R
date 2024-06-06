@@ -399,3 +399,330 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
     "acceptSwitchDF" = seqsEM$acceptSwitch
   ))
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+MCEMalgorithmRate <- function(nmax, net0, net1, theta0, beta0,
+                          fixedparameters = c(NA, NA, NA, 20, 20),
+                          formula, initTime = 0,
+                          endTime = 1, num_cores = 1, errType2 = 0.8,
+                          alpha = 0.9, gamma = 0.9, thr = 1e-3,
+                          maxIter = 1000, thin = 50,
+                          pShort = 0.35, pAug = 0.35, pPerm = 0.3,
+                          k=5 ,nPT = 1,
+                          T0 = 1, nStepExch = 10,
+                          maxIterPT = 1000) {
+
+
+  actDfnodes <- defineNodes(data.frame(label = colnames(net0)))
+
+
+  # Initialization of parameters
+  theta <- theta0
+
+  fixedparameters <- data.frame(
+    "Crea" = c(NA, NA, NA, NA, -20, -20),
+    "Del" = c(NA, NA, NA, NA, 20, 20)
+  )
+  se <- data.frame(Crea = rep(0, nrow(beta)), Del = rep(0, nrow(beta)))
+  row.names(se) <- row.names(beta)
+  # Creation of sequence of events from initial data
+  seq <- EMPreprocessing(net0, net1)
+  H <- nrow(seq) # Humming distance
+
+  if (any(!beta0 == 0)) {
+    beta <- beta0
+  } else { # all initial parameters are zero
+
+    parametersAux <- parameters(seq,
+                                actDfnodes. = actDfnodes,
+                                net0. = net0, formula. = formula
+    )
+
+    beta <- data.frame(
+      "Crea" = parametersAux$betaCreaDF,
+      "Del" = parametersAux$betaDelDF
+    )
+  }
+
+
+  cl <- makeCluster(num_cores)
+  on.exit(stopCluster(cl))
+  clusterExport(cl, c(
+    "actDfnodesLab", "tieNames",
+    "formula", "net0", "beta", "theta", "initTime",
+    "endTime", "k", "T0", "nStepExch", "pAug", "pShort", "splitIndicesPerCore",
+    "H", "actDfnodesLab", "actDfnodes", "nAct", "fixedparameters"
+  ))
+  clusterEvalQ(cl, {
+    library(goldfish)
+    NULL
+  })
+
+  clusterExport(cl, list(
+    "stepRatePT", "stepRatePTMC", "stepMCMC", "getpDoAugment", "getpDoShort",
+    "getpDoPerm", "getKelMeMatrix", "getAuxDfE", "stepAugment", "stepShort",
+    "stepPerm", "getlogLikelihood", "GatherPreprocessingDF",
+    "sampleVec", "getlogLikelihoodMC","PT_Rate_MCMC","getlogLikelihoodRate",
+    "getlogLikelihoodRateMC"
+  ))
+
+
+  seqsPT <- permute(seq, nmax = nPT) # Initial sequences for Parallel Tempering initialization
+
+  dampingIncreaseFactor <- 1
+  dampingDecreaseFactor <- 1
+  dampingFactorCrea <- 1
+  dampingFactorDel <- 1
+
+
+  diff <- 1000
+  index <- 1
+  while (diff > thr) {
+    # browser()
+    k <- 2
+
+    cat("Index: ", index, "\n")
+    cat("Diff: ", diff, "\n")
+    if (index > 1000) {
+      cat("No convergence\n")
+      break
+    }
+
+    if(index==1) {
+      burnInIter =500
+    }else{
+      burnInIter = 100
+    }
+
+    seqsEM <- PT_Rate_MCMC(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
+                      theta, fixedparameters, initTime, endTime,
+                      burnIn=TRUE, burnInIter, maxIterPT, thin, T0, nStepExch,
+                      pAug, pShort, pPerm, k,cl, num_cores
+    )
+
+
+    seqsPT <- unlist(seqsEM$resstepPT, recursive = FALSE)
+
+    logLikPrevChoiceCrea <- sapply(lapply(
+      lapply(seqsEM$seqsEM, "[[","newlogLikelihoodStats"), "[[","resCrea"
+               ), "[[", "logLikelihood")
+    logLikPrevChoiceDel <- sapply(lapply(
+      lapply(seqsEM$seqsEM, "[[", "newlogLikelihoodStats"), "[[", "resDel"
+               ), "[[", "logLikelihood")
+    logLikPrevChoice <- logLikPrevChoiceCrea + logLikPrevChoiceDel # vector of likelihoods lambda^{t-1}
+
+    logLikPrevRateCrea <- sapply(lapply(
+      lapply(seqsEM$seqsEM, "[[","newlogLikelihoodStats"), "[[","resCrea"
+    ), "[[", "logLikelihood")
+    logLikPrevRateDel <- sapply(lapply(
+      lapply(seqsEM$seqsEM, "[[", "newlogLikelihoodStats"), "[[", "resDel"
+    ), "[[", "logLikelihood")
+    logLikPrevRate <- logLikPrevRateCrea + logLikPrevRateDel # vector of likelihoods lambda^{t-1}
+
+    logLikPrev = logLikPrevChoice + logLikPrevRate
+
+
+     newNRstepChoice <- newtonraphsonStep(
+      parameters = beta,
+      fixedparameters = fixedparameters,
+      formula = formula,
+      seqsEM = seqsEM$seqsEM,
+      dampingFactorCrea = dampingFactorCrea,
+      dampingFactorDel = dampingFactorDel
+    )
+
+    newNRstepRate<- newtonraphsonStepRate(
+      parameters = beta,
+      seqsEM = seqsEM$seqsEM,
+      dampingFactorCrea = dampingFactorCrea,
+      dampingFactorDel = dampingFactorDel
+    )
+
+    splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
+
+    logLikCurChoice <- clusterApplyLB(cl, seq_along(splitIndicesPerCore),
+                                getlogLikelihoodMC,seqsEM = seqsEM$seqsEM,
+                                beta = newNRstep$parameters,
+                                fixedparameters = fixedparameters,
+                                splitIndicesPerCore = splitIndicesPerCore,
+                                initTime = initTime, endTime = endTime,
+                                actDfnodes = actDfnodes, net0 = net0,
+                                formula = formula,
+                                temp = rep(1, length(seqsEM$seqsEM))
+    )
+
+
+    logLikCurChoice <- unlist(logLikCurChoice, recursive = FALSE)
+
+    logLikCurRate <- getlogLikelihoodRateMC(seqs = seqsEM$seqsEM,
+                                            theta = newNRstepRate$parameters,
+                                            initTime = initTime,
+                                            endTime = endTime,
+                                            actDfnodes = actDfnodes,
+                                            temp = rep(1,length(seqsEM$seqsEM)))
+    logLikCurRate <- unlist(logLikCurChoice, recursive = FALSE)
+
+    logLikCurEM <- sapply(logLikCurChoice, sum) + sapply(logLikCurRate, sum) # total likelihoods for each sequence (Crea+Del+RATES)
+
+    w <- rep(1, length(logLikPrev)) / length(logLikPrev)
+    sigmaHat <- sigmaHat(nmax, logLikPrev, logLikCurEM, w)
+    ase <- sqrt(sigmaHat / nmax)
+    deltaQ <- deltaQ(logLikPrev, logLikCurEM, w)
+    lowerBound <- deltaQ - qnorm(alpha) * ase # 80%
+
+
+
+    if (lowerBound < 0) {
+      while (lowerBound < 0) {
+        # Estimator is not accepted, new point must be sampled
+        # Perform Parallel-Tempering
+        nmax <- ceiling(nmax + nmax / k)
+        seqsEMaux <- PT_Rate_MCMC(nmax / k, nPT, seqsPT, H, actDfnodes, formula,
+                             net0, beta, theta, fixedparameters, initTime, endTime,
+                             burnIn = FALSE, burnInIter = 0, maxIterPT, thin,
+                             T0, nStepExch, pAug, pShort, pPerm, k,cl, num_cores
+        )
+
+
+        seqsPT <- c(seqsPT,unlist(seqsEMaux$resstepPT, recursive = FALSE))
+
+        # seqsEM <- c(seqsEM, seqsEMaux) not possible!!
+        seqsEM$seqsEM <- c(seqsEM$seqsEM, seqsEMaux$seqsEM)
+        seqsEM$resstepPT <- c(seqsEM$resstepPT, seqsEMaux$resstepPT)
+        seqsEM$acceptSwitch <- rbind(seqsEM$acceptSwitch, seqsEMaux$acceptSwitch)
+        seqsEM$acceptDF <- rbind(seqsEM$acceptDF, seqsEMaux$acceptDF)
+        seqsEM$mcmcDiagDF <- rbind(seqsEM$mcmcDiagDF, seqsEMaux$mcmcDiagDF)
+
+
+        logLikPrevChoiceCrea <- sapply(lapply(
+          lapply(seqsEM$seqsEM, "[[","newlogLikelihoodStats"), "[[","resCrea"
+        ), "[[", "logLikelihood")
+        logLikPrevChoiceDel <- sapply(lapply(
+          lapply(seqsEM$seqsEM, "[[", "newlogLikelihoodStats"), "[[", "resDel"
+        ), "[[", "logLikelihood")
+        logLikPrevChoice <- logLikPrevChoiceCrea + logLikPrevChoiceDel # vector of likelihoods lambda^{t-1}
+
+        logLikPrevRateCrea <- sapply(lapply(
+          lapply(seqsEM$seqsEM, "[[","newlogLikelihoodStats"), "[[","resCrea"
+        ), "[[", "logLikelihood")
+        logLikPrevRateDel <- sapply(lapply(
+          lapply(seqsEM$seqsEM, "[[", "newlogLikelihoodStats"), "[[", "resDel"
+        ), "[[", "logLikelihood")
+        logLikPrevRate <- logLikPrevRateCrea + logLikPrevRateDel # vector of likelihoods lambda^{t-1}
+
+        logLikPrev = logLikPrevChoice + logLikPrevRate
+
+
+        newNRstepChoice <- newtonraphsonStep(
+          parameters = beta,
+          fixedparameters = fixedparameters,
+          formula = formula,
+          seqsEM = seqsEM$seqsEM,
+          dampingFactorCrea = dampingFactorCrea,
+          dampingFactorDel = dampingFactorDel
+        )
+
+        newNRstepRate<- newtonraphsonStepRate(
+          parameters = beta,
+          seqsEM = seqsEM$seqsEM,
+          dampingFactorCrea = dampingFactorCrea,
+          dampingFactorDel = dampingFactorDel
+        )
+
+
+        splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
+
+        logLikCurChoice <- clusterApplyLB(cl, seq_along(splitIndicesPerCore),
+                                          getlogLikelihoodMC,seqsEM = seqsEM$seqsEM,
+                                          beta = newNRstep$parameters,
+                                          fixedparameters = fixedparameters,
+                                          splitIndicesPerCore = splitIndicesPerCore,
+                                          initTime = initTime, endTime = endTime,
+                                          actDfnodes = actDfnodes, net0 = net0,
+                                          formula = formula,
+                                          temp = rep(1, length(seqsEM$seqsEM))
+        )
+
+
+        logLikCurChoice <- unlist(logLikCurChoice, recursive = FALSE)
+
+        logLikCurRate <- getlogLikelihoodRateMC(seqs = seqsEM$seqsEM,
+                                                theta = newNRstepRate$parameters,
+                                                initTime = initTime,
+                                                endTime = endTime,
+                                                actDfnodes = actDfnodes,
+                                                temp = rep(1,length(seqsEM$seqsEM)))
+        logLikCurRate <- unlist(logLikCurChoice, recursive = FALSE)
+
+        logLikCurEM <- sapply(logLikCurChoice, sum) + sapply(logLikCurRate, sum) # total likelihoods for each sequence (Crea+Del+RATES)
+
+        w <- rep(1, length(logLikPrev)) / length(logLikPrev)
+        sigmaHat <- sigmaHat(nmax, logLikPrev, logLikCurEM, w)
+        ase <- sqrt(sigmaHat / nmax)
+        deltaQ <- deltaQ(logLikPrev, logLikCurEM, w)
+        lowerBound <- deltaQ - qnorm(alpha) * ase # 80%
+
+        k <- k + 1
+      }
+    } else {
+      # Update of the paremeter, next iteration
+      index <- index + 1
+      diff <- deltaQ + qnorm(gamma) * ase # 90%
+
+
+      beta <- newNRstepChoice$parameters
+      seChoice <- newNRstepChoice$stdErrors
+
+      theta <- newNRstepRate$parameters
+      seRate <- newNRstepRate$stdErrors
+
+
+      # Update on the number of permutations
+      m_start <- sigmaHat^2 * (qnorm(alpha) + qnorm(errType2))^2 / deltaQ^2
+
+      if (m_start > nmax) {
+        nmax <- ceiling(m_start)
+      }
+
+    }
+  }
+
+  acceptSwitch <- table(seqsEM$acceptSwitch)
+  acceptDF <- table(seqsEM$acceptDF)
+
+  mcmcObj <- tapply(seqsEM$mcmcDiagDF[, -ncol(seqsEM$mcmcDiagDF)],
+                    seqsEM$mcmcDiagDF$temp, mcmc,
+                    thin = thin
+  )
+
+  geweke <- lapply(mcmcObj, geweke.diag)
+  ess <- lapply(mcmcObj, effectiveSize)
+
+  return(list(
+    "logLik" = logLikCur, "beta" = beta, "seChoice" = seChoice,
+    "theta" = theta, "seRate" = seRate, "index" = index, "diff" = diff,
+    "acceptSwitch" = acceptSwitch, "acceptDF" = acceptDF,
+    "geweke" = geweke, "ess" = ess,
+    "acceptSwitchDF" = seqsEM$acceptSwitch
+  ))
+}
+
+
+
+
+
+
+
+
+

@@ -13,7 +13,7 @@ getpDoPerm(
   receiver1,
   sender2,
   receiver2,
-  seq
+  me
 )
 }
 \description{
