@@ -99,18 +99,21 @@ getKelMeMatrix <- function(seq, actDfnodesLab) {
       table <- table(auxDfE$run)
       # cat("\n i ",i," j ",j,"\n")
       # print(table)
-      auxKel = 1
-      Kel_g1[i, j] = 0
-      index = 2
-      while(auxKel > 0){
-        auxKel = sum(table>=index)
-        if(auxKel == 0 ) break
-        auxIndex = which(table>=index)
-        Kel_g1[i, j] <- Kel_g1[i, j] + sum(table[auxIndex] - (index -1))
-        index = index + 1
-      }
+      Kel_ge1[i, j] <- length(table)
+      Kel_g1[i, j] <- sum(table > 1)
 
-      Kel_ge1[i, j] <- sum(table) + Kel_g1[i,j]
+      # auxKel = 1
+      # Kel_g1[i, j] = 0
+      # index = 2
+      # while(auxKel > 0){
+      #   auxKel = sum(table>=index)
+      #   if(auxKel == 0 ) break
+      #   auxIndex = which(table>=index)
+      #   Kel_g1[i, j] <- Kel_g1[i, j] + sum(table[auxIndex] - (index -1))
+      #   index = index + 1
+      # }
+
+      # Kel_ge1[i, j] <- sum(table) + Kel_g1[i,j]
 
       #   if (nrow(auxDf[[i]][[j]]) > 0) {
       #     Kel_ge1[i, j] <- nrow(auxDf[[i]][[j]][auxDf[[i]][[j]]$rowDiff != 1, ])
@@ -333,6 +336,7 @@ stepAugment <- function(seq, tieNames, gammaEplus, gammaPlus, m, me, net0, pAug)
 stepShort <- function(seq, tieNames, gammaEminus, gammaMinus, m, me, Kel_g1,
                       auxDf, pShort) {
   # Choose element to be deleted:
+  # browser
   e <- sampleVec(tieNames, size = 1, prob = as.vector(t(gammaEminus / gammaMinus)))
 
   # Choose to remove from the same e-run or from two distinct e-runs
@@ -1385,6 +1389,7 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
                        k = 5, temp = 1, pAug, pShort, pPerm,
                        logLikelihoodStats, loglikRate) {
 
+  # browser()
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1
   Kel_ge1 <- getKelMeMatrix$Kel_ge1
