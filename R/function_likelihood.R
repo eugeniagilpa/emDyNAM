@@ -348,6 +348,7 @@ logLikelihoodTimeMC <- function(indexCore, permut, beta, theta, initTime,
 
 getlogLikelihood <- function(seq, actDfnodes, net0, fixedparameters,
                              parameters, initTime, endTime, formula) {
+  # browser()
   envirPrepro <- new.env()
   if ("row" %in% colnames(seq)) {
     seqTime <- seq[, -which(colnames(seq) == "row")]
@@ -482,6 +483,7 @@ getlogLikelihoodRate <- function(seq, actDfnodes, parameters,
 
   n = length(actDfnodes$label)
   t = endTime - initTime
+# browser()
 
   # CREATION
     R = nrow(seq[seq$replace==1,])

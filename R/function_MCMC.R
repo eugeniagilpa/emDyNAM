@@ -97,8 +97,8 @@ getKelMeMatrix <- function(seq, actDfnodesLab) {
       # browser()
       auxDfE <- getAuxDfE(auxDf, i, j)
       table <- table(auxDfE$run)
-      cat("\n i ",i," j ",j,"\n")
-      print(table)
+      # cat("\n i ",i," j ",j,"\n")
+      # print(table)
       auxKel = 1
       Kel_g1[i, j] = 0
       index = 2
@@ -141,7 +141,7 @@ getKelMeMatrix <- function(seq, actDfnodesLab) {
 #' @export
 #'
 getAuxDfE <- function(auxDf, sender, receiver) {
-  browser()
+  # browser()
   auxDfE <- auxDf[[sender]][[receiver]]
   indexNo1 <- which(auxDfE$rowDiff != 1)
   auxDfE$run <- rep(0, nrow(auxDfE))
@@ -995,6 +995,7 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
         pPerm = pPerm,
         logLikelihoodStats = logLikelihoodStats
       )
+      # cat(logLikelihoodStats$resCrea$logLikelihood," , ",logLikelihoodStats$resDel$logLikelihood,"\n")
 
       acceptanceDF <- rbind(acceptanceDF, aux$acceptanceDF)
       scoreVec <- aux$newlogLikelihoodStats$resCrea$finalScore[idunfixedComponentsCrea] +
@@ -1423,6 +1424,7 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
     }
 
 
+    # browser()
 
     newlogLikelihoodStats <- getlogLikelihood(
       step$newseq, actDfnodes, net0, fixedparameters,
@@ -1541,7 +1543,7 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
 
     newloglikSeq <- (newlogLikelihoodStats$resCrea$logLikelihood +
                        newlogLikelihoodStats$resDel$logLikelihood) / temp +
-                      newloglikRate$resCrea$logLikelihod +
+                      newloglikRate$resCrea$logLikelihood +
                       newloglikRate$resDel$logLikelihood
   }
 
@@ -1552,6 +1554,7 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
                 loglikRate$resDel$logLikelihood
 
   u <- runif(1, min = 0, max = 1)
+  # browser()
   accept <- (u <= exp(newloglikSeq - loglikSeq) * pUndoStep / pDoStep)
   acceptanceDF <- data.frame("Type" = type, "Accept" = accept, "Temp" = temp,
                              "logLikStatsCreaChoice" = logLikelihoodStats$resCrea$logLikelihood,
@@ -1594,7 +1597,6 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
                      pAug, pShort, pPerm) {
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resStepPT <- vector("list", length(indicesCore))
-  # browser()
 
   idunfixedComponentsCrea <- which(is.na(fixedparameters$Crea))
   idunfixedComponentsDel <- which(is.na(fixedparameters$Del))
@@ -1614,6 +1616,8 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
     mcmcDiagDF <- data.frame()
 
     seq <- seqs[[indicesCore[[i]]]]
+
+    # browser()
     logLikelihoodStats <- getlogLikelihood(
       seq, actDfnodes, net0,
       fixedparameters, beta, initTime,
@@ -1641,7 +1645,7 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
       }
 
       # cat("t in nStepExch ", t,"\n")
-      aux <- stepPT(
+      aux <- stepRatePT(
         seq = seq, type = type, actDfnodesLab = actDfnodesLab,
         actDfnodes = actDfnodes, tieNames = tieNames, formula = formula,
         net0 = net0, beta = beta, fixedparameters = fixedparameters,
@@ -1651,6 +1655,7 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
         loglikRate = loglikRate
       )
 
+      # print(aux$acceptanceDF)
       acceptanceDF <- rbind(acceptanceDF, aux$acceptanceDF)
       scoreVecChoice <- aux$newlogLikelihoodStats$resCrea$finalScore[idunfixedComponentsCrea] +
         aux$newlogLikelihoodStats$resDel$finalScore[idunfixedComponentsDel]
@@ -1831,7 +1836,7 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
       seqsPT <- lapply(seqsPT, function(x) cbind(x, "row" = 1:nrow(x)))
     }
     # browser()
-    cat("Iter i ", i , "\n")
+    # cat("Iter i ", i , "\n")
 
     resstepPT <- clusterApplyLB(cl, seq_along(splitIndicesPerCore),
                                 stepRatePTMC, seqs = seqsPT,
