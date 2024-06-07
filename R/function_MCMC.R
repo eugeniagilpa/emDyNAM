@@ -1358,6 +1358,28 @@ PT_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
 
 # MCMC with rates -------
 
+#' stepRatePT (simple version with augmentation/shortening/permutation)
+#'
+#' @description Computes an MCMC chain and returns nmax sequences from the MCMC chain.
+#'
+#' @param nmax integer, number of sequences to be returned.
+#' @param seq data frame, sequence from which start/continue MCMC chain.
+#' @param H integer, hamming distance between net0 and net1.
+#' @param actDfnodes object of type ´nodes´ from goldfish.
+#' @param formula formula, the one used in goldfish model.
+#' @param net0 matrix, initial observed network.
+#' @param beta list, estimator of parameters of the model (creation and deletion).
+#' @param burnIn boolean, indicates if burn in must be performed.
+#' @param maxIter integer, maximum number of steps of the MCMC chain.
+#' @param thin integer, number of steps between selected sequences.
+#' @param pShort float, probability of shortening step.
+#' @param pAug float, probability of augmenting step.
+#' @param pPerm float, probability of permutation step.
+#'
+#' @return permut, list of sequences.
+#'
+#' @export
+#'
 stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
                        net0,beta, theta, fixedparameters, initTime, endTime,
                        k = 5, temp = 1, pAug, pShort, pPerm,
@@ -1590,7 +1612,28 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
 
 
 
-
+#' stepRatePTMC (simple version with augmentation/shortening/permutation)
+#'
+#' @description Computes an MCMC chain and returns nmax sequences from the MCMC chain.
+#'
+#' @param nmax integer, number of sequences to be returned.
+#' @param seq data frame, sequence from which start/continue MCMC chain.
+#' @param H integer, hamming distance between net0 and net1.
+#' @param actDfnodes object of type ´nodes´ from goldfish.
+#' @param formula formula, the one used in goldfish model.
+#' @param net0 matrix, initial observed network.
+#' @param beta list, estimator of parameters of the model (creation and deletion).
+#' @param burnIn boolean, indicates if burn in must be performed.
+#' @param maxIter integer, maximum number of steps of the MCMC chain.
+#' @param thin integer, number of steps between selected sequences.
+#' @param pShort float, probability of shortening step.
+#' @param pAug float, probability of augmenting step.
+#' @param pPerm float, probability of permutation step.
+#'
+#' @return permut, list of sequences.
+#'
+#' @export
+#'
 stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
                      actDfnodes, tieNames, formula, net0, beta, theta,
                      fixedparameters, initTime, endTime, k, temp, nStepExch,
@@ -1688,6 +1731,30 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
   return(resStepPT)
 }
 
+
+
+#' MCMC_rate (simple version with augmentation/shortening/permutation)
+#'
+#' @description Computes an MCMC chain and returns nmax sequences from the MCMC chain.
+#'
+#' @param nmax integer, number of sequences to be returned.
+#' @param seq data frame, sequence from which start/continue MCMC chain.
+#' @param H integer, hamming distance between net0 and net1.
+#' @param actDfnodes object of type ´nodes´ from goldfish.
+#' @param formula formula, the one used in goldfish model.
+#' @param net0 matrix, initial observed network.
+#' @param beta list, estimator of parameters of the model (creation and deletion).
+#' @param burnIn boolean, indicates if burn in must be performed.
+#' @param maxIter integer, maximum number of steps of the MCMC chain.
+#' @param thin integer, number of steps between selected sequences.
+#' @param pShort float, probability of shortening step.
+#' @param pAug float, probability of augmenting step.
+#' @param pPerm float, probability of permutation step.
+#'
+#' @return permut, list of sequences.
+#'
+#' @export
+#'
 MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
                  theta, fixedparameters, initTime, endTime, burnIn = TRUE,
                  burnInIter = 500, maxIter = 10000, thin = 50,
@@ -1783,7 +1850,28 @@ MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
 }
 
 
-
+#' PT_Rate_MCMC (simple version with augmentation/shortening/permutation)
+#'
+#' @description Computes an MCMC chain and returns nmax sequences from the MCMC chain.
+#'
+#' @param nmax integer, number of sequences to be returned.
+#' @param seq data frame, sequence from which start/continue MCMC chain.
+#' @param H integer, hamming distance between net0 and net1.
+#' @param actDfnodes object of type ´nodes´ from goldfish.
+#' @param formula formula, the one used in goldfish model.
+#' @param net0 matrix, initial observed network.
+#' @param beta list, estimator of parameters of the model (creation and deletion).
+#' @param burnIn boolean, indicates if burn in must be performed.
+#' @param maxIter integer, maximum number of steps of the MCMC chain.
+#' @param thin integer, number of steps between selected sequences.
+#' @param pShort float, probability of shortening step.
+#' @param pAug float, probability of augmenting step.
+#' @param pPerm float, probability of permutation step.
+#'
+#' @return permut, list of sequences.
+#'
+#' @export
+#'
 PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                     theta, fixedparameters, initTime, endTime, burnIn = TRUE,
                     burnInIter = 500, maxIter = 10000,

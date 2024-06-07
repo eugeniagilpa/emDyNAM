@@ -345,7 +345,14 @@ logLikelihoodTimeMC <- function(indexCore, permut, beta, theta, initTime,
 
 
 
-
+#' log-likelihood computation: Multi-Core with time
+#'
+#' @description given parameters, sequences, formula, initial network and
+#' multi-core elements, computes log-likelihood of all the sequences.
+#'
+#' @return vector of loglikelihoods
+#' @export
+#'
 getlogLikelihood <- function(seq, actDfnodes, net0, fixedparameters,
                              parameters, initTime, endTime, formula) {
   # browser()
@@ -444,8 +451,14 @@ getlogLikelihood <- function(seq, actDfnodes, net0, fixedparameters,
 }
 
 
-
-
+#' log-likelihood computation: Multi-Core with time
+#'
+#' @description given parameters, sequences, formula, initial network and
+#' multi-core elements, computes log-likelihood of all the sequences.
+#'
+#' @return vector of loglikelihoods
+#' @export
+#'
 getlogLikelihoodMC <- function(indexCore, seqsEM, beta, fixedparameters,
                                splitIndicesPerCore, initTime, endTime,
                                actDfnodes = actDfnodes, net0 = net0,
@@ -477,7 +490,14 @@ getlogLikelihoodMC <- function(indexCore, seqsEM, beta, fixedparameters,
 
 
 
-
+#' log-likelihood computation: Multi-Core with time
+#'
+#' @description given parameters, sequences, formula, initial network and
+#' multi-core elements, computes log-likelihood of all the sequences.
+#'
+#' @return vector of loglikelihoods
+#' @export
+#'
 getlogLikelihoodRate <- function(seq, actDfnodes, parameters,
                                  initTime, endTime, temp) {
 
@@ -511,7 +531,14 @@ getlogLikelihoodRate <- function(seq, actDfnodes, parameters,
 
 
 
-
+#' log-likelihood computation: Multi-Core with time
+#'
+#' @description given parameters, sequences, formula, initial network and
+#' multi-core elements, computes log-likelihood of all the sequences.
+#'
+#' @return vector of loglikelihoods
+#' @export
+#'
 getlogLikelihoodRateMC <- function(seqs, theta, initTime, endTime,
                                actDfnodes = actDfnodes, temp) {
 
