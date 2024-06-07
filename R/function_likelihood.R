@@ -360,8 +360,8 @@ getlogLikelihood <- function(seq, actDfnodes, net0, fixedparameters,
   envirPrepro$actDfnodes <- actDfnodes
   envirPrepro$net0 <- net0
   envirPrepro$fixedparameters <- fixedparameters
-  envirPrepro$initTime <- initTime
-  envirPrepro$endTime <- endTime
+  # envirPrepro$initTime <- initTime
+  # envirPrepro$endTime <- endTime
   envirPrepro$parameters <- parameters
 
 
@@ -394,8 +394,8 @@ getlogLikelihood <- function(seq, actDfnodes, net0, fixedparameters,
       fixedParameters = fixedparameters$Crea,
       maxIterations = 0,
       initialDamping = 1, dampingIncreaseFactor = 1, dampingDecreaseFactor = 1,
-      startTime = initTime,
-      endTime = endTime,
+      # startTime = initTime,
+      # endTime = endTime,
       onlyScore = TRUE
     ),
     verbose = FALSE,
@@ -430,8 +430,8 @@ getlogLikelihood <- function(seq, actDfnodes, net0, fixedparameters,
       fixedParameters = fixedparameters$Del,
       maxIterations = 0,
       initialDamping = 1, dampingIncreaseFactor = 1, dampingDecreaseFactor = 1,
-      startTime = initTime,
-      endTime = endTime,
+      # startTime = initTime,
+      # endTime = endTime,
       onlyScore = TRUE
     ),
     verbose = FALSE,
