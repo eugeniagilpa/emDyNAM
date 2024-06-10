@@ -1643,6 +1643,7 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
                      actDfnodes, tieNames, formula, net0, beta, theta,
                      fixedparameters, initTime, endTime, k, temp, nStepExch,
                      pAug, pShort, pPerm) {
+
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resStepPT <- vector("list", length(indicesCore))
 
@@ -1671,6 +1672,7 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
       fixedparameters, beta, initTime,
       endTime, formula
     )
+
     loglikRate = getlogLikelihoodRate(
       seq, actDfnodes, theta,
       initTime, endTime, temp[indicesCore[[i]]]
@@ -1882,9 +1884,32 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                     burnInIter = 500, maxIter = 10000,
                     thin = 50, T0 = 100, nStepExch = 10,
                     pAug = 0.35, pShort = 0.35, pPerm = 0.3, k = 5,
-                    cl = cl, num_cores = num_cores) {
-  # Compute initial quatities:
-  # Type 1: augmentation, type 2: shortening
+                    num_cores = num_cores) {
+
+  cl <- makeCluster(num_cores)
+  on.exit(stopCluster(cl))
+  clusterExport(cl, c(
+    "formula", "net0", "beta", "theta", "initTime",
+    "endTime", "k", "T0", "nStepExch", "pAug", "pShort",
+    "H", "actDfnodes", "nAct", "fixedparameters"
+  ),envir = environment())
+
+
+  clusterEvalQ(cl, {
+    library(goldfish)
+    NULL
+  })
+
+
+  # clusterExport(cl, list(
+  #   "stepRatePT", "stepRatePTMC", "getpDoAugment", "getpDoShort",
+  #   "getpDoPerm", "getKelMeMatrix", "getAuxDfE", "stepAugment", "stepShort",
+  #   "stepPerm", "getlogLikelihood", "GatherPreprocessingDF",
+  #   "sampleVec", "getlogLikelihoodMC","getlogLikelihoodRate",
+  #   "getlogLikelihoodRateMC"
+  # ))
+
+
 
   if (nmax > (maxIter - burnInIter) / thin) {
     maxIter <- (nmax + burnInIter + 1) * thin
@@ -1942,6 +1967,8 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                                 temp = temp, nStepExch = nStepExch, pAug = pAug,
                                 pShort = pShort, pPerm = pPerm
     )
+
+    i <- i + nStepExch
 
     resstepPT <- unlist(resstepPT, recursive = FALSE)
 

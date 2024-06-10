@@ -27,7 +27,6 @@ PT_Rate_MCMC(
   pShort = 0.35,
   pPerm = 0.3,
   k = 5,
-  cl = cl,
   num_cores = num_cores
 )
 }
