@@ -1944,10 +1944,12 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
   mcmcDiagDF <- data.frame()
   # browser()
 
+  if(nStepExch>thin) nStepExch=thin
+
   splitIndicesPerCore <- splitIndices(length(seqsPT), num_cores)
 
   emSampled <- 0
-  i <- 1
+  i <- 0
   # for (i in 1:maxIter) {
   while (emSampled < nmax) {
     if (!"row" %in% colnames(seqsPT[[1]])) {
@@ -1964,11 +1966,12 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                                 formula = formula, net0 = net0, beta = beta,
                                 theta = theta, fixedparameters = fixedparameters,
                                 initTime = initTime, endTime = endTime, k = k,
-                                temp = temp, nStepExch = nStepExch, pAug = pAug,
+                                temp = temp, nStepExch = 5, pAug = pAug,
                                 pShort = pShort, pPerm = pPerm
     )
-
-    i <- i + nStepExch
+    cat(i,"\n")
+    i <- i + 5
+    cat(i," depois \n")
 
     resstepPT <- unlist(resstepPT, recursive = FALSE)
 
@@ -2049,19 +2052,56 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
       }
     }
 
+
+    resstepPT <- clusterApplyLB(cl, seq_along(splitIndicesPerCore),
+                                stepRatePTMC, seqs = seqsPT,
+                                splitIndicesPerCore = splitIndicesPerCore,
+                                H = H, actDfnodesLab = actDfnodesLab,
+                                actDfnodes = actDfnodes, tieNames = tieNames,
+                                formula = formula, net0 = net0, beta = beta,
+                                theta = theta, fixedparameters = fixedparameters,
+                                initTime = initTime, endTime = endTime, k = k,
+                                temp = temp, nStepExch = (nStepExch-5), pAug = pAug,
+                                pShort = pShort, pPerm = pPerm
+    )
+    i <- i + nStepExch-5
+
+    resstepPT <- unlist(resstepPT, recursive = FALSE)
+
+    seqsPT = unlist(lapply(lapply(resstepPT, "[[", "aux"), "[", "newseq"),
+                    recursive=FALSE)
+
+    acceptDFaux <- lapply(resstepPT, function(x) x$acceptanceDF)
+    acceptDFaux <- as.data.frame(do.call(rbind, acceptDFaux))
+    acceptDF <- rbind(acceptDF, acceptDFaux)
+
+    if(burnIn){
+      if(i> burnInIter){
+        mcmcDiagDFaux <- lapply(resstepPT, function(x) x$mcmcDiagDF)
+        mcmcDiagDFaux <- as.data.frame(do.call(rbind, mcmcDiagDFaux))
+        mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
+      }
+    }else{
+      mcmcDiagDFaux <- lapply(resstepPT, function(x) x$mcmcDiagDF)
+      mcmcDiagDFaux <- as.data.frame(do.call(rbind, mcmcDiagDFaux))
+      mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
+    }
+
+
+
     # browser()
     if (burnIn) { # avoid, after burn in, to have switch and sample in the same step (not really needed)
-      if ((i - 5) > burnInIter & !(i - 5) %% thin) {
+      if (i > burnInIter & !i  %% thin) {
         seqsEM <- c(seqsEM, list(resstepPT[[1]]$aux)) # get a sample from the sequence with temperature 1
         emSampled = emSampled + 1
       }
     } else {
-      if (!(i - 5) %% thin) {
+      if (!i  %% thin) {
         seqsEM <- c(seqsEM, list(resstepPT[[1]]$aux))
         emSampled = emSampled + 1
       }
     }
-    i <- i + 1
+
     if (i > maxIter) break
   }
 
