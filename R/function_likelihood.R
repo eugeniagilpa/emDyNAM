@@ -508,7 +508,7 @@ getlogLikelihoodRate <- function(seq, actDfnodes, parameters,
   # CREATION
     R = nrow(seq[seq$replace==1,])
     aux = n  *parameters$Crea * t
-    logLikelihood = -aux+R*log(aux)-log(factorial(R))
+    logLikelihood = -aux+R*log(aux)-lfactorial(R)
     score = -n*t + R/parameters$Crea
     informationMatrix = R/(parameters$Crea)^2
 
@@ -518,7 +518,7 @@ getlogLikelihoodRate <- function(seq, actDfnodes, parameters,
   # DELETION
     R = nrow(seq[seq$replace==0,])
     aux = n*parameters$Del*t
-    logLikelihood = -aux+R*log(aux)-log(factorial(R))
+    logLikelihood = -aux+R*log(aux)-lfactorial(R)
     score = -n*t + R/parameters$Del
     informationMatrix = R/(parameters$Del)^2
 

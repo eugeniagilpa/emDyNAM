@@ -1389,7 +1389,7 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
                        k = 5, temp = 1, pAug, pShort, pPerm,
                        logLikelihoodStats, loglikRate) {
 
-  # browser()
+   # browser()
   getKelMeMatrix <- getKelMeMatrix(seq, actDfnodesLab)
   Kel_g1 <- getKelMeMatrix$Kel_g1
   Kel_ge1 <- getKelMeMatrix$Kel_ge1
@@ -1969,9 +1969,7 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                                 temp = temp, nStepExch = 5, pAug = pAug,
                                 pShort = pShort, pPerm = pPerm
     )
-    cat(i,"\n")
     i <- i + 5
-    cat(i," depois \n")
 
     resstepPT <- unlist(resstepPT, recursive = FALSE)
 
