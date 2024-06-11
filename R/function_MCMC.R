@@ -1726,6 +1726,7 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
     names(mcmcDiagDF) <- c(
       "log",
       paste("score", 1:length(idunfixedComponentsCrea), sep = ""),
+      "scoreRate",
       "temp"
     )
     resStepPT[[i]] <- list(
@@ -1884,7 +1885,7 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                     burnInIter = 500, maxIter = 10000,
                     thin = 50, T0 = 100, nStepExch = 10,
                     pAug = 0.35, pShort = 0.35, pPerm = 0.3, k = 5,
-                    num_cores = num_cores) {
+                    num_cores = num_cores,typeTemp = "sequential") {
 
   cl <- makeCluster(num_cores)
   on.exit(stopCluster(cl))
@@ -1929,7 +1930,13 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
   }
   seqsEM <- list()
 
-  temp <- seq(1, T0, length = length(seqsPT))
+  if(typeTemp == "sequential"){
+    temp <- seq(1, T0, length = length(seqsPT))
+  }else if(typeTemp == "exp"){
+    temp <- T0^(seq(0,1,length=length(seqsPT)))
+  }
+
+
 
   acceptSwitch <- data.frame("Accept" = c(), "Temp1" = c(), "Temp2" = c())
   acceptDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c(),
