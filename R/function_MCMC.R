@@ -1650,6 +1650,8 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
   idunfixedComponentsCrea <- which(is.na(fixedparameters$Crea))
   idunfixedComponentsDel <- which(is.na(fixedparameters$Del))
 
+  # browser()
+
   for (i in seq_along(indicesCore)) {
     # cat("Index core ",i,"\n" )
 
@@ -1709,7 +1711,7 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
       acceptanceDF <- rbind(acceptanceDF, aux$acceptanceDF)
       scoreVecChoice <- aux$newlogLikelihoodStats$resCrea$finalScore[idunfixedComponentsCrea] +
         aux$newlogLikelihoodStats$resDel$finalScore[idunfixedComponentsDel]
-      scoreRate <- aux$newloglikRate$resCres$score + aux$newloglikRate$resDel$score
+      scoreRate <- aux$newloglikRate$resCrea$score + aux$newloglikRate$resDel$score
 
       mcmcDiagDF <- rbind(
         mcmcDiagDF,
@@ -1962,8 +1964,17 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     if (!"row" %in% colnames(seqsPT[[1]])) {
       seqsPT <- lapply(seqsPT, function(x) cbind(x, "row" = 1:nrow(x)))
     }
-    # browser()
+     # browser()
     # cat("Iter i ", i , "\n")
+     # resstepPTaux <- stepRatePTMC(1,seqs = seqsPT,
+     #                             splitIndicesPerCore = list(1),
+     #                             H = H, actDfnodesLab = actDfnodesLab,
+     #                             actDfnodes = actDfnodes, tieNames = tieNames,
+     #                             formula = formula, net0 = net0, beta = beta,
+     #                             theta = theta, fixedparameters = fixedparameters,
+     #                             initTime = initTime, endTime = endTime, k = k,
+     #                             temp = temp, nStepExch = 5, pAug = pAug,
+     #                             pShort = pShort, pPerm = pPerm)
 
     resstepPT <- clusterApplyLB(cl, seq_along(splitIndicesPerCore),
                                 stepRatePTMC, seqs = seqsPT,
