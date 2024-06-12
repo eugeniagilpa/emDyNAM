@@ -1887,7 +1887,7 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                     burnInIter = 500, maxIter = 10000,
                     thin = 50, T0 = 100, nStepExch = 10,
                     pAug = 0.35, pShort = 0.35, pPerm = 0.3, k = 5,
-                    num_cores = num_cores,typeTemp = "sequential") {
+                    num_cores = num_cores,typeTemp = "sequential",r=1/2) {
 
   cl <- makeCluster(num_cores)
   on.exit(stopCluster(cl))
@@ -1936,6 +1936,12 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     temp <- seq(1, T0, length = length(seqsPT))
   }else if(typeTemp == "exp"){
     temp <- T0^(seq(0,1,length=length(seqsPT)))
+  }else if (typeTemp == "geom"){
+    aux = 0
+    seqAux = sort(r^(1:(nPT-1)))
+    for(i in 1:(nPT-1)) aux=c(aux,sum(seqAux[1:i]))
+    temp <- 1 + aux
+    rm(aux)
   }
 
 
