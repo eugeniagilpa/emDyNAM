@@ -465,7 +465,7 @@ getlogLikelihoodMC <- function(indexCore, seqsEM, beta, fixedparameters,
                                formula = formula, temp) {
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resLikelihood <- vector("list", length(indicesCore))
-  # browser()
+    # browser()
   for (i in seq_along(indicesCore)) {
     seq <- seqsEM[[indicesCore[i]]]$newseq
     if ("row" %in% colnames(seq)) {
@@ -478,7 +478,7 @@ getlogLikelihoodMC <- function(indexCore, seqsEM, beta, fixedparameters,
       fixedparameters = fixedparameters,
       parameters = beta,
       initTime = initTime, endTime = endTime,
-      formula = formula,
+      formula = formula
     )
     resLikelihood[[i]] <- c("Crea" = auxLik$resCrea$logLikelihood, "Del" = auxLik$resDel$logLikelihood) /
       temp[indicesCore[i]]
@@ -541,8 +541,9 @@ getlogLikelihoodRate <- function(seq, actDfnodes, parameters,
 #'
 getlogLikelihoodRateMC <- function(seqs, theta, initTime, endTime,
                                actDfnodes = actDfnodes, temp) {
-
-  for (i in length(seqs)) {
+   # browser()
+resLikelihood=vector("list",length=length(seqs))
+    for (i in 1:length(seqs)) {
     seq <- seqs[[i]]$newseq
     if ("row" %in% colnames(seq)) {
       seq <- seq[, -which(colnames(seq) == "row")]
@@ -555,7 +556,7 @@ getlogLikelihoodRateMC <- function(seqs, theta, initTime, endTime,
       temp = temp[i]
     )
     resLikelihood[[i]] <- c("Crea" = auxLik$resCrea$logLikelihood,
-                            "Del" = auxLik$resDel$logLikelihod)
+                            "Del" = auxLik$resDel$logLikelihood)
   }
 
   return(resLikelihood)

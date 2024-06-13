@@ -491,7 +491,7 @@ newtonraphsonStepChoice <- function(parameters, fixedparameters,seqsEM) {
 #'
 newtonraphsonStepRate <- function(parameters, seqsEM) {
   initialDamping <- 1
-browser()
+# browser()
   stats.new <- lapply(seqsEM, "[[", "newloglikRate")
 
 

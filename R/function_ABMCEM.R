@@ -893,9 +893,9 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
     }
 
     if(index==1) {
-      burnInIter =500
+      burnInIter =1000
     }else{
-      burnInIter = 100
+      burnInIter = 500
     }
 
     seqsEM <- MCMC_rate(nmax, seqInit, H, actDfnodes, formula, net0, beta,
@@ -943,7 +943,7 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
 
     logLikCurChoice <- clusterApplyLB(cl2, seq_along(splitIndicesPerCore),
                                       getlogLikelihoodMC,seqsEM = seqsEM$seqsEM,
-                                      beta = newNRstep$parameters,
+                                      beta = newNRstepChoice$parameters,
                                       fixedparameters = fixedparameters,
                                       splitIndicesPerCore = splitIndicesPerCore,
                                       initTime = initTime, endTime = endTime,
@@ -961,9 +961,9 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
                                             endTime = endTime,
                                             actDfnodes = actDfnodes,
                                             temp = rep(1,length(seqsEM$seqsEM)))
-    logLikCurRate <- unlist(logLikCurChoice, recursive = FALSE)
+    logLikCurRate <- unlist(logLikCurRate, recursive = FALSE)
 
-    logLikCurEM <- sapply(logLikCurChoice, sum) + sapply(logLikCurRate, sum) # total likelihoods for each sequence (Crea+Del+RATES)
+    logLikCurEM <- sum(sapply(logLikCurChoice, sum)) + sum(logLikCurRate) # total likelihoods for each sequence (Crea+Del+RATES)
 
     w <- rep(1, length(logLikPrev)) / length(logLikPrev)
     sigmaHat <- sigmaHat(nmax, logLikPrev, logLikCurEM, w)
@@ -977,19 +977,19 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
       while (lowerBound < 0) {
         # Estimator is not accepted, new point must be sampled
         # Perform Parallel-Tempering
-        nmax <- ceiling(nmax + nmax / k)
-        seqsEMaux <-MCMC_rate(nmax/k, seqsPT, H, actDfnodes, formula, net0, beta,
+
+        seqsEMaux <-MCMC_rate(nmax/k, seqInit, H, actDfnodes, formula, net0, beta,
                               theta, fixedparameters, initTime, endTime,
-                              burnIn=TRUE, burnInIter, maxIterPT, thin,
-                              pAug, pShort, pPerm, k
+                              burnIn=FALSE, burnInIter, thin,
+                              pAug, pShort, pPerm, k_perm
         )
+        nmax <- ceiling(nmax + nmax / k)
 
-
-        seqsPT <- c(seqsPT,unlist(seqsEMaux$resstepPT, recursive = FALSE))
+        seqInit <- seqsEMaux$resstepPT
 
         # seqsEM <- c(seqsEM, seqsEMaux) not possible!!
         seqsEM$seqsEM <- c(seqsEM$seqsEM, seqsEMaux$seqsEM)
-        seqsEM$resstepPT <- c(seqsEM$resstepPT, seqsEMaux$resstepPT)
+        seqsEM$resstepPT <- seqsEMaux$resstepPT
         seqsEM$acceptSwitch <- rbind(seqsEM$acceptSwitch, seqsEMaux$acceptSwitch)
         seqsEM$acceptDF <- rbind(seqsEM$acceptDF, seqsEMaux$acceptDF)
         seqsEM$mcmcDiagDF <- rbind(seqsEM$mcmcDiagDF, seqsEMaux$mcmcDiagDF)
@@ -1030,7 +1030,7 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
 
         logLikCurChoice <- clusterApplyLB(cl2, seq_along(splitIndicesPerCore),
                                           getlogLikelihoodMC,seqsEM = seqsEM$seqsEM,
-                                          beta = newNRstep$parameters,
+                                          beta = newNRstepChoice$parameters,
                                           fixedparameters = fixedparameters,
                                           splitIndicesPerCore = splitIndicesPerCore,
                                           initTime = initTime, endTime = endTime,
@@ -1048,9 +1048,9 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
                                                 endTime = endTime,
                                                 actDfnodes = actDfnodes,
                                                 temp = rep(1,length(seqsEM$seqsEM)))
-        logLikCurRate <- unlist(logLikCurChoice, recursive = FALSE)
+        logLikCurRate <- unlist(logLikCurRate, recursive = FALSE)
 
-        logLikCurEM <- sapply(logLikCurChoice, sum) + sapply(logLikCurRate, sum) # total likelihoods for each sequence (Crea+Del+RATES)
+        logLikCurEM <- sum(sapply(logLikCurChoice, sum)) + sum(logLikCurRate) # total likelihoods for each sequence (Crea+Del+RATES)
 
         w <- rep(1, length(logLikPrev)) / length(logLikPrev)
         sigmaHat <- sigmaHat(nmax, logLikPrev, logLikCurEM, w)
