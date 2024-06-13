@@ -202,16 +202,20 @@ rubinsRule <- function(x, se, w) {
 
 
 
-
-newtonraphsonStep <- function(parameters, fixedparameters,
-                              formula, seqsEM,
-                              dampingFactorCrea,
-                              dampingFactorDel) {
-  initialDamping <- 1
+#' newtonraphsonStepChoice
+#'
+#' @param x values of the parameters
+#' @param se standard errors of the parameters
+#' @param w values of the weights
+#'
+#' @return value of the averaged mean and the standard error
+#' @export
+#'
+newtonraphsonStepChoice <- function(parameters, fixedparameters,seqsEM) {
 
   stats.new <- lapply(seqsEM, "[[", "newlogLikelihoodStats")
 
-
+# browser()
   logLikelihoodCrea.new <- sapply(unlist(lapply(stats.new, "[", "resCrea"),
     recursive = FALSE
   ), "[", "logLikelihood")
@@ -249,12 +253,10 @@ newtonraphsonStep <- function(parameters, fixedparameters,
     recursive = FALSE
   )
 
-
   idunfixedComponentsCrea <- which(is.na(fixedparameters$Crea))
   idunfixedComponentsDel <- which(is.na(fixedparameters$Del))
 
   # Calculate the UPDATE distance taking into account the DAMPING
-
   scoreUnfixedCrea <- Reduce("+", lapply(scoreCrea.new, "[", idunfixedComponentsCrea)) /
     length(seqsEM)
   scoreUnfixedDel <- Reduce("+", lapply(scoreDel.new, "[", idunfixedComponentsDel)) /
@@ -270,56 +272,67 @@ newtonraphsonStep <- function(parameters, fixedparameters,
     idunfixedComponentsDel)) / length(seqsEM) -
     scoreUnfixedDel %*% t(scoreUnfixedDel) / (length(seqsEM)^2)
 
-
   inverseInformationUnfixedCrea <- try(
     solve(informationMatrixUnfixedCrea),
     silent = TRUE
   )
+
+  if (inherits(inverseInformationUnfixedCrea, "try-error")) {
+    # stop(
+    #   "Matrix cannot be inverted;",
+    #   " probably due to collinearity between parameters. CREA"
+    # )
+    lambdaCrea = scoreUnfixedCrea%*%scoreUnfixedCrea
+    inverseInformationUnfixedCrea <- try(
+      solve(dkCreaAux),
+      silent = TRUE
+    )
+    dkCreaAux = informationMatrixUnfixedCrea%*% informationMatrixUnfixedCrea +
+      lambdaCrea[1,1] * diag(1,nrow(informationMatrixUnfixedCrea))
+    inverseInformationUnfixedCrea <- try(
+      solve(dkCreaAux),
+      silent = TRUE
+    )
+    updateCrea <- rep(0, length(parameters$Crea))
+    updateCrea[idunfixedComponentsCrea] <-
+      (inverseInformationUnfixedCrea %*% t(informationMatrixUnfixedCrea) %*% scoreUnfixedCrea)
+  }else{
+    updateCrea <- rep(0, length(parameters$Crea))
+    updateCrea[idunfixedComponentsCrea] <-
+      (inverseInformationUnfixedCrea %*% scoreUnfixedCrea)
+  }
 
   inverseInformationUnfixedDel <- try(
     solve(informationMatrixUnfixedDel),
     silent = TRUE
   )
 
-  if (inherits(inverseInformationUnfixedCrea, "try-error")) {
-    stop(
-      "Matrix cannot be inverted;",
-      " probably due to collinearity between parameters. CREA"
-    )
-  }
   if (inherits(inverseInformationUnfixedDel, "try-error")) {
-    stop(
-      "Matrix cannot be inverted;",
-      " probably due to collinearity between parameters. DEL"
+    # stop(
+    #   "Matrix cannot be inverted;",
+    #   " probably due to collinearity between parameters. DEL"
+    # )
+    lambdaDel = scoreUnfixedDel%*%scoreUnfixedDel
+    dkDelAux = informationMatrixUnfixedDel%*% informationMatrixUnfixedDel +
+      lambdaDel[1,1] * diag(1,nrow(informationMatrixUnfixedDel))
+    inverseInformationUnfixedDel <- try(
+      solve(dkDelAux),
+      silent = TRUE
     )
+    updateDel <- rep(0, length(parameters$Del))
+    updateDel[idunfixedComponentsDel] <-
+      (inverseInformationUnfixedDel %*% t(informationMatrixUnfixedDel) %*% scoreUnfixedDel)
+  }else{
+    updateDel <- rep(0, length(parameters$Del))
+    updateDel[idunfixedComponentsDel] <-
+      (inverseInformationUnfixedDel %*% scoreUnfixedDel)
   }
-
-  updateCrea <- rep(0, length(parameters$Crea))
-  updateCrea[idunfixedComponentsCrea] <-
-    (inverseInformationUnfixedCrea %*% scoreUnfixedCrea) / dampingFactorCrea
 
   parameters$Crea <- parameters$Crea + updateCrea
-
-  stdErrors <- data.frame(
-    "Crea" = rep(0, length(parameters$Crea)),
-    "Del" = rep(0, length(parameters$Crea))
-  )
-  stdErrors$Crea[idunfixedComponentsCrea] <- sqrt(diag(inverseInformationUnfixedCrea))
-
-
-  updateDel <- rep(0, length(parameters$Del))
-  updateDel[idunfixedComponentsDel] <-
-    (inverseInformationUnfixedDel %*% scoreUnfixedDel) / dampingFactorDel
-
   parameters$Del <- parameters$Del + updateDel
 
-  stdErrors$Del <- rep(0, length(parameters$Del))
-  stdErrors$Del[idunfixedComponentsDel] <- sqrt(diag(inverseInformationUnfixedCrea))
-
-  return(list(parameters = parameters, stdErrors = stdErrors))
-
-
-
+  return(list(parameters = parameters,inverseInformationUnfixedCrea = inverseInformationUnfixedCrea,
+              inverseInformationUnfixedDel = inverseInformationUnfixedDel))
 
   # if (sum(logLikelihoodCrea.new) <= sum(logLikelihoodCrea.old) ||
   #     any(is.na(logLikelihoodCrea.new)) ||
@@ -467,13 +480,19 @@ newtonraphsonStep <- function(parameters, fixedparameters,
 
 
 
-
-newtonraphsonStepRate <- function(parameters, seqsEM,
-                              dampingFactorCrea,
-                              dampingFactorDel) {
+#' newtonraphsonStepRate
+#'
+#' @param x values of the parameters
+#' @param se standard errors of the parameters
+#' @param w values of the weights
+#'
+#' @return value of the averaged mean and the standard error
+#' @export
+#'
+newtonraphsonStepRate <- function(parameters, seqsEM) {
   initialDamping <- 1
-
-  stats.new <- lapply(seqsEM, "[[", "newlogLikelihoodStatsRate")
+browser()
+  stats.new <- lapply(seqsEM, "[[", "newloglikRate")
 
 
   logLikelihoodCrea.new <- sapply(unlist(lapply(stats.new, "[", "resCrea"),
@@ -482,7 +501,7 @@ newtonraphsonStepRate <- function(parameters, seqsEM,
   scoreCrea.new <- unlist(
     lapply(unlist(lapply(stats.new, "[", "resCrea"),
                   recursive = FALSE
-    ), "[", "finalScore"),
+    ), "[", "score"),
     recursive = FALSE
   )
   informationMatrixCrea.new <- unlist(
@@ -490,7 +509,7 @@ newtonraphsonStepRate <- function(parameters, seqsEM,
       unlist(lapply(stats.new, "[", "resCrea"),
              recursive = FALSE
       ), "[",
-      "finalInformationMatrix"
+      "informationMatrix"
     ),
     recursive = FALSE
   )
@@ -500,7 +519,7 @@ newtonraphsonStepRate <- function(parameters, seqsEM,
   scoreDel.new <- unlist(
     lapply(unlist(lapply(stats.new, "[", "resDel"),
                   recursive = FALSE
-    ), "[", "finalScore"),
+    ), "[", "score"),
     recursive = FALSE
   )
   informationMatrixDel.new <- unlist(
@@ -508,30 +527,26 @@ newtonraphsonStepRate <- function(parameters, seqsEM,
       unlist(lapply(stats.new, "[", "resDel"),
              recursive = FALSE
       ), "[",
-      "finalInformationMatrix"
+      "informationMatrix"
     ),
     recursive = FALSE
   )
 
 
-  idunfixedComponentsCrea <- which(is.na(fixedparameters$Crea))
-  idunfixedComponentsDel <- which(is.na(fixedparameters$Del))
 
   # Calculate the UPDATE distance taking into account the DAMPING
 
-  scoreUnfixedCrea <- Reduce("+", lapply(scoreCrea.new, "[", idunfixedComponentsCrea)) /
+  scoreUnfixedCrea <- Reduce("+", scoreCrea.new) /
     length(seqsEM)
-  scoreUnfixedDel <- Reduce("+", lapply(scoreDel.new, "[", idunfixedComponentsDel)) /
+  scoreUnfixedDel <- Reduce("+", scoreDel.new) /
     length(seqsEM)
 
-  informationMatrixUnfixedCrea <- Reduce("+", lapply(
-    informationMatrixCrea.new, "[",
-    idunfixedComponentsCrea)) / length(seqsEM) -
+  informationMatrixUnfixedCrea <- Reduce("+",
+    informationMatrixCrea.new) / length(seqsEM) -
     scoreUnfixedCrea %*% t(scoreUnfixedCrea) / (length(seqsEM)^2)
 
-  informationMatrixUnfixedDel <- Reduce("+", lapply(
-    informationMatrixDel.new, "[",
-    idunfixedComponentsDel)) / length(seqsEM) -
+  informationMatrixUnfixedDel <- Reduce("+",
+    informationMatrixDel.new) / length(seqsEM) -
     scoreUnfixedDel %*% t(scoreUnfixedDel) / (length(seqsEM)^2)
 
 
@@ -539,48 +554,52 @@ newtonraphsonStepRate <- function(parameters, seqsEM,
     solve(informationMatrixUnfixedCrea),
     silent = TRUE
   )
+  if (inherits(inverseInformationUnfixedCrea, "try-error")) {
+    lambdaCrea = scoreUnfixedCrea%*%scoreUnfixedCrea
+    dkCreaAux = informationMatrixUnfixedCrea%*% informationMatrixUnfixedCrea +
+      lambdaCrea[1,1] * diag(1,nrow(informationMatrixUnfixedCrea))
+    inverseInformationUnfixedCrea <- try(
+      solve(dkCreaAux),
+      silent = TRUE
+    )
+    updateCrea <- rep(0, length(parameters$Crea))
+    updateCrea<-
+      (inverseInformationUnfixedCrea %*% t(informationMatrixUnfixedCrea) %*% scoreUnfixedCrea)
+  }else{
+    updateCrea <- rep(0, length(parameters$Crea))
+    updateCrea <-
+      (inverseInformationUnfixedCrea %*% scoreUnfixedCrea)
+  }
 
   inverseInformationUnfixedDel <- try(
     solve(informationMatrixUnfixedDel),
     silent = TRUE
   )
-
-  if (inherits(inverseInformationUnfixedCrea, "try-error")) {
-    stop(
-      "Matrix cannot be inverted;",
-      " probably due to collinearity between parameters. CREA"
-    )
-  }
   if (inherits(inverseInformationUnfixedDel, "try-error")) {
-    stop(
-      "Matrix cannot be inverted;",
-      " probably due to collinearity between parameters. DEL"
+    lambdaDel = scoreUnfixedDel%*%scoreUnfixedDel
+    dkDelAux = informationMatrixUnfixedDel%*% informationMatrixUnfixedDel +
+      lambdaDel[1,1] * diag(1,nrow(informationMatrixUnfixedDel))
+    inverseInformationUnfixedDel <- try(
+      solve(dkDelAux),
+      silent = TRUE
     )
+    updateDel <- rep(0, length(parameters$Del))
+    updateDel <-
+      (inverseInformationUnfixedDel %*% t(informationMatrixUnfixedDel) %*% scoreUnfixedDel)
+  }else{
+    updateDel <- rep(0, length(parameters$Del))
+    updateDel <-
+      (inverseInformationUnfixedDel %*% scoreUnfixedDel)
   }
 
-  updateCrea <- rep(0, length(parameters$Crea))
-  updateCrea[idunfixedComponentsCrea] <-
-    (inverseInformationUnfixedCrea %*% scoreUnfixedCrea) / dampingFactorCrea
 
   parameters$Crea <- parameters$Crea + updateCrea
-
-  stdErrors <- data.frame(
-    "Crea" = rep(0, length(parameters$Crea)),
-    "Del" = rep(0, length(parameters$Crea))
-  )
-  stdErrors$Crea[idunfixedComponentsCrea] <- sqrt(diag(inverseInformationUnfixedCrea))
-
-
-  updateDel <- rep(0, length(parameters$Del))
-  updateDel[idunfixedComponentsDel] <-
-    (inverseInformationUnfixedDel %*% scoreUnfixedDel) / dampingFactorDel
-
   parameters$Del <- parameters$Del + updateDel
 
-  stdErrors$Del <- rep(0, length(parameters$Del))
-  stdErrors$Del[idunfixedComponentsDel] <- sqrt(diag(inverseInformationUnfixedCrea))
 
-  return(list(parameters = parameters, stdErrors = stdErrors))
+  return(list(parameters = parameters,inverseInformationUnfixedCrea = inverseInformationUnfixedCrea,
+              inverseInformationUnfixedDel = inverseInformationUnfixedDel))
+
 
 }
 

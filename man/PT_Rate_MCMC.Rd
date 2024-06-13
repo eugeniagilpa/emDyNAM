@@ -28,7 +28,8 @@ PT_Rate_MCMC(
   pPerm = 0.3,
   k = 5,
   num_cores = num_cores,
-  typeTemp = "sequential"
+  typeTemp = "sequential",
+  r = 1/2
 )
 }
 \arguments{
