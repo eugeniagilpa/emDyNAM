@@ -1709,15 +1709,27 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
 
       # print(aux$acceptanceDF)
       acceptanceDF <- rbind(acceptanceDF, aux$acceptanceDF)
-      scoreVecChoice <- aux$newlogLikelihoodStats$resCrea$finalScore[idunfixedComponentsCrea] +
-        aux$newlogLikelihoodStats$resDel$finalScore[idunfixedComponentsDel]
-      scoreRate <- aux$newloglikRate$resCrea$score + aux$newloglikRate$resDel$score
+
+      logChoiceCrea = aux$newlogLikelihoodStats$resCrea$logLikelihood
+      logChoiceDel =  aux$newlogLikelihoodStats$resDel$logLikelihood
+      scoreVecChoiceCrea <- aux$newlogLikelihoodStats$resCrea$finalScore[idunfixedComponentsCrea]
+      scoreVecChoiceDel <-  aux$newlogLikelihoodStats$resDel$finalScore[idunfixedComponentsDel]
+      scoreRateCrea <- aux$newloglikRate$resCrea$score
+      scoreRateDel <- aux$newloglikRate$resDel$score
+      logRateCrea <- aux$newloglikRate$resCrea$logLikelihood
+      logRateDel <- aux$newloglikRate$resDel$logLikelihood
 
       mcmcDiagDF <- rbind(
         mcmcDiagDF,
-        c("log" = aux$newloglikSeq,
-          "scoreChoice" = scoreVecChoice/temp[indicesCore[[i]]],
-          "scoreRate" = scoreRate,
+        c("totalLoglik" = aux$newloglikSeq,
+          "logChoiceCrea" = logChoiceCrea/temp[indicesCore[[i]]],
+          "logChoiceDel" = logChoiceDel/temp[indicesCore[[i]]],
+          "logRateCrea" = logRateCrea,
+          "logRateDel" = logRateDel,
+          "scoreChoiceCrea" = scoreVecChoiceCrea/temp[indicesCore[[i]]],
+          "scoreChoiceDel" = scoreVecChoiceDel/temp[indicesCore[[i]]],
+          "scoreRateCrea" = scoreRateCrea,
+          "scoreRateDel" = scoreRateDel,
           "temp" = temp[indicesCore[[i]]])
       )
 
@@ -1725,10 +1737,11 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
       logLikelihoodStats <- aux$newlogLikelihoodStats
       loglikRate <- aux$newloglikRate
     }
-    names(mcmcDiagDF) <- c(
-      "log",
-      paste("score", 1:length(idunfixedComponentsCrea), sep = ""),
-      "scoreRate",
+    names(mcmcDiagDF) <- c("totalLoglik","logChoiceCrea","logChoiceDel",
+                           "logRateCrea","logRateDel",
+      paste("scoreChoiceCrea", 1:length(idunfixedComponentsCrea), sep = ""),
+      paste("scoreChoiceDel", 1:length(idunfixedComponentsCrea), sep = ""),
+      "scoreRateCrea","scoreRateDel",
       "temp"
     )
     resStepPT[[i]] <- list(

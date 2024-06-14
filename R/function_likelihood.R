@@ -355,7 +355,7 @@ logLikelihoodTimeMC <- function(indexCore, permut, beta, theta, initTime,
 #'
 getlogLikelihood <- function(seq, actDfnodes, net0, fixedparameters,
                              parameters, initTime, endTime, formula) {
-  # browser()
+   # browser()
   envirPrepro <- new.env()
   if ("row" %in% colnames(seq)) {
     seqTime <- seq[, -which(colnames(seq) == "row")]
@@ -465,7 +465,7 @@ getlogLikelihoodMC <- function(indexCore, seqsEM, beta, fixedparameters,
                                formula = formula, temp) {
   indicesCore <- splitIndicesPerCore[[indexCore]]
   resLikelihood <- vector("list", length(indicesCore))
-    # browser()
+      # browser()
   for (i in seq_along(indicesCore)) {
     seq <- seqsEM[[indicesCore[i]]]$newseq
     if ("row" %in% colnames(seq)) {
