@@ -1439,6 +1439,8 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
       )
     }
 
+
+    if(k>0){
     for (i in 1:k) {
       step <- stepPerm(step$newseq, tieNames, newM, newMe)
 
@@ -1449,7 +1451,7 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
       newGammaPlus <- sum(newGammaEplus)
       newM <- nrow(step$newseq)
     }
-
+    }
 
     # browser()
 
@@ -1508,6 +1510,7 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
       )
     }
 
+    if(k>0){
     for (i in 1:k) {
       step <- stepPerm(step$newseq, tieNames, newM, newMe)
 
@@ -1518,7 +1521,7 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
       newGammaPlus <- sum(newGammaEplus)
       newM <- nrow(step$newseq)
     }
-
+    }
 
 
     newlogLikelihoodStats <- getlogLikelihood(
@@ -1546,6 +1549,7 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
     newM <- nrow(step$newseq)
 
 
+    if(k>0){
     for (i in 1:k) {
       step <- stepPerm(step$newseq, tieNames, newM, newMe)
 
@@ -1555,6 +1559,7 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
       diag(newGammaEplus) <- 0
       newGammaPlus <- sum(newGammaEplus)
       newM <- nrow(step$newseq)
+    }
     }
 
     pDoStep <- step$pDoStep
