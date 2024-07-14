@@ -822,13 +822,14 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
 #' \emph{The annals of applied statistics, 4(2)}, 567.
 #'
 MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
-                              fixedparameters = c(NA, NA, NA, 20, 20),
+                              fixedparameters = data.frame("Crea"=c(NA, NA, NA,NA,-20,-20),
+                                                           "Del"=c(NA,NA,NA,NA,20,20)),
                               formula, initTime = 0,
                               endTime = 1, num_cores = 1, errType2 = 0.8,
                               alpha = 0.9, gamma = 0.9, thr = 1e-3,
                               maxIter = 1000, thin = 10,
                               pShort = 0.35, pAug = 0.35, pPerm = 0.3,
-                              k_perm=5, maxIterPT = 1000) {
+                              k_perm=5) {
 
 
   actDfnodes <- defineNodes(data.frame(label = colnames(net0)))
@@ -882,7 +883,6 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
   diff <- 1000
   index <- 1
   while (diff > thr) {
-    # browser()
     k <- 2
 
     cat("Index: ", index, "\n")
@@ -893,9 +893,9 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
     }
 
     if(index==1) {
-      burnInIter =1000
+      burnInIter =10000
     }else{
-      burnInIter = 500
+      burnInIter = 1000
     }
 
     seqsEM <- MCMC_rate(nmax, seqInit, H, actDfnodes, formula, net0, beta,
@@ -974,7 +974,10 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
 
 
     if (lowerBound < 0) {
+      cat("Lower bound less than 0\n")
       while (lowerBound < 0) {
+        cat("\t k=",k)
+
         # Estimator is not accepted, new point must be sampled
         # Perform Parallel-Tempering
 

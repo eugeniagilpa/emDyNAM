@@ -1951,9 +1951,9 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
   seqsEM <- list()
 
   if(typeTemp == "sequential"){
-    temp <- seq(1, T0, length = length(seqsPT))
+    temp <- seq(1, T0, length = nPT)
   }else if(typeTemp == "exp"){
-    temp <- T0^(seq(0,1,length=length(seqsPT)))
+    temp <- T0^(seq(0,1,length=nPT))
   }else if (typeTemp == "geom"){
     aux = 0
     seqAux = sort(r^(1:(nPT-1)))
@@ -1961,7 +1961,6 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     temp <- 1 + aux
     rm(aux)
   }
-
 
 
   acceptSwitch <- data.frame("Accept" = c(), "Temp1" = c(), "Temp2" = c())

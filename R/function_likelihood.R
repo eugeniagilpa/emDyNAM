@@ -503,7 +503,7 @@ getlogLikelihoodRate <- function(seq, actDfnodes, parameters,
 
   n = length(actDfnodes$label)
   t = endTime - initTime
-# browser()
+ # browser()
 
   # CREATION
     R = nrow(seq[seq$replace==1,])
@@ -541,7 +541,7 @@ getlogLikelihoodRate <- function(seq, actDfnodes, parameters,
 #'
 getlogLikelihoodRateMC <- function(seqs, theta, initTime, endTime,
                                actDfnodes = actDfnodes, temp) {
-   # browser()
+    # browser()
 resLikelihood=vector("list",length=length(seqs))
     for (i in 1:length(seqs)) {
     seq <- seqs[[i]]$newseq
