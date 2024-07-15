@@ -833,16 +833,11 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
 
 
   actDfnodes <- defineNodes(data.frame(label = colnames(net0)))
-
+# browser()
 
   # Initialization of parameters
 
-  fixedparameters <- data.frame(
-    "Crea" = c(NA, NA, NA, NA, -20, -20),
-    "Del" = c(NA, NA, NA, NA, 20, 20)
-  )
-  se <- data.frame(Crea = rep(0, nrow(beta)), Del = rep(0, nrow(beta)))
-  row.names(se) <- row.names(beta)
+
   # Creation of sequence of events from initial data
   seq <- EMPreprocessing(net0, net1)
   seqInit = seq
@@ -863,7 +858,7 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
     )
   }
 
-
+  theta = theta0
 
   cl2 <- makeCluster(num_cores)
   on.exit(stopCluster(cl2))
@@ -873,10 +868,8 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
   })
 
   clusterExport(cl2, list(
-    "stepRatePT", "stepRatePTMC", "stepMCMC", "getpDoAugment", "getpDoShort",
-    "getpDoPerm", "getKelMeMatrix", "getAuxDfE", "stepAugment", "stepShort",
-    "stepPerm", "getlogLikelihood", "GatherPreprocessingDF",
-    "sampleVec", "getlogLikelihoodMC","PT_Rate_MCMC","getlogLikelihoodRate",
+    "getlogLikelihood", "GatherPreprocessingDF",
+    "sampleVec", "getlogLikelihoodMC","getlogLikelihoodRate",
     "getlogLikelihoodRateMC"
   ))
 
@@ -904,7 +897,17 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
                            pAug, pShort, pPerm, k_perm
     )
 
-
+    if(index==1){
+    write.table(seqsEM$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
+                row.names = FALSE, col.names = TRUE,append = FALSE)
+    write.table(seqsEM$mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
+                row.names = FALSE, col.names = TRUE,append = FALSE)
+    }else{
+      write.table(seqsEM$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = FALSE,append = TRUE)
+      write.table(seqsEM$mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = FALSE,append = TRUE)
+    }
 
     seqInit <- seqsEM$resstepPT
 
@@ -987,6 +990,11 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
                               pAug, pShort, pPerm, k_perm
         )
         nmax <- ceiling(nmax + nmax / k)
+
+        write.table(seqsEM$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
+                    row.names = FALSE, col.names = FALSE,append = TRUE)
+        write.table(seqsEM$mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
+                    row.names = FALSE, col.names = FALSE,append = TRUE)
 
         seqInit <- seqsEMaux$resstepPT
 

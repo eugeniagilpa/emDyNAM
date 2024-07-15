@@ -899,7 +899,9 @@ stepPT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula, net0
                              "logLikStatsCrea" = logLikelihoodStats$resCrea$logLikelihood,
                              "logLikStatsDel" = logLikelihoodStats$resDel$logLikelihood,
                              "newLogLikStatsCrea" = newlogLikelihoodStats$resCrea$logLikelihood,
-                             "newLogLikStatsDel" = newlogLikelihoodStats$resDel$logLikelihood)
+                             "newLogLikStatsDel" = newlogLikelihoodStats$resDel$logLikelihood,
+                             "beta" = beta,
+                             "theta" = theta)
   if (!accept) {
     newseq <- seq
     newlogLikelihoodStats <- logLikelihoodStats
@@ -960,10 +962,11 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
   for (i in seq_along(indicesCore)) {
      # cat("Index core ",i,"\n" )
 
-    acceptanceDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c(),
-                               "logLikStatsCrea" = c(), "logLikStatsDel" =c(),
-                                "newLogLikStatsCrea" = c(),
-                               "newLogLikStatsDel" = c())
+    # acceptanceDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c(),
+    #                            "logLikStatsCrea" = c(), "logLikStatsDel" =c(),
+    #                             "newLogLikStatsCrea" = c(),
+    #                            "newLogLikStatsDel" = c())
+    acceptanceDF <- data.frame()
     mcmcDiagDF <- data.frame()
 
     seq <- seqs[[indicesCore[[i]]]]
@@ -1009,7 +1012,9 @@ stepPTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
         c(
           "log" = aux$newloglikSeq,
           "score" = scoreVec,
-          "temp" = temp[indicesCore[[i]]]
+          "temp" = temp[indicesCore[[i]]],
+          "beta" = beta,
+          "theta" = theta
         )
       )
 
@@ -1806,15 +1811,16 @@ MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
 
   seqsEM <- list()
 
-  acceptDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c(),
-                         "logLikStatsCreaChoice" = c(),
-                         "logLikStatsDelChoice" = c(),
-                         "newLogLikStatsCreaChoice" = c(),
-                         "newLogLikStatsDelChoice" = c(),
-                         "loglikRateCrea" = c(),
-                         "loglikRateDel" = c(),
-                         "newloglikRateCrea" = c(),
-                         "newloglikRateDel" = c())
+   # acceptDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c(),
+   #                       "logLikStatsCreaChoice" = c(),
+   #                       "logLikStatsDelChoice" = c(),
+   #                       "newLogLikStatsCreaChoice" = c(),
+   #                       "newLogLikStatsDelChoice" = c(),
+   #                       "loglikRateCrea" = c(),
+   #                       "loglikRateDel" = c(),
+   #                       "newloglikRateCrea" = c(),
+   #                       "newloglikRateDel" = c())
+  acceptDF <- data.frame()
   mcmcDiagDF <- data.frame()
   # browser()
 
@@ -1826,7 +1832,7 @@ MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
       seqInit <- cbind(seqInit, "row" = 1:nrow(seqInit))
     }
     # browser()
-    cat("Iter i ", i , "\n")
+    # cat("Iter i ", i , "\n")
 
     resstepPT <- stepRatePTMC(1,seqs = list(seqInit),
                               splitIndicesPerCore = list(1), H = H,
