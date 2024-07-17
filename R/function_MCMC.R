@@ -1591,9 +1591,9 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
                 loglikRate$resDel$logLikelihood
 
   u <- runif(1, min = 0, max = 1)
-  # browser()
+   # browser()
   accept <- (u <= exp(newloglikSeq - loglikSeq) * pUndoStep / pDoStep)
-  acceptanceDF <- data.frame("Type" = type, "Accept" = accept, "Temp" = temp,
+  acceptanceDF <- data.frame(t(c("Type" = type, "Accept" = accept, "Temp" = temp,
                              "logLikStatsCreaChoice" = logLikelihoodStats$resCrea$logLikelihood,
                              "logLikStatsDelChoice" = logLikelihoodStats$resDel$logLikelihood,
                              "newLogLikStatsCreaChoice" = newlogLikelihoodStats$resCrea$logLikelihood,
@@ -1601,7 +1601,23 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
                              "loglikRateCrea" = loglikRate$resCrea$logLikelihood,
                              "loglikRateDel" = loglikRate$resDel$logLikelihood,
                              "newloglikRateCrea" = newloglikRate$resCrea$logLikelihood,
-                             "newloglikRateDel" = newloglikRate$resDel$logLikelihood)
+                             "newloglikRateDel" = newloglikRate$resDel$logLikelihood,
+                             "betaCrea" = beta$Crea,
+                             "betaDel" = beta$Del,
+                             "thetaCrea" = theta$Crea,
+                             "thetaDel" = theta$Del)))
+
+  names(acceptanceDF) <- c("Type","Accept","Temp","logLikStatsCreaChoice","logLikStatsDelChoice",
+                         "newLogLikStatsCreaChoice","newLogLikStatsDelChoice",
+                         "loglikRateCrea","logRateDel","newloglikRateCrea","newloglikRateDel",
+                          paste("betaCrea", 1:length(beta$Crea), sep = ""),
+                         paste("betaDel", 1:length(beta$Del), sep = ""),
+                         paste("thetaCrea", 1:length(theta$Crea), sep = ""),
+                         paste("thetaDel", 1:length(theta$Del), sep = "")
+  )
+
+
+
   if (!accept) {
     newseq <- seq
     newlogLikelihoodStats <- logLikelihoodStats
@@ -1665,15 +1681,16 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
   for (i in seq_along(indicesCore)) {
     # cat("Index core ",i,"\n" )
 
-    acceptanceDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c(),
-                                "logLikStatsCreaChoice" = c(),
-                                "logLikStatsDelChoice" = c(),
-                                "newLogLikStatsCreaChoice" = c(),
-                                "newLogLikStatsDelChoice" = c(),
-                                "loglikRateCrea" = c(),
-                                "loglikRateDel" = c(),
-                                "newloglikRateCrea" = c(),
-                                "newloglikRateDel" = c())
+    # acceptanceDF <- data.frame("Type" = c(), "Accept" = c(), "Temp" = c(),
+    #                             "logLikStatsCreaChoice" = c(),
+    #                             "logLikStatsDelChoice" = c(),
+    #                             "newLogLikStatsCreaChoice" = c(),
+    #                             "newLogLikStatsDelChoice" = c(),
+    #                             "loglikRateCrea" = c(),
+    #                             "loglikRateDel" = c(),
+    #                             "newloglikRateCrea" = c(),
+    #                             "newloglikRateDel" = c())
+    acceptanceDF <- data.frame()
     mcmcDiagDF <- data.frame()
 
     seq <- seqs[[indicesCore[[i]]]]
@@ -1729,6 +1746,7 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
       logRateCrea <- aux$newloglikRate$resCrea$logLikelihood
       logRateDel <- aux$newloglikRate$resDel$logLikelihood
 
+      # browser()
       mcmcDiagDF <- rbind(
         mcmcDiagDF,
         c("totalLoglik" = aux$newloglikSeq,
@@ -1740,8 +1758,10 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
           "scoreChoiceDel" = scoreVecChoiceDel/temp[indicesCore[[i]]],
           "scoreRateCrea" = scoreRateCrea,
           "scoreRateDel" = scoreRateDel,
-          "temp" = temp[indicesCore[[i]]])
-      )
+          "temp" = temp[indicesCore[[i]]],
+         "betaCrea" = beta$Crea,  "betaDel" = beta$Del,
+         "thetaCrea" = theta$Crea,"thetaDel" = theta$Del
+      ))
 
       seq <- aux$newseq
       logLikelihoodStats <- aux$newlogLikelihoodStats
@@ -1752,7 +1772,10 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
       paste("scoreChoiceCrea", 1:length(idunfixedComponentsCrea), sep = ""),
       paste("scoreChoiceDel", 1:length(idunfixedComponentsCrea), sep = ""),
       "scoreRateCrea","scoreRateDel",
-      "temp"
+      "temp", paste("betaCrea", 1:length(beta$Crea), sep = ""),
+      paste("betaDel", 1:length(beta$Del), sep = ""),
+      paste("thetaCrea", 1:length(theta$Crea), sep = ""),
+      paste("thetaDel", 1:length(theta$Del), sep = "")
     )
     resStepPT[[i]] <- list(
       "aux" = aux, "acceptanceDF" = acceptanceDF,
@@ -1795,9 +1818,12 @@ MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
 ) {
   # Compute initial quatities:
   # Type 1: augmentation, type 2: shortening
+  if(maxIter < burnInIter){
+    maxIter <- (nmax + burnInIter + 10) * thin
+  }
 
   if (nmax > (maxIter - burnInIter) / thin) {
-    maxIter <- (nmax + burnInIter + 1) * thin
+    maxIter <- (nmax + burnInIter + 10) * thin
   }
 
   # browser()
@@ -1832,7 +1858,7 @@ MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
       seqInit <- cbind(seqInit, "row" = 1:nrow(seqInit))
     }
     # browser()
-    # cat("Iter i ", i , "\n")
+    if(!i%%50) cat("Iter i ", i , "\n")
 
     resstepPT <- stepRatePTMC(1,seqs = list(seqInit),
                               splitIndicesPerCore = list(1), H = H,
@@ -1850,20 +1876,14 @@ MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
 
     acceptDFaux <- resstepPT$acceptanceDF
     acceptDF <- rbind(acceptDF, acceptDFaux)
+    mcmcDiagDFaux <- resstepPT$mcmcDiagDF
+    mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
 
-    if(burnIn){
-      if(i> burnInIter){
-        mcmcDiagDFaux <- resstepPT$mcmcDiagDF
-        mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
-      }
-    }else{
-      mcmcDiagDFaux <- resstepPT$mcmcDiagDF
-      mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
-    }
+    # browser()
 
 
     if (burnIn) { # avoid, after burn in, to have switch and sample in the same step (not really needed)
-      if (i > burnInIter & !i %% thin) {
+      if (i > (burnInIter-1) & !i %% thin) {
         seqsEM <- c(seqsEM, list(resstepPT$aux)) # get a sample from the sequence with temperature 1
         emSampled = emSampled + 1
       }

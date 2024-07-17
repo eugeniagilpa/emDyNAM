@@ -467,7 +467,7 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
                           alpha = 0.9, gamma = 0.9, thr = 1e-3,
                           maxIter = 1000, thin = 50,
                           pShort = 0.35, pAug = 0.35, pPerm = 0.3,
-                          k=5 ,nPT = 1,
+                          k_perm = 5 ,nPT = 1,
                           T0 = 1, nStepExch = 10, typeTemp = "sequential",r=1/2,
                           maxIterPT = 1000) {
 
@@ -476,14 +476,7 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
 
 
   # Initialization of parameters
-  theta <- theta0
 
-  fixedparameters <- data.frame(
-    "Crea" = c(NA, NA, NA, NA, -20, -20),
-    "Del" = c(NA, NA, NA, NA, 20, 20)
-  )
-  se <- data.frame(Crea = rep(0, nrow(beta)), Del = rep(0, nrow(beta)))
-  row.names(se) <- row.names(beta)
   # Creation of sequence of events from initial data
   seq <- EMPreprocessing(net0, net1)
   H <- nrow(seq) # Humming distance
@@ -503,18 +496,21 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
     )
   }
 
+  if (any(!theta0 == 0)) {
+    theta <- theta0
+  } else { # all initial parameters are zero
+
+   theta = data.frame("Crea" = c(log(sum(seq$replace==1) / 1 / ncol(net0) )) ,
+                      "Del" = c(log(sum(seq$replace==0) / 1 / ncol(net0))))
+  }
 
   seqsPT <- permute(seq, nmax = nPT) # Initial sequences for Parallel Tempering initialization
 
-  dampingIncreaseFactor <- 1
-  dampingDecreaseFactor <- 1
-  dampingFactorCrea <- 1
-  dampingFactorDel <- 1
 
 
-  cl <- makeCluster(num_cores)
-  on.exit(stopCluster(cl))
-  clusterEvalQ(cl, {
+  cl2 <- makeCluster(num_cores)
+  on.exit(stopCluster(cl2))
+  clusterEvalQ(cl2, {
     library(goldfish)
     NULL
   })
@@ -541,17 +537,37 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
     }
 
     if(index==1) {
-      burnInIter =500
+      burnInIter =8000
     }else{
-      burnInIter = 100
+      burnInIter = 1000
     }
 
-    seqsEM <- PT_Rate_MCMC(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
-                      theta, fixedparameters, initTime, endTime,
-                      burnIn=TRUE, burnInIter, maxIterPT, thin, T0, nStepExch,
-                      pAug, pShort, pPerm, k, num_cores,typeTemp,r
-    )
-
+    seqsEM <- PT_Rate_MCMC(nmax = nmax, nPT = nPT, seqsPT = seqsPT, H = H,
+                           actDfnodes =  actDfnodes, formula = formula,
+                           net0 = net0, beta = beta, theta = theta,
+                           fixedparameters = fixedparameters,
+                           initTime = initTime, endTime = endTime,
+                           burnIn=TRUE, burnInIter = burnInIter,
+                           maxIterPT = maxIterPT, thin = thin, T0 = T0,
+                           nStepExch = nStepExch, pAug = pAug,
+                           pShort = pShort, pPerm = pPerm, k = k_perm,
+                           num_cores = num_cores, typeTemp = typeTemp ,r = r)
+    cat("After MCMC_Rate, writing tables should happen now")
+    if(index==1){
+      write.table(seqsEM$acceptDF, file = paste("out_PT_acceptDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = TRUE,append = FALSE)
+      write.table(seqsEM$mcmcDiagDF, file = paste("out_PT_mcmcDiagDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = TRUE,append = FALSE)
+      write.table(seqsEM$acceptSwitch, file = paste("out_PT_acceptSwitch.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = TRUE,append = FALSE)
+    }else{
+      write.table(seqsEM$acceptDF, file = paste("out_PT_acceptDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = FALSE,append = TRUE)
+      write.table(seqsEM$mcmcDiagDF, file = paste("out_PT_mcmcDiagDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = FALSE,append = TRUE)
+      write.table(seqsEM$acceptSwitch, file = paste("out_PT_acceptSwitch.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = FALSE,append = TRUE)
+    }
 
     seqsPT <- unlist(seqsEM$resstepPT, recursive = FALSE)
 
@@ -574,26 +590,21 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
     logLikPrev = logLikPrevChoice + logLikPrevRate
 
 
-     newNRstepChoice <- newtonraphsonStep(
+    newNRstepChoice <- newtonraphsonStepChoice(
       parameters = beta,
       fixedparameters = fixedparameters,
-      formula = formula,
-      seqsEM = seqsEM$seqsEM,
-      dampingFactorCrea = dampingFactorCrea,
-      dampingFactorDel = dampingFactorDel
+      seqsEM = seqsEM$seqsEM
     )
 
     newNRstepRate<- newtonraphsonStepRate(
       parameters = theta,
-      seqsEM = seqsEM$seqsEM,
-      dampingFactorCrea = dampingFactorCrea,
-      dampingFactorDel = dampingFactorDel
+      seqsEM = seqsEM$seqsEM
     )
 
 
     splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
 
-    logLikCurChoice <- clusterApplyLB(cl, seq_along(splitIndicesPerCore),
+    logLikCurChoice <- clusterApplyLB(cl2, seq_along(splitIndicesPerCore),
                                 getlogLikelihoodMC,seqsEM = seqsEM$seqsEM,
                                 beta = newNRstep$parameters,
                                 fixedparameters = fixedparameters,
@@ -615,7 +626,7 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
                                             temp = rep(1,length(seqsEM$seqsEM)))
     logLikCurRate <- unlist(logLikCurChoice, recursive = FALSE)
 
-    logLikCurEM <- sapply(logLikCurChoice, sum) + sapply(logLikCurRate, sum) # total likelihoods for each sequence (Crea+Del+RATES)
+    logLikCurEM <- sum(sapply(logLikCurChoice, sum)) + sum(logLikCurRate) # total likelihoods for each sequence (Crea+Del+RATES)
 
     w <- rep(1, length(logLikPrev)) / length(logLikPrev)
     sigmaHat <- sigmaHat(nmax, logLikPrev, logLikCurEM, w)
@@ -626,19 +637,34 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
 
 
     if (lowerBound < 0) {
+      cat("Lower bound less than 0\n")
       while (lowerBound < 0) {
         # Estimator is not accepted, new point must be sampled
         # Perform Parallel-Tempering
-        nmax <- ceiling(nmax + nmax / k)
-        seqsEMaux <- PT_Rate_MCMC(nmax / k, nPT, seqsPT, H, actDfnodes, formula,
-                             net0, beta, theta, fixedparameters, initTime, endTime,
-                             burnIn = FALSE, burnInIter = 0, maxIterPT, thin,
-                             T0, nStepExch, pAug, pShort, pPerm, k,num_cores,
-                             typeTemp,r
-        )
+        seqsEMaux <- PT_Rate_MCMC(nmax = ceiling(nmax / k), nPT = nPT,
+                                  seqsPT = seqsPT,
+                                  H = H, actDfnodes =  actDfnodes,
+                                  formula = formula, net0 = net0, beta = beta,
+                                  theta = theta,
+                                  fixedparameters = fixedparameters,
+                                  initTime = initTime, endTime = endTime,
+                                  burnIn=FALSE, burnInIter = 0,
+                                  maxIterPT = maxIterPT, thin = thin, T0 = T0,
+                                  nStepExch = nStepExch, pAug = pAug,
+                                  pShort = pShort, pPerm = pPerm, k = k_perm,
+                                  num_cores = num_cores, typeTemp = typeTemp ,
+                                  r = r)
+        nmax <- nmax + ceiling(nmax / k)
+
+        write.table(seqsEMaux$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
+                    row.names = FALSE, col.names = FALSE,append = TRUE)
+        write.table(seqsEMaux$mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
+                    row.names = FALSE, col.names = FALSE,append = TRUE)
+        write.table(seqsEM$acceptSwitch, file = paste("out_PT_acceptSwitch.txt",sep=""), sep = "\t",
+                    row.names = FALSE, col.names = FALSE,append = TRUE)
 
 
-        seqsPT <- c(seqsPT,unlist(seqsEMaux$resstepPT, recursive = FALSE))
+        seqsPT <- unlist(seqsEMaux$resstepPT, recursive = FALSE)
 
         # seqsEM <- c(seqsEM, seqsEMaux) not possible!!
         seqsEM$seqsEM <- c(seqsEM$seqsEM, seqsEMaux$seqsEM)
@@ -646,7 +672,7 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
         seqsEM$acceptSwitch <- rbind(seqsEM$acceptSwitch, seqsEMaux$acceptSwitch)
         seqsEM$acceptDF <- rbind(seqsEM$acceptDF, seqsEMaux$acceptDF)
         seqsEM$mcmcDiagDF <- rbind(seqsEM$mcmcDiagDF, seqsEMaux$mcmcDiagDF)
-
+        seqsEM$resstepPT <- seqsPT
 
         logLikPrevChoiceCrea <- sapply(lapply(
           lapply(seqsEM$seqsEM, "[[","newlogLikelihoodStats"), "[[","resCrea"
@@ -667,26 +693,21 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
         logLikPrev = logLikPrevChoice + logLikPrevRate
 
 
-        newNRstepChoice <- newtonraphsonStep(
+        newNRstepChoice <- newtonraphsonStepChoice(
           parameters = beta,
           fixedparameters = fixedparameters,
-          formula = formula,
-          seqsEM = seqsEM$seqsEM,
-          dampingFactorCrea = dampingFactorCrea,
-          dampingFactorDel = dampingFactorDel
+          seqsEM = seqsEM$seqsEM
         )
 
         newNRstepRate<- newtonraphsonStepRate(
-          parameters = beta,
-          seqsEM = seqsEM$seqsEM,
-          dampingFactorCrea = dampingFactorCrea,
-          dampingFactorDel = dampingFactorDel
+          parameters = theta,
+          seqsEM = seqsEM$seqsEM
         )
 
 
         splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
 
-        logLikCurChoice <- clusterApplyLB(cl, seq_along(splitIndicesPerCore),
+        logLikCurChoice <- clusterApplyLB(cl2, seq_along(splitIndicesPerCore),
                                           getlogLikelihoodMC,seqsEM = seqsEM$seqsEM,
                                           beta = newNRstep$parameters,
                                           fixedparameters = fixedparameters,
@@ -708,7 +729,7 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
                                                 temp = rep(1,length(seqsEM$seqsEM)))
         logLikCurRate <- unlist(logLikCurChoice, recursive = FALSE)
 
-        logLikCurEM <- sapply(logLikCurChoice, sum) + sapply(logLikCurRate, sum) # total likelihoods for each sequence (Crea+Del+RATES)
+        logLikCurEM <- sum(sapply(logLikCurChoice, sum)) + sum(logLikCurRate) # total likelihoods for each sequence (Crea+Del+RATES)
 
         w <- rep(1, length(logLikPrev)) / length(logLikPrev)
         sigmaHat <- sigmaHat(nmax, logLikPrev, logLikCurEM, w)
@@ -740,6 +761,25 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
 
     }
   }
+
+  stdErrorsChoice <- data.frame(
+    "Crea" = rep(0, length(beta$Crea)),
+    "Del" = rep(0, length(beta$Crea))
+  )
+  stdErrorsChoice$Crea <-
+    sqrt(diag(newNRstepChoice$inverseInformationUnfixedCrea))
+  stdErrorsChoice$Del <-
+    sqrt(diag(newNRstepChoice$inverseInformationUnfixedDel))
+
+  stdErrorsRate <- data.frame(
+    "Crea" = rep(0, length(theta$Crea)),
+    "Del" = rep(0, length(theta$Crea))
+  )
+  stdErrorsRate$Crea <-
+    sqrt(diag(newNRstepRate$inverseInformationUnfixedCrea))
+  stdErrorsRate$Del <-
+    sqrt(diag(newNRstepRate$inverseInformationUnfixedDel))
+
 
   acceptSwitch <- table(seqsEM$acceptSwitch)
   acceptDF <- table(seqsEM$acceptDF)
@@ -858,7 +898,13 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
     )
   }
 
-  theta = theta0
+  if (any(!theta0 == 0)) {
+    theta <- theta0
+  } else { # all initial parameters are zero
+
+    theta = data.frame("Crea" = c(log(sum(seq$replace==1) / 1 / ncol(net0) )) ,
+                       "Del" = c(log(sum(seq$replace==0) / 1 / ncol(net0))))
+  }
 
   cl2 <- makeCluster(num_cores)
   on.exit(stopCluster(cl2))
@@ -884,6 +930,7 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
       cat("No convergence\n")
       break
     }
+    # browser()
 
     if(index==1) {
       burnInIter =10000
@@ -891,12 +938,19 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
       burnInIter = 1000
     }
 
-    seqsEM <- MCMC_rate(nmax, seqInit, H, actDfnodes, formula, net0, beta,
-                           theta, fixedparameters, initTime, endTime,
-                           burnIn=TRUE, burnInIter, thin,
-                           pAug, pShort, pPerm, k_perm
+    # browser()
+    seqsEM <- MCMC_rate(nmax = nmax, seqInit = seqInit, H = H,
+                        actDfnodes = actDfnodes, formula = formula,
+                        net0 = net0, beta = beta, theta = theta,
+                        fixedparameters = fixedparameters,
+                        initTime = initTime, endTime = endTime,
+                        burnIn = TRUE, burnInIter = burnInIter,
+                        maxIter = 100000, thin = thin,
+                        pAug = pAug, pShort = pShort,pPerm = pPerm, k = k_perm
     )
 
+
+      cat("After MCMC_Rate, writing tables should happen now")
     if(index==1){
     write.table(seqsEM$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
                 row.names = FALSE, col.names = TRUE,append = FALSE)
@@ -917,6 +971,12 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
     logLikPrevChoiceDel <- sapply(lapply(
       lapply(seqsEM$seqsEM, "[[", "newlogLikelihoodStats"), "[[", "resDel"
     ), "[[", "logLikelihood")
+
+    if(!is.numeric(logLikPrevChoiceCrea + logLikPrevChoiceDel ) |
+       is.na(logLikPrevChoiceCrea + logLikPrevChoiceDel )){
+      save.image(file='myEnvironment.RData')
+    }
+
     logLikPrevChoice <- logLikPrevChoiceCrea + logLikPrevChoiceDel # vector of likelihoods lambda^{t-1}
 
     logLikPrevRateCrea <- sapply(lapply(
@@ -984,16 +1044,21 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
         # Estimator is not accepted, new point must be sampled
         # Perform Parallel-Tempering
 
-        seqsEMaux <-MCMC_rate(nmax/k, seqInit, H, actDfnodes, formula, net0, beta,
-                              theta, fixedparameters, initTime, endTime,
-                              burnIn=FALSE, burnInIter, thin,
-                              pAug, pShort, pPerm, k_perm
+        seqsEMaux <-MCMC_rate(nmax = nmax/k, seqInit = seqInit, H = H,
+                  actDfnodes = actDfnodes, formula = formula,
+                  net0 = net0, beta = beta, theta = theta,
+                  fixedparameters = fixedparameters,
+                  initTime = initTime, endTime = endTime,
+                  burnIn = FALSE, burnInIter = 0,
+                  maxIter = 100000, thin = thin,
+                  pAug = pAug, pShort = pShort,pPerm = pPerm, k = k_perm
         )
+
         nmax <- ceiling(nmax + nmax / k)
 
-        write.table(seqsEM$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
+        write.table(seqsEMaux$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
                     row.names = FALSE, col.names = FALSE,append = TRUE)
-        write.table(seqsEM$mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
+        write.table(seqsEMaux$mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
                     row.names = FALSE, col.names = FALSE,append = TRUE)
 
         seqInit <- seqsEMaux$resstepPT
