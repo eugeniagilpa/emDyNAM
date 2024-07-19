@@ -1814,7 +1814,7 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
 MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
                  theta, fixedparameters, initTime, endTime, burnIn = TRUE,
                  burnInIter = 500, maxIter = 10000, thin = 50,
-                 pAug = 0.35, pShort = 0.35, pPerm = 0.3, k = 5
+                 pAug = 0.35, pShort = 0.35, pPerm = 0.3, k = 5, index = 1
 ) {
   # Compute initial quatities:
   # Type 1: augmentation, type 2: shortening
@@ -1874,12 +1874,25 @@ MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
     resstepPT <- unlist(resstepPT, recursive = FALSE)
     seqInit = resstepPT$aux$newseq
 
-    acceptDFaux <- resstepPT$acceptanceDF
-    acceptDF <- rbind(acceptDF, acceptDFaux)
-    mcmcDiagDFaux <- resstepPT$mcmcDiagDF
-    mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
+    acceptDF <- resstepPT$acceptanceDF
+    # acceptDF <- rbind(acceptDF, acceptDFaux)
+    mcmcDiagDF <- resstepPT$mcmcDiagDF
+    # mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
 
     # browser()
+
+    if(index==1){
+      write.table(acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = TRUE,append = FALSE)
+      write.table(mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = TRUE,append = FALSE)
+    }else{
+      write.table(acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = FALSE,append = TRUE)
+      write.table(mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = FALSE,append = TRUE)
+    }
+
 
 
     if (burnIn) { # avoid, after burn in, to have switch and sample in the same step (not really needed)
@@ -1898,8 +1911,7 @@ MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
   }
 
   return(list(
-    "seqsEM" = seqsEM, "resstepPT" = resstepPT$aux$newseq,
-    "acceptDF" = acceptDF, "mcmcDiagDF" = mcmcDiagDF
+    "seqsEM" = seqsEM, "resstepPT" = resstepPT$aux$newseq
   ))
 }
 
@@ -1931,7 +1943,8 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                     burnInIter = 500, maxIter = 10000,
                     thin = 50, T0 = 100, nStepExch = 10,
                     pAug = 0.35, pShort = 0.35, pPerm = 0.3, k = 5,
-                    num_cores = num_cores,typeTemp = "sequential",r=1/2) {
+                    num_cores = num_cores,typeTemp = "sequential",r=1/2,
+                    index = 1) {
 
   cl <- makeCluster(num_cores)
   on.exit(stopCluster(cl))
@@ -2043,20 +2056,33 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     seqsPT = unlist(lapply(lapply(resstepPT, "[[", "aux"), "[", "newseq"),
                     recursive=FALSE)
 
-    acceptDFaux <- lapply(resstepPT, function(x) x$acceptanceDF)
-    acceptDFaux <- as.data.frame(do.call(rbind, acceptDFaux))
-    acceptDF <- rbind(acceptDF, acceptDFaux)
+    acceptDF <- lapply(resstepPT, function(x) x$acceptanceDF)
+    acceptDF <- as.data.frame(do.call(rbind, acceptDFaux))
+    # acceptDF <- rbind(acceptDF, acceptDFaux)
 
     if(burnIn){
       if(i> burnInIter){
-        mcmcDiagDFaux <- lapply(resstepPT, function(x) x$mcmcDiagDF)
-        mcmcDiagDFaux <- as.data.frame(do.call(rbind, mcmcDiagDFaux))
-        mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
+        mcmcDiagDF <- lapply(resstepPT, function(x) x$mcmcDiagDF)
+        mcmcDiagDF <- as.data.frame(do.call(rbind, mcmcDiagDFaux))
+        # mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
       }
     }else{
-      mcmcDiagDFaux <- lapply(resstepPT, function(x) x$mcmcDiagDF)
-      mcmcDiagDFaux <- as.data.frame(do.call(rbind, mcmcDiagDFaux))
-      mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
+      mcmcDiagDF <- lapply(resstepPT, function(x) x$mcmcDiagDF)
+      mcmcDiagDF <- as.data.frame(do.call(rbind, mcmcDiagDFaux))
+      # mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
+    }
+
+
+    if(index==1){
+      write.table(acceptDF, file = paste("out_PT_acceptDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = TRUE,append = FALSE)
+      write.table(mcmcDiagDF, file = paste("out_PT_mcmcDiagDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = TRUE,append = FALSE)
+    }else{
+      write.table(acceptDF, file = paste("out_PT_acceptDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = FALSE,append = TRUE)
+      write.table(mcmcDiagDF, file = paste("out_PT_mcmcDiagDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = FALSE,append = TRUE)
     }
 
     # browser()
@@ -2101,20 +2127,34 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
           resstepPT[[tempPairs[j, 2]]]$aux$newloglikSeq
       )
       if (logUnif[j] < logMHRatio) {
-        acceptSwitch <- rbind(acceptSwitch,
-                              data.frame("Accept" = TRUE,
-                                         "Temp1" = tempPairs[j, 1],
-                                         "Temp2" = tempPairs[j, 2]))
+        # acceptSwitch <- rbind(acceptSwitch,
+        #                       data.frame("Accept" = TRUE,
+        #                                  "Temp1" = tempPairs[j, 1],
+        #                                  "Temp2" = tempPairs[j, 2]))
+        acceptSwitch <- data.frame("Accept" = TRUE,
+                                   "Temp1" = tempPairs[j, 1],
+                                   "Temp2" = tempPairs[j, 2])
         auxPT <- resstepPT[[tempPairs[j, 1]]]
         resstepPT[[tempPairs[j, 1]]] <- resstepPT[[tempPairs[j, 2]]]
         resstepPT[[tempPairs[j, 2]]] <- auxPT
         rm(auxPT)
       } else {
-        acceptSwitch <- rbind(acceptSwitch,
-                              data.frame("Accept" = FALSE,
-                                         "Temp1" = tempPairs[j, 1],
-                                         "Temp2" = tempPairs[j, 2]))
+        # acceptSwitch <- rbind(acceptSwitch,
+        #                       data.frame("Accept" = FALSE,
+        #                                  "Temp1" = tempPairs[j, 1],
+        #                                  "Temp2" = tempPairs[j, 2]))
+        acceptSwitch <- data.frame("Accept" = TRUE,
+                                   "Temp1" = tempPairs[j, 1],
+                                   "Temp2" = tempPairs[j, 2])
       }
+    }
+
+    if(index==1){
+      write.table(acceptSwitch, file = paste("out_PT_acceptSwitch.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = TRUE,append = FALSE)
+    }else{
+      write.table(acceptSwitch, file = paste("out_PT_acceptSwitch.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = FALSE,append = TRUE)
     }
 
 
@@ -2136,21 +2176,27 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     seqsPT = unlist(lapply(lapply(resstepPT, "[[", "aux"), "[", "newseq"),
                     recursive=FALSE)
 
-    acceptDFaux <- lapply(resstepPT, function(x) x$acceptanceDF)
-    acceptDFaux <- as.data.frame(do.call(rbind, acceptDFaux))
-    acceptDF <- rbind(acceptDF, acceptDFaux)
+    acceptDF <- lapply(resstepPT, function(x) x$acceptanceDF)
+    acceptDF <- as.data.frame(do.call(rbind, acceptDFaux))
+    # acceptDF <- rbind(acceptDF, acceptDFaux)
 
     if(burnIn){
       if(i> burnInIter){
-        mcmcDiagDFaux <- lapply(resstepPT, function(x) x$mcmcDiagDF)
-        mcmcDiagDFaux <- as.data.frame(do.call(rbind, mcmcDiagDFaux))
-        mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
+        mcmcDiagDF <- lapply(resstepPT, function(x) x$mcmcDiagDF)
+        mcmcDiagDF <- as.data.frame(do.call(rbind, mcmcDiagDFaux))
+        # mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
       }
     }else{
-      mcmcDiagDFaux <- lapply(resstepPT, function(x) x$mcmcDiagDF)
-      mcmcDiagDFaux <- as.data.frame(do.call(rbind, mcmcDiagDFaux))
-      mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
+      mcmcDiagDF <- lapply(resstepPT, function(x) x$mcmcDiagDF)
+      mcmcDiagDF <- as.data.frame(do.call(rbind, mcmcDiagDFaux))
+      # mcmcDiagDF <- rbind(mcmcDiagDF, mcmcDiagDFaux)
     }
+
+
+      write.table(acceptDF, file = paste("out_PT_acceptDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = FALSE,append = TRUE)
+      write.table(mcmcDiagDF, file = paste("out_PT_mcmcDiagDF.txt",sep=""), sep = "\t",
+                  row.names = FALSE, col.names = FALSE,append = TRUE)
 
 
 
@@ -2173,9 +2219,7 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
 
   return(list(
     "seqsEM" = seqsEM,
-    "resstepPT" = lapply(lapply(resstepPT, "[[", "aux"), "[", "newseq"),
-    "acceptSwitch" = acceptSwitch, "acceptDF" = acceptDF,
-    "mcmcDiagDF" = mcmcDiagDF
+    "resstepPT" = lapply(lapply(resstepPT, "[[", "aux"), "[", "newseq")
   ))
 }
 

@@ -469,7 +469,8 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
                           pShort = 0.35, pAug = 0.35, pPerm = 0.3,
                           k_perm = 5 ,nPT = 1,
                           T0 = 1, nStepExch = 10, typeTemp = "sequential",r=1/2,
-                          maxIterPT = 1000) {
+                          maxIterPT = 1000, burnInIter1 = 8000,
+                          burnInIter2 = 1000) {
 
 
   actDfnodes <- defineNodes(data.frame(label = colnames(net0)))
@@ -537,9 +538,9 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
     }
 
     if(index==1) {
-      burnInIter =8000
+      burnInIter = burnInIter1
     }else{
-      burnInIter = 1000
+      burnInIter = burnInIter2
     }
 
     seqsEM <- PT_Rate_MCMC(nmax = nmax, nPT = nPT, seqsPT = seqsPT, H = H,
@@ -548,26 +549,29 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
                            fixedparameters = fixedparameters,
                            initTime = initTime, endTime = endTime,
                            burnIn=TRUE, burnInIter = burnInIter,
-                           maxIterPT = maxIterPT, thin = thin, T0 = T0,
+                           maxIter = maxIterPT, thin = thin, T0 = T0,
                            nStepExch = nStepExch, pAug = pAug,
                            pShort = pShort, pPerm = pPerm, k = k_perm,
-                           num_cores = num_cores, typeTemp = typeTemp ,r = r)
+                           num_cores = num_cores, typeTemp = typeTemp ,r = r,
+                           index = index)
+
+
     cat("After MCMC_Rate, writing tables should happen now")
-    if(index==1){
-      write.table(seqsEM$acceptDF, file = paste("out_PT_acceptDF.txt",sep=""), sep = "\t",
-                  row.names = FALSE, col.names = TRUE,append = FALSE)
-      write.table(seqsEM$mcmcDiagDF, file = paste("out_PT_mcmcDiagDF.txt",sep=""), sep = "\t",
-                  row.names = FALSE, col.names = TRUE,append = FALSE)
-      write.table(seqsEM$acceptSwitch, file = paste("out_PT_acceptSwitch.txt",sep=""), sep = "\t",
-                  row.names = FALSE, col.names = TRUE,append = FALSE)
-    }else{
-      write.table(seqsEM$acceptDF, file = paste("out_PT_acceptDF.txt",sep=""), sep = "\t",
-                  row.names = FALSE, col.names = FALSE,append = TRUE)
-      write.table(seqsEM$mcmcDiagDF, file = paste("out_PT_mcmcDiagDF.txt",sep=""), sep = "\t",
-                  row.names = FALSE, col.names = FALSE,append = TRUE)
-      write.table(seqsEM$acceptSwitch, file = paste("out_PT_acceptSwitch.txt",sep=""), sep = "\t",
-                  row.names = FALSE, col.names = FALSE,append = TRUE)
-    }
+    # if(index==1){
+    #   write.table(seqsEM$acceptDF, file = paste("out_PT_acceptDF.txt",sep=""), sep = "\t",
+    #               row.names = FALSE, col.names = TRUE,append = FALSE)
+    #   write.table(seqsEM$mcmcDiagDF, file = paste("out_PT_mcmcDiagDF.txt",sep=""), sep = "\t",
+    #               row.names = FALSE, col.names = TRUE,append = FALSE)
+    #   write.table(seqsEM$acceptSwitch, file = paste("out_PT_acceptSwitch.txt",sep=""), sep = "\t",
+    #               row.names = FALSE, col.names = TRUE,append = FALSE)
+    # }else{
+    #   write.table(seqsEM$acceptDF, file = paste("out_PT_acceptDF.txt",sep=""), sep = "\t",
+    #               row.names = FALSE, col.names = FALSE,append = TRUE)
+    #   write.table(seqsEM$mcmcDiagDF, file = paste("out_PT_mcmcDiagDF.txt",sep=""), sep = "\t",
+    #               row.names = FALSE, col.names = FALSE,append = TRUE)
+    #   write.table(seqsEM$acceptSwitch, file = paste("out_PT_acceptSwitch.txt",sep=""), sep = "\t",
+    #               row.names = FALSE, col.names = FALSE,append = TRUE)
+    # }
 
     seqsPT <- unlist(seqsEM$resstepPT, recursive = FALSE)
 
@@ -649,29 +653,29 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
                                   fixedparameters = fixedparameters,
                                   initTime = initTime, endTime = endTime,
                                   burnIn=FALSE, burnInIter = 0,
-                                  maxIterPT = maxIterPT, thin = thin, T0 = T0,
+                                  maxIter = maxIterPT, thin = thin, T0 = T0,
                                   nStepExch = nStepExch, pAug = pAug,
                                   pShort = pShort, pPerm = pPerm, k = k_perm,
                                   num_cores = num_cores, typeTemp = typeTemp ,
-                                  r = r)
+                                  r = r, index = 2)
         nmax <- nmax + ceiling(nmax / k)
 
-        write.table(seqsEMaux$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
-                    row.names = FALSE, col.names = FALSE,append = TRUE)
-        write.table(seqsEMaux$mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
-                    row.names = FALSE, col.names = FALSE,append = TRUE)
-        write.table(seqsEM$acceptSwitch, file = paste("out_PT_acceptSwitch.txt",sep=""), sep = "\t",
-                    row.names = FALSE, col.names = FALSE,append = TRUE)
+        # write.table(seqsEMaux$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
+        #             row.names = FALSE, col.names = FALSE,append = TRUE)
+        # write.table(seqsEMaux$mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
+        #             row.names = FALSE, col.names = FALSE,append = TRUE)
+        # write.table(seqsEM$acceptSwitch, file = paste("out_PT_acceptSwitch.txt",sep=""), sep = "\t",
+        #             row.names = FALSE, col.names = FALSE,append = TRUE)
 
 
         seqsPT <- unlist(seqsEMaux$resstepPT, recursive = FALSE)
 
         # seqsEM <- c(seqsEM, seqsEMaux) not possible!!
         seqsEM$seqsEM <- c(seqsEM$seqsEM, seqsEMaux$seqsEM)
-        seqsEM$resstepPT <- c(seqsEM$resstepPT, seqsEMaux$resstepPT)
-        seqsEM$acceptSwitch <- rbind(seqsEM$acceptSwitch, seqsEMaux$acceptSwitch)
-        seqsEM$acceptDF <- rbind(seqsEM$acceptDF, seqsEMaux$acceptDF)
-        seqsEM$mcmcDiagDF <- rbind(seqsEM$mcmcDiagDF, seqsEMaux$mcmcDiagDF)
+        # seqsEM$resstepPT <- c(seqsEM$resstepPT, seqsEMaux$resstepPT)
+        # seqsEM$acceptSwitch <- rbind(seqsEM$acceptSwitch, seqsEMaux$acceptSwitch)
+        # seqsEM$acceptDF <- rbind(seqsEM$acceptDF, seqsEMaux$acceptDF)
+        # seqsEM$mcmcDiagDF <- rbind(seqsEM$mcmcDiagDF, seqsEMaux$mcmcDiagDF)
         seqsEM$resstepPT <- seqsPT
 
         logLikPrevChoiceCrea <- sapply(lapply(
@@ -746,10 +750,10 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
 
 
       beta <- newNRstepChoice$parameters
-      seChoice <- newNRstepChoice$stdErrors
+      # seChoice <- newNRstepChoice$stdErrors
 
       theta <- newNRstepRate$parameters
-      seRate <- newNRstepRate$stdErrors
+      # seRate <- newNRstepRate$stdErrors
 
 
       # Update on the number of permutations
@@ -781,23 +785,21 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
     sqrt(diag(newNRstepRate$inverseInformationUnfixedDel))
 
 
-  acceptSwitch <- table(seqsEM$acceptSwitch)
-  acceptDF <- table(seqsEM$acceptDF)
+  # acceptSwitch <- table(seqsEM$acceptSwitch)
+  # acceptDF <- table(seqsEM$acceptDF)
 
-  mcmcObj <- tapply(seqsEM$mcmcDiagDF[, -ncol(seqsEM$mcmcDiagDF)],
-                    seqsEM$mcmcDiagDF$temp, mcmc,
-                    thin = thin
-  )
+  # mcmcObj <- tapply(seqsEM$mcmcDiagDF[, -ncol(seqsEM$mcmcDiagDF)],
+  #                   seqsEM$mcmcDiagDF$temp, mcmc,
+  #                   thin = thin
+  # )
 
-  geweke <- lapply(mcmcObj, geweke.diag)
-  ess <- lapply(mcmcObj, effectiveSize)
+  # geweke <- lapply(mcmcObj, geweke.diag)
+  # ess <- lapply(mcmcObj, effectiveSize)
 
   return(list(
-    "logLik" = logLikCur, "beta" = beta, "seChoice" = seChoice,
-    "theta" = theta, "seRate" = seRate, "index" = index, "diff" = diff,
-    "acceptSwitch" = acceptSwitch, "acceptDF" = acceptDF,
-    "geweke" = geweke, "ess" = ess,
-    "acceptSwitchDF" = seqsEM$acceptSwitch
+    "logLik" = logLikCur, "beta" = beta, "stdErrorsChoice" = stdErrorsChoice,
+    "theta" = theta, "stdErrorsRate" = stdErrorsRate, "index" = index,
+    "diff" = diff
   ))
 }
 
@@ -869,7 +871,8 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
                               alpha = 0.9, gamma = 0.9, thr = 1e-3,
                               maxIter = 1000, thin = 10,
                               pShort = 0.35, pAug = 0.35, pPerm = 0.3,
-                              k_perm=5) {
+                              k_perm=5, burnInIter1 = 10000,
+                              burnInIter2 = 1000) {
 
 
   actDfnodes <- defineNodes(data.frame(label = colnames(net0)))
@@ -933,9 +936,9 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
     # browser()
 
     if(index==1) {
-      burnInIter =10000
+      burnInIter = burnInIter1
     }else{
-      burnInIter = 1000
+      burnInIter = burnInIter2
     }
 
     # browser()
@@ -946,22 +949,12 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
                         initTime = initTime, endTime = endTime,
                         burnIn = TRUE, burnInIter = burnInIter,
                         maxIter = 100000, thin = thin,
-                        pAug = pAug, pShort = pShort,pPerm = pPerm, k = k_perm
+                        pAug = pAug, pShort = pShort,pPerm = pPerm, k = k_perm,
+                        index = index
     )
 
 
       cat("After MCMC_Rate, writing tables should happen now")
-    if(index==1){
-    write.table(seqsEM$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
-                row.names = FALSE, col.names = TRUE,append = FALSE)
-    write.table(seqsEM$mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
-                row.names = FALSE, col.names = TRUE,append = FALSE)
-    }else{
-      write.table(seqsEM$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
-                  row.names = FALSE, col.names = FALSE,append = TRUE)
-      write.table(seqsEM$mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
-                  row.names = FALSE, col.names = FALSE,append = TRUE)
-    }
 
     seqInit <- seqsEM$resstepPT
 
@@ -972,10 +965,10 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
       lapply(seqsEM$seqsEM, "[[", "newlogLikelihoodStats"), "[[", "resDel"
     ), "[[", "logLikelihood")
 
-    if(!is.numeric(logLikPrevChoiceCrea + logLikPrevChoiceDel ) |
-       is.na(logLikPrevChoiceCrea + logLikPrevChoiceDel )){
-      save.image(file='myEnvironment.RData')
-    }
+    # if(!is.numeric(logLikPrevChoiceCrea + logLikPrevChoiceDel ) |
+    #    is.na(logLikPrevChoiceCrea + logLikPrevChoiceDel )){
+    #   save.image(file='myEnvironment.RData')
+    # }
 
     logLikPrevChoice <- logLikPrevChoiceCrea + logLikPrevChoiceDel # vector of likelihoods lambda^{t-1}
 
@@ -1044,31 +1037,32 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
         # Estimator is not accepted, new point must be sampled
         # Perform Parallel-Tempering
 
-        seqsEMaux <-MCMC_rate(nmax = nmax/k, seqInit = seqInit, H = H,
+        seqsEMaux <-MCMC_rate(nmax = ceiling(nmax/k), seqInit = seqInit, H = H,
                   actDfnodes = actDfnodes, formula = formula,
                   net0 = net0, beta = beta, theta = theta,
                   fixedparameters = fixedparameters,
                   initTime = initTime, endTime = endTime,
                   burnIn = FALSE, burnInIter = 0,
                   maxIter = 100000, thin = thin,
-                  pAug = pAug, pShort = pShort,pPerm = pPerm, k = k_perm
+                  pAug = pAug, pShort = pShort,pPerm = pPerm, k = k_perm,
+                  index = 2
         )
 
-        nmax <- ceiling(nmax + nmax / k)
+        nmax <- nmax + ceiling(nmax / k)
 
-        write.table(seqsEMaux$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
-                    row.names = FALSE, col.names = FALSE,append = TRUE)
-        write.table(seqsEMaux$mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
-                    row.names = FALSE, col.names = FALSE,append = TRUE)
+        # write.table(seqsEMaux$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
+        #             row.names = FALSE, col.names = FALSE,append = TRUE)
+        # write.table(seqsEMaux$mcmcDiagDF, file = paste("out_mcmcDiagDF.txt",sep=""), sep = "\t",
+        #             row.names = FALSE, col.names = FALSE,append = TRUE)
 
         seqInit <- seqsEMaux$resstepPT
 
         # seqsEM <- c(seqsEM, seqsEMaux) not possible!!
         seqsEM$seqsEM <- c(seqsEM$seqsEM, seqsEMaux$seqsEM)
         seqsEM$resstepPT <- seqsEMaux$resstepPT
-        seqsEM$acceptSwitch <- rbind(seqsEM$acceptSwitch, seqsEMaux$acceptSwitch)
-        seqsEM$acceptDF <- rbind(seqsEM$acceptDF, seqsEMaux$acceptDF)
-        seqsEM$mcmcDiagDF <- rbind(seqsEM$mcmcDiagDF, seqsEMaux$mcmcDiagDF)
+        # seqsEM$acceptSwitch <- rbind(seqsEM$acceptSwitch, seqsEMaux$acceptSwitch)
+        # seqsEM$acceptDF <- rbind(seqsEM$acceptDF, seqsEMaux$acceptDF)
+        # seqsEM$mcmcDiagDF <- rbind(seqsEM$mcmcDiagDF, seqsEMaux$mcmcDiagDF)
 
 
         logLikPrevChoiceCrea <- sapply(lapply(
@@ -1173,20 +1167,20 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
   stdErrorsRate$Del <-
     sqrt(diag(newNRstepRate$inverseInformationUnfixedDel))
 
-  acceptDF <- table(seqsEM$acceptDF)
+  # acceptDF <- table(seqsEM$acceptDF)
+  #
+  # mcmcObj <- tapply(seqsEM$mcmcDiagDF[, -ncol(seqsEM$mcmcDiagDF)],
+  #                   seqsEM$mcmcDiagDF$temp, mcmc,
+  #                   thin = thin
+  # )
 
-  mcmcObj <- tapply(seqsEM$mcmcDiagDF[, -ncol(seqsEM$mcmcDiagDF)],
-                    seqsEM$mcmcDiagDF$temp, mcmc,
-                    thin = thin
-  )
-
-  geweke <- lapply(mcmcObj, geweke.diag)
-  ess <- lapply(mcmcObj, effectiveSize)
+  # geweke <- lapply(mcmcObj, geweke.diag)
+  # ess <- lapply(mcmcObj, effectiveSize)
 
   return(list(
     "logLik" = logLikCur, "beta" = beta, "stdErrorsChoice" = stdErrorsChoice,
-    "theta" = theta, "seRate" = stdErrorsRate, "index" = index, "diff" = diff,
-    "acceptDF" = acceptDF, "geweke" = geweke, "ess" = ess
+    "theta" = theta, "stdErrorsRate" = stdErrorsRate, "index" = index,
+    "diff" = diff
   ))
 }
 

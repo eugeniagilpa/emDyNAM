@@ -10,7 +10,8 @@ MCEMalgorithmRateMCMC(
   net1,
   theta0,
   beta0,
-  fixedparameters = c(NA, NA, NA, 20, 20),
+  fixedparameters = data.frame(Crea = c(NA, NA, NA, NA, -20, -20), Del = c(NA, NA, NA,
+    NA, 20, 20)),
   formula,
   initTime = 0,
   endTime = 1,
@@ -25,7 +26,8 @@ MCEMalgorithmRateMCMC(
   pAug = 0.35,
   pPerm = 0.3,
   k_perm = 5,
-  maxIterPT = 1000
+  burnInIter1 = 10000,
+  burnInIter2 = 1000
 )
 }
 \arguments{

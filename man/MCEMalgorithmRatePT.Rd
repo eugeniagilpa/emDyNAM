@@ -24,13 +24,15 @@ MCEMalgorithmRatePT(
   pShort = 0.35,
   pAug = 0.35,
   pPerm = 0.3,
-  k = 5,
+  k_perm = 5,
   nPT = 1,
   T0 = 1,
   nStepExch = 10,
   typeTemp = "sequential",
   r = 1/2,
-  maxIterPT = 1000
+  maxIterPT = 1000,
+  burnInIter1 = 8000,
+  burnInIter2 = 1000
 )
 }
 \arguments{

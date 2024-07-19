@@ -23,7 +23,8 @@ MCMC_rate(
   pAug = 0.35,
   pShort = 0.35,
   pPerm = 0.3,
-  k = 5
+  k = 5,
+  index = 1
 )
 }
 \arguments{
