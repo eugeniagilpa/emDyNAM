@@ -470,7 +470,10 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
                           k_perm = 5 ,nPT = 1,
                           T0 = 1, nStepExch = 10, typeTemp = "sequential",r=1/2,
                           maxIterPT = 1000, burnInIter1 = 8000,
-                          burnInIter2 = 1000) {
+                          burnInIter2 = 1000,
+                          out_file_names = c("out_PT_acceptDF",
+                                             "out_PT_mcmcDiagDF",
+                                             "out_PT_acceptSwitch")) {
 
 
   actDfnodes <- defineNodes(data.frame(label = colnames(net0)))
@@ -553,7 +556,7 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
                            nStepExch = nStepExch, pAug = pAug,
                            pShort = pShort, pPerm = pPerm, k = k_perm,
                            num_cores = num_cores, typeTemp = typeTemp ,r = r,
-                           index = index)
+                           index = index,out_file_names=out_file_names)
 
 
     cat("After MCMC_Rate, writing tables should happen now")
@@ -605,12 +608,16 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
       seqsEM = seqsEM$seqsEM
     )
 
-
+    cat("\n Choice:")
+    print(newNRstepChoice$parameters)
+    cat("\n Rate:")
+    print(newNRstepRate$parameters)
+    cat("\n")
     splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
 
     logLikCurChoice <- clusterApplyLB(cl2, seq_along(splitIndicesPerCore),
                                 getlogLikelihoodMC,seqsEM = seqsEM$seqsEM,
-                                beta = newNRstep$parameters,
+                                beta = newNRstepChoice$parameters,
                                 fixedparameters = fixedparameters,
                                 splitIndicesPerCore = splitIndicesPerCore,
                                 initTime = initTime, endTime = endTime,
@@ -657,7 +664,7 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
                                   nStepExch = nStepExch, pAug = pAug,
                                   pShort = pShort, pPerm = pPerm, k = k_perm,
                                   num_cores = num_cores, typeTemp = typeTemp ,
-                                  r = r, index = 2)
+                                  r = r, index = 2,out_file_names=out_file_names)
         nmax <- nmax + ceiling(nmax / k)
 
         # write.table(seqsEMaux$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
@@ -707,13 +714,18 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
           parameters = theta,
           seqsEM = seqsEM$seqsEM
         )
+        cat("\n Choice:")
+        print(newNRstepChoice$parameters)
+        cat("\n Rate:")
+        print(newNRstepRate$parameters)
+        cat("\n")
 
 
         splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
 
         logLikCurChoice <- clusterApplyLB(cl2, seq_along(splitIndicesPerCore),
                                           getlogLikelihoodMC,seqsEM = seqsEM$seqsEM,
-                                          beta = newNRstep$parameters,
+                                          beta = newNRstepChoice$parameters,
                                           fixedparameters = fixedparameters,
                                           splitIndicesPerCore = splitIndicesPerCore,
                                           initTime = initTime, endTime = endTime,
@@ -872,7 +884,9 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
                               maxIter = 1000, thin = 10,
                               pShort = 0.35, pAug = 0.35, pPerm = 0.3,
                               k_perm=5, burnInIter1 = 10000,
-                              burnInIter2 = 1000) {
+                              burnInIter2 = 1000,
+                              out_file_names = c("out_PT_acceptDF",
+                                                 "out_PT_mcmcDiagDF")) {
 
 
   actDfnodes <- defineNodes(data.frame(label = colnames(net0)))
@@ -950,7 +964,7 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
                         burnIn = TRUE, burnInIter = burnInIter,
                         maxIter = 100000, thin = thin,
                         pAug = pAug, pShort = pShort,pPerm = pPerm, k = k_perm,
-                        index = index
+                        index = index,out_file_names=out_file_names
     )
 
 
@@ -994,7 +1008,11 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
       seqsEM = seqsEM$seqsEM
     )
 
-
+    cat("\n Choice:")
+    print(newNRstepChoice$parameters)
+    cat("\n Rate:")
+    print(newNRstepRate$parameters)
+    cat("\n")
     splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
 
     logLikCurChoice <- clusterApplyLB(cl2, seq_along(splitIndicesPerCore),
@@ -1045,7 +1063,7 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
                   burnIn = FALSE, burnInIter = 0,
                   maxIter = 100000, thin = thin,
                   pAug = pAug, pShort = pShort,pPerm = pPerm, k = k_perm,
-                  index = 2
+                  index = 2,out_file_names=out_file_names
         )
 
         nmax <- nmax + ceiling(nmax / k)
@@ -1095,6 +1113,11 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
           seqsEM = seqsEM$seqsEM
         )
 
+        cat("\n Choice:")
+        print(newNRstepChoice$parameters)
+        cat("\n Rate:")
+        print(newNRstepRate$parameters)
+        cat("\n")
 
         splitIndicesPerCore <- splitIndices(length(seqsEM$seqsEM), num_cores)
 
