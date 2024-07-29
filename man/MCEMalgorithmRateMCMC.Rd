@@ -27,7 +27,8 @@ MCEMalgorithmRateMCMC(
   pPerm = 0.3,
   k_perm = 5,
   burnInIter1 = 10000,
-  burnInIter2 = 1000
+  burnInIter2 = 1000,
+  out_file_names = c("out_PT_acceptDF", "out_PT_mcmcDiagDF")
 )
 }
 \arguments{

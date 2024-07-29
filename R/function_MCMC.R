@@ -1401,7 +1401,11 @@ stepRatePT <- function(seq, type, actDfnodesLab, actDfnodes, tieNames, formula,
   gammaEminus <- choose(Kel_ge1, 2) + Kel_g1
   gammaMinus <- sum(gammaEminus)
   if (gammaMinus == 0) {
-    type <- 1
+    type <- sampleVec(c(1, 3),
+                      size = 1,
+                      prob = c(pAug / (pAug + pPerm), pPerm / (pAug + pPerm)),
+                      replace = TRUE
+    )
   }
   me <- getKelMeMatrix$me
   gammaEplus <- choose(nrow(seq) - me + 2, 2)

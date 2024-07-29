@@ -24,7 +24,8 @@ MCMC_rate(
   pShort = 0.35,
   pPerm = 0.3,
   k = 5,
-  index = 1
+  index = 1,
+  out_file_names = c("out_PT_acceptDF", "out_PT_mcmcDiagDF")
 )
 }
 \arguments{

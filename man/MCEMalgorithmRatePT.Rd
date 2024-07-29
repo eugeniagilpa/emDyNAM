@@ -32,7 +32,8 @@ MCEMalgorithmRatePT(
   r = 1/2,
   maxIterPT = 1000,
   burnInIter1 = 8000,
-  burnInIter2 = 1000
+  burnInIter2 = 1000,
+  out_file_names = c("out_PT_acceptDF", "out_PT_mcmcDiagDF", "out_PT_acceptSwitch")
 )
 }
 \arguments{
