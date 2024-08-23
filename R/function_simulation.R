@@ -15,26 +15,33 @@
 #'
 #' @return List with results of estimation given by goldfish, initial and final
 #'          networks (adjacency matrix), sequence of events (eventsMod)
+#'
+#' @example library(RSiena)
+#' parmsChoiceCrea = c(0.2,0.2,0.6,0.6)
+#' parmsChoiceDel = c(-0.6,-0.6,-2,-2)
+#' nSimCrea = 50
+#' nSimDel = 50
+#' simulation = simulationDyNAM(nSimCrea = nSimCrea,
+#'                              nSimDel = nSimDel,
+#'                              parmsChoiceCrea = parmsChoiceCrea,
+#'                              parmsChoiceDel = parmsChoiceDel,
+#'                              endTime = 1, rep = FALSE, init_matrix = s501)
+#'
 #' @export
 #'
 #'
 simulationDyNAM = function(nSimCrea,nSimDel,parmsChoiceCrea,parmsChoiceDel,
                            endTime = 1, rep = FALSE,init_matrix = s501){
 
-
-
   actDf <-dimnames(init_matrix)[[2]]
   nAct <- length(actDf)
 
-
-  # parameters = c(log(nSim/endTime/avgActors),...), avgActors = actors that can create/delete ties in t_0
-  parmsCrea <- c(log(nSimCrea / endTime / nAct )) #indegree and outdegree of ego
-  parmsDel <- c(log(nSimDel / endTime / (nAct-4))) #indegree and outdegree of ego
-  # there are 4 actors with no ties, so no deletion is possible
+  # Rate parameters
+  parmsCrea <- c(log(nSimCrea / endTime / nAct ))
+  parmsDel <- c(log(nSimDel / endTime / (nAct-4)))
 
 
   # simulate DyNAM ------------------------------------------------------
-  # Xstate = matrix(0L, nrow=nAct, ncol=nAct)#Xstate=s501
 
   Xstate = init_matrix
   rownames(Xstate) = dimnames(init_matrix)[[2]]
@@ -429,3 +436,10 @@ simulationDyNAM = function(nSimCrea,nSimDel,parmsChoiceCrea,parmsChoiceDel,
   return(list("modCrea" = modCrea, "modDel" = modDel,"net0" = initState, "net1" = Xstate , "eventsMod" = eventsMod ))
 
 }
+
+
+
+
+
+
+
