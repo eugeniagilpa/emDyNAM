@@ -1819,7 +1819,8 @@ MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
                  theta, fixedparameters, initTime, endTime, burnIn = TRUE,
                  burnInIter = 500, maxIter = 10000, thin = 50,
                  pAug = 0.35, pShort = 0.35, pPerm = 0.3, k = 5, index = 1,
-                 out_file_names = c("out_PT_acceptDF","out_PT_mcmcDiagDF")
+                 out_file_names = c("out_PT_acceptDF","out_PT_mcmcDiagDF"),
+                 changePPerm = FALSE
 ) {
   # Compute initial quatities:
   # Type 1: augmentation, type 2: shortening
@@ -1913,6 +1914,15 @@ MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
     }
     i <- i + 1
     if (i > maxIter) break
+
+    if(changePPerm){
+      if( i > 5000 & !i%%100 & pPerm < 0.8){
+        pPerm = pPerm + 0.1
+        pAug = (1-pPerm)/2
+        pShort = pAug
+      }
+    }
+
   }
 
   return(list(
@@ -1951,7 +1961,8 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
                     num_cores = num_cores,typeTemp = "sequential",r=1/2,
                     index = 1,out_file_names = c("out_PT_acceptDF",
                                                  "out_PT_mcmcDiagDF",
-                                                 "out_PT_acceptSwitch")) {
+                                                 "out_PT_acceptSwitch"),
+                    changePPerm = FALSE) {
 
   cl <- makeCluster(num_cores)
   on.exit(stopCluster(cl))
@@ -2116,6 +2127,7 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     # Exchange step!
     # Accept or reject the change
     logUnif <- log(runif(nrow(tempPairs)))
+    acceptSwitch <- data.frame("Accept" = c(), "Temp1" = c(), "Temp2" = c())
     for (j in 1:nrow(tempPairs)) {
       logMHRatio <- min(
         0,
@@ -2127,25 +2139,25 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
           resstepPT[[tempPairs[j, 2]]]$aux$newloglikSeq
       )
       if (logUnif[j] < logMHRatio) {
-        # acceptSwitch <- rbind(acceptSwitch,
-        #                       data.frame("Accept" = TRUE,
-        #                                  "Temp1" = tempPairs[j, 1],
-        #                                  "Temp2" = tempPairs[j, 2]))
-        acceptSwitch <- data.frame("Accept" = TRUE,
-                                   "Temp1" = tempPairs[j, 1],
-                                   "Temp2" = tempPairs[j, 2])
+        acceptSwitch <- rbind(acceptSwitch,
+                              data.frame("Accept" = TRUE,
+                                         "Temp1" = tempPairs[j, 1],
+                                         "Temp2" = tempPairs[j, 2]))
+        # acceptSwitch <- data.frame("Accept" = TRUE,
+        #                            "Temp1" = tempPairs[j, 1],
+        #                            "Temp2" = tempPairs[j, 2])
         auxPT <- resstepPT[[tempPairs[j, 1]]]
         resstepPT[[tempPairs[j, 1]]] <- resstepPT[[tempPairs[j, 2]]]
         resstepPT[[tempPairs[j, 2]]] <- auxPT
         rm(auxPT)
       } else {
-        # acceptSwitch <- rbind(acceptSwitch,
-        #                       data.frame("Accept" = FALSE,
-        #                                  "Temp1" = tempPairs[j, 1],
-        #                                  "Temp2" = tempPairs[j, 2]))
-        acceptSwitch <- data.frame("Accept" = TRUE,
-                                   "Temp1" = tempPairs[j, 1],
-                                   "Temp2" = tempPairs[j, 2])
+        acceptSwitch <- rbind(acceptSwitch,
+                              data.frame("Accept" = FALSE,
+                                         "Temp1" = tempPairs[j, 1],
+                                         "Temp2" = tempPairs[j, 2]))
+        # acceptSwitch <- data.frame("Accept" = TRUE,
+        #                            "Temp1" = tempPairs[j, 1],
+        #                            "Temp2" = tempPairs[j, 2])
       }
     }
 
@@ -2206,6 +2218,16 @@ PT_Rate_MCMC <- function(nmax, nPT, seqsPT, H, actDfnodes, formula, net0, beta,
     }
 
     if (i > maxIter) break
+
+
+    if(changePPerm){
+      if( i > 5000 & !i%%100 & pPerm < 0.8){
+        pPerm = pPerm + 0.1
+        pAug = (1-pPerm)/2
+        pShort = pAug
+      }
+    }
+
   }
 
 
