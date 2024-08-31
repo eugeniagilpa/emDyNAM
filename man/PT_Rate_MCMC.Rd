@@ -38,7 +38,11 @@ PT_Rate_MCMC(
 \arguments{
 \item{nmax}{integer, number of sequences to be returned.}
 
-\item{H}{integer, hamming distance between net0 and net1.}
+\item{nPT}{integer, number of parallel chains with different temperatures.}
+
+\item{seqsPT}{list of sequences to initialize each chain.}
+
+\item{H}{integer, Hamming distance between net0 and net1.}
 
 \item{actDfnodes}{object of type ´nodes´ from goldfish.}
 
@@ -46,13 +50,29 @@ PT_Rate_MCMC(
 
 \item{net0}{matrix, initial observed network.}
 
-\item{beta}{list, estimator of parameters of the model (creation and deletion).}
+\item{beta}{data frame, initial values of parameters of the choice model (creation and deletion).}
 
-\item{burnIn}{boolean, indicates if burn in must be performed.}
+\item{theta}{data frame, initial values of parameters of the rate model (creation and deletion).}
+
+\item{fixedparameters}{data frame, fixed values for parameters of the
+choice model (creation and deletion), set as NA if parameter is not fixed.}
+
+\item{initTime}{time of initial observation.}
+
+\item{endTime}{time of final observation.}
+
+\item{burnIn}{boolean, indicates if burn-in must be performed.}
+
+\item{burnInIter}{integer, number of burn-in iterations.}
 
 \item{maxIter}{integer, maximum number of steps of the MCMC chain.}
 
 \item{thin}{integer, number of steps between selected sequences.}
+
+\item{T0}{float, maximum temperature of the chains.}
+
+\item{nStepExch}{integer, number of steps between proposing a swap. Optimal
+setting is thin=nStepExhc so the swaps alternate with samples.}
 
 \item{pAug}{float, probability of augmenting step.}
 
@@ -60,11 +80,26 @@ PT_Rate_MCMC(
 
 \item{pPerm}{float, probability of permutation step.}
 
-\item{seq}{data frame, sequence from which start/continue MCMC chain.}
+\item{k}{integer, number or permutations after an augmentation, shortening or permutaion mutation.}
+
+\item{num_cores}{integer, number of cores to use in the parallelization of processes.}
+
+\item{typeTemp}{character, type of temperature ladder (sequential, exp, geom).}
+
+\item{r}{float, only used if typeTemp="geom".}
+
+\item{index}{integer, auxiliar value for writing tables in txt files.
+Set different that 1 if files already exist.}
+
+\item{out_file_names}{names for saving tables with acceptance of mutations,
+loglikelihoods and score vectors, and acceptance of swaps.
+Do NOT add .txt extension.}
+
+\item{changepPerm}{boolean, allows for adaptative permutation mutation probability.}
 }
 \value{
-permut, list of sequences.
+list of sampled sequences, seqsEM, and final state of the chain, resstepPT.
 }
 \description{
-Computes an MCMC chain and returns nmax sequences from the MCMC chain.
+Computes an Parallel Tempering routine and returns nmax sequences from the chain with temperatue 1.
 }

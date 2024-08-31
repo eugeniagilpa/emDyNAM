@@ -32,7 +32,9 @@ MCMC_rate(
 \arguments{
 \item{nmax}{integer, number of sequences to be returned.}
 
-\item{H}{integer, hamming distance between net0 and net1.}
+\item{seqInit}{data frame, sequence from which start/continue MCMC chain.}
+
+\item{H}{integer, Hamming distance between net0 and net1.}
 
 \item{actDfnodes}{object of type ´nodes´ from goldfish.}
 
@@ -40,9 +42,20 @@ MCMC_rate(
 
 \item{net0}{matrix, initial observed network.}
 
-\item{beta}{list, estimator of parameters of the model (creation and deletion).}
+\item{beta}{data frame, initial values of parameters of the choice model (creation and deletion).}
 
-\item{burnIn}{boolean, indicates if burn in must be performed.}
+\item{theta}{data frame, initial values of parameters of the rate model (creation and deletion).}
+
+\item{fixedparameters}{data frame, fixed values for parameters of the
+choice model (creation and deletion), set as NA if parameter is not fixed.}
+
+\item{initTime}{time of initial observation.}
+
+\item{endTime}{time of final observation.}
+
+\item{burnIn}{boolean, indicates if burn-in must be performed.}
+
+\item{burnInIter}{integer, number of burn-in iterations.}
 
 \item{maxIter}{integer, maximum number of steps of the MCMC chain.}
 
@@ -54,10 +67,18 @@ MCMC_rate(
 
 \item{pPerm}{float, probability of permutation step.}
 
-\item{seq}{data frame, sequence from which start/continue MCMC chain.}
+\item{k}{integer, number or permutations after an augmentation, shortening or permutaion mutation.}
+
+\item{index}{integer, auxiliar value for writing tables in txt files.
+Set different that 1 if files already exist.}
+
+\item{out_file_names}{names for saving tables with acceptance of mutations,
+and loglikelihoods and score vectors. Do NOT add .txt extension.}
+
+\item{changepPerm}{boolean, allows for adaptative permutation mutation probability.}
 }
 \value{
-permut, list of sequences.
+list of sampled sequences, seqsEM, and final state of the chain, resstepPT.
 }
 \description{
 Computes an MCMC chain and returns nmax sequences from the MCMC chain.

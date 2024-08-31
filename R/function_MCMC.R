@@ -1798,20 +1798,32 @@ stepRatePTMC <- function(indexCore, splitIndicesPerCore, seqs, H, actDfnodesLab,
 #' @description Computes an MCMC chain and returns nmax sequences from the MCMC chain.
 #'
 #' @param nmax integer, number of sequences to be returned.
-#' @param seq data frame, sequence from which start/continue MCMC chain.
-#' @param H integer, hamming distance between net0 and net1.
+#' @param seqInit data frame, sequence from which start/continue MCMC chain.
+#' @param H integer, Hamming distance between net0 and net1.
 #' @param actDfnodes object of type ´nodes´ from goldfish.
 #' @param formula formula, the one used in goldfish model.
 #' @param net0 matrix, initial observed network.
-#' @param beta list, estimator of parameters of the model (creation and deletion).
-#' @param burnIn boolean, indicates if burn in must be performed.
+#' @param beta data frame, initial values of parameters of the choice model (creation and deletion).
+#' @param theta data frame, initial values of parameters of the rate model (creation and deletion).
+#' @param fixedparameters data frame, fixed values for parameters of the
+#'        choice model (creation and deletion), set as NA if parameter is not fixed.
+#' @param initTime time of initial observation.
+#' @param endTime time of final observation.
+#' @param burnIn boolean, indicates if burn-in must be performed.
+#' @param burnInIter integer, number of burn-in iterations.
 #' @param maxIter integer, maximum number of steps of the MCMC chain.
 #' @param thin integer, number of steps between selected sequences.
 #' @param pShort float, probability of shortening step.
 #' @param pAug float, probability of augmenting step.
 #' @param pPerm float, probability of permutation step.
+#' @param k integer, number or permutations after an augmentation, shortening or permutaion mutation.
+#' @param index integer, auxiliar value for writing tables in txt files.
+#'        Set different that 1 if files already exist.
+#' @param out_file_names names for saving tables with acceptance of mutations,
+#'        and loglikelihoods and score vectors. Do NOT add .txt extension.
+#' @param changepPerm boolean, allows for adaptative permutation mutation probability.
 #'
-#' @return permut, list of sequences.
+#' @return  list of sampled sequences, seqsEM, and final state of the chain, resstepPT.
 #'
 #' @export
 #'
@@ -1933,23 +1945,43 @@ MCMC_rate <- function(nmax, seqInit, H, actDfnodes, formula, net0, beta,
 
 #' PT_Rate_MCMC (simple version with augmentation/shortening/permutation)
 #'
-#' @description Computes an MCMC chain and returns nmax sequences from the MCMC chain.
+#' @description Computes an Parallel Tempering routine and returns nmax sequences from the chain with temperatue 1.
 #'
 #' @param nmax integer, number of sequences to be returned.
-#' @param seq data frame, sequence from which start/continue MCMC chain.
-#' @param H integer, hamming distance between net0 and net1.
+#' @param nPT integer, number of parallel chains with different temperatures.
+#' @param seqsPT list of sequences to initialize each chain.
+#' @param H integer, Hamming distance between net0 and net1.
 #' @param actDfnodes object of type ´nodes´ from goldfish.
 #' @param formula formula, the one used in goldfish model.
 #' @param net0 matrix, initial observed network.
-#' @param beta list, estimator of parameters of the model (creation and deletion).
-#' @param burnIn boolean, indicates if burn in must be performed.
+#' @param beta data frame, initial values of parameters of the choice model (creation and deletion).
+#' @param theta data frame, initial values of parameters of the rate model (creation and deletion).
+#' @param fixedparameters data frame, fixed values for parameters of the
+#'        choice model (creation and deletion), set as NA if parameter is not fixed.
+#' @param initTime time of initial observation.
+#' @param endTime time of final observation.
+#' @param burnIn boolean, indicates if burn-in must be performed.
+#' @param burnInIter integer, number of burn-in iterations.
 #' @param maxIter integer, maximum number of steps of the MCMC chain.
 #' @param thin integer, number of steps between selected sequences.
+#' @param T0 float, maximum temperature of the chains.
+#' @param nStepExch integer, number of steps between proposing a swap. Optimal
+#'        setting is thin=nStepExhc so the swaps alternate with samples.
 #' @param pShort float, probability of shortening step.
 #' @param pAug float, probability of augmenting step.
 #' @param pPerm float, probability of permutation step.
+#' @param k integer, number or permutations after an augmentation, shortening or permutaion mutation.
+#' @param num_cores integer, number of cores to use in the parallelization of processes.
+#' @param typeTemp character, type of temperature ladder (sequential, exp, geom).
+#' @param r float, only used if typeTemp="geom".
+#' @param index integer, auxiliar value for writing tables in txt files.
+#'        Set different that 1 if files already exist.
+#' @param out_file_names names for saving tables with acceptance of mutations,
+#'        loglikelihoods and score vectors, and acceptance of swaps.
+#'        Do NOT add .txt extension.
+#' @param changepPerm boolean, allows for adaptative permutation mutation probability.
 #'
-#' @return permut, list of sequences.
+#' @return  list of sampled sequences, seqsEM, and final state of the chain, resstepPT.
 #'
 #' @export
 #'
