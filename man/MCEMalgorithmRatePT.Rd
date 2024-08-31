@@ -33,10 +33,13 @@ MCEMalgorithmRatePT(
   maxIterPT = 1000,
   burnInIter1 = 8000,
   burnInIter2 = 1000,
-  out_file_names = c("out_PT_acceptDF", "out_PT_mcmcDiagDF", "out_PT_acceptSwitch")
+  out_file_names = c("out_PT_acceptDF", "out_PT_mcmcDiagDF", "out_PT_acceptSwitch"),
+  changePPerm = FALSE
 )
 }
 \arguments{
+\item{nmax}{initial value of number of permuations for step 0}
+
 \item{net0}{initial network}
 
 \item{net1}{final network}
@@ -47,9 +50,9 @@ MCEMalgorithmRatePT(
 
 \item{formula}{formula of the choice model}
 
-\item{initTime}{initial time. If formulaRate is not \code{NULL}, this parameter cannot be null.}
+\item{initTime}{initial time.}
 
-\item{endTime}{end time. If formulaRate is not \code{NULL}, this parameter cannot be null.}
+\item{endTime}{end time.}
 
 \item{num_cores}{number of cores for paralelization}
 
@@ -61,34 +64,54 @@ MCEMalgorithmRatePT(
 
 \item{thr}{threshold for algorithm stop}
 
-\item{maxIter}{maximum number of iterations for MCMC}
+\item{maxIter}{maximum number of iterations for Parallel Tempering}
 
-\item{thin}{number of MCMC steps beween samples}
+\item{thin}{number of mutations steps between samples}
 
-\item{pShort}{probability of shortening the sequence (MCMC)}
+\item{pShort}{probability of shortening the sequence, Parallel Tempering}
 
-\item{pAug}{probability of augmenting the sequence (MCMC)}
+\item{pAug}{probability of augmenting the sequence, Parallel Tempering}
 
-\item{pPerm}{probability of permuting two elements of the sequence (MCMC)}
+\item{pPerm}{probability of permuting two elements of the sequence, Parallel Tempering}
 
-\item{nmax0}{initial value of number of permuations for step 0}
+\item{k_perm}{number of permutations after an augmentation, shortening or permutation mutation.}
 
-\item{formulaRate}{formula of the rate model. Default value is \code{NULL}. Leave default for constant rate models (faster algorithm)}
+\item{nPT}{number of number of parallel chains with different temperatures.}
+
+\item{T0}{maximum temperature of chains, Parallel Tempering}
+
+\item{nStepExch}{number of steps between proposing a swap. Optimal
+setting is thin=nStepExhc so the swaps alternate with samples.}
+
+\item{typeTemp}{character, type of temperature ladder (sequential, exp, geom).}
+
+\item{r}{float, only used if typeTemp="geom".}
+
+\item{maxIterPT}{maximum number of iterations, Parallel Tempering. If less than burn-in and sampling iterations required, it is recomputed.}
+
+\item{burnInIter1}{burn-in iterations in first iteration of the ABMCEM algorithm.}
+
+\item{burnInIter2}{burn-in iterations after first iteration of the ABMCEM algorithm.}
+
+\item{out_file_names}{names for saving tables with acceptance of mutations,
+loglikelihoods and score vectors, and acceptance of swaps.
+Do NOT add .txt extension.}
+
+\item{changepPerm}{allows for adaptative permutation mutation probability.}
 }
 \value{
 list of
 \item{logLik}{log likelihood of the sequences at the last step}
-\item{beta}{estimation of effect parameters}
-\item{se}{estimation of standard errors}
+\item{beta}{estimation of choice parameters}
+\item{stdErrorsChoice}{estimation of standard errors, choice model}
+\item{theta}{estimation of rate parameters}
+\item{stdErrorsRate}{estimation of standard errors, rate model}
 \item{index}{number of iterations until convergence of EM algorithm}
 \item{diff}{value of stopping rule at last iteration}
-\item{permut}{last set of permutations}
-\item{betaCreaDF}{last data frame of goldfish estimators}
-\item{betaDelDF}{last data frame of goldfish estimators}
 }
 \description{
-This algorithm allows for an implementation of the ABMCEM algorithm with and without constant rates.
-For the MCMC steps, three types of steps are done: shortening, augmenting and permutation of the sequence.
+This algorithm allows for an implementation of the ABMCEM algorithm with constant rates.
+For the MCMC steps in each chain, three types of mutations are done: shortening, augmenting and permutation of the sequence.
 \eqn{pShort + pAug + pPerm = 1}
 }
 \references{

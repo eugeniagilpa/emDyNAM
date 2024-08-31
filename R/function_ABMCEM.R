@@ -406,41 +406,55 @@ MCEMalgorithm <- function(nmax0, net0, net1, theta0, beta0,
 
 #' Ascent-Based Markov-Chain Expectation-Maximization algorithm with parallel tempering
 #'
-#' @description This algorithm allows for an implementation of the ABMCEM algorithm with and without constant rates.
-#'              For the MCMC steps, three types of steps are done: shortening, augmenting and permutation of the sequence.
+#' @description This algorithm allows for an implementation of the ABMCEM algorithm with constant rates.
+#'              For the MCMC steps in each chain, three types of mutations are done: shortening, augmenting and permutation of the sequence.
 #'              \eqn{pShort + pAug + pPerm = 1}
 #'
-#' @param nmax0 initial value of number of permuations for step 0
+#' @param nmax initial value of number of permuations for step 0
 #' @param net0 initial network
 #' @param net1 final network
 #' @param theta0 initial values for rate parameters
 #' @param beta0 initial values for effect parameters
 #' @param formula formula of the choice model
-#' @param formulaRate formula of the rate model. Default value is `NULL`. Leave default for constant rate models (faster algorithm)
-#' @param initTime initial time. If formulaRate is not `NULL`, this parameter cannot be null.
-#' @param endTime end time. If formulaRate is not `NULL`, this parameter cannot be null.
+#' @param initTime initial time.
+#' @param endTime end time.
 #' @param num_cores number of cores for paralelization
 #' @param errType2 value of power wanted. Default 0.8
 #' @param alpha value for lower bound computation. Default 0.9
 #' @param gamma value for stopping rule. Default 0.9
 #' @param thr threshold for algorithm stop
-#' @param maxIter maximum number of iterations for MCMC
-#' @param thin number of MCMC steps beween samples
-#' @param pShort probability of shortening the sequence (MCMC)
-#' @param pAug probability of augmenting the sequence (MCMC)
-#' @param pPerm probability of permuting two elements of the sequence (MCMC)
+#' @param maxIter maximum number of iterations for Parallel Tempering
+#' @param thin number of mutations steps between samples
+#' @param pShort probability of shortening the sequence, Parallel Tempering
+#' @param pAug probability of augmenting the sequence, Parallel Tempering
+#' @param pPerm probability of permuting two elements of the sequence, Parallel Tempering
+#' @param k_perm number of permutations after an augmentation, shortening or permutation mutation.
+#' @param nPT number of number of parallel chains with different temperatures.
+#' @param T0 maximum temperature of chains, Parallel Tempering
+#' @param nStepExch number of steps between proposing a swap. Optimal
+#'        setting is thin=nStepExhc so the swaps alternate with samples.
+#' @param typeTemp character, type of temperature ladder (sequential, exp, geom).
+#' @param r float, only used if typeTemp="geom".
+#' @param maxIterPT maximum number of iterations, Parallel Tempering. If less than burn-in and sampling iterations required, it is recomputed.
+#' @param burnInIter1 burn-in iterations in first iteration of the ABMCEM algorithm.
+#' @param burnInIter2 burn-in iterations after first iteration of the ABMCEM algorithm.
+#' @param out_file_names names for saving tables with acceptance of mutations,
+#'        loglikelihoods and score vectors, and acceptance of swaps.
+#'        Do NOT add .txt extension.
+#' @param changepPerm allows for adaptative permutation mutation probability.
 #'
 #'
 #' @return list of
 #' \item{logLik}{log likelihood of the sequences at the last step}
-#' \item{beta}{estimation of effect parameters}
-#' \item{se}{estimation of standard errors}
+#' \item{beta}{estimation of choice parameters}
+#' \item{stdErrorsChoice}{estimation of standard errors, choice model}
+#' \item{theta}{estimation of rate parameters}
+#' \item{stdErrorsRate}{estimation of standard errors, rate model}
 #' \item{index}{number of iterations until convergence of EM algorithm}
 #' \item{diff}{value of stopping rule at last iteration}
-#' \item{permut}{last set of permutations}
-#' \item{betaCreaDF}{last data frame of goldfish estimators}
-#' \item{betaDelDF}{last data frame of goldfish estimators}
+#'
 #' @export
+#'
 #'
 #' @references
 #' Caffo, B. S., Jank, W., & Jones, G. L. (2005). Ascent-based Monte Carlo expectation–maximization.
@@ -473,7 +487,8 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
                           burnInIter2 = 1000,
                           out_file_names = c("out_PT_acceptDF",
                                              "out_PT_mcmcDiagDF",
-                                             "out_PT_acceptSwitch")) {
+                                             "out_PT_acceptSwitch"),
+                          changePPerm = FALSE) {
 
 
   actDfnodes <- defineNodes(data.frame(label = colnames(net0)))
@@ -556,7 +571,8 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
                            nStepExch = nStepExch, pAug = pAug,
                            pShort = pShort, pPerm = pPerm, k = k_perm,
                            num_cores = num_cores, typeTemp = typeTemp ,r = r,
-                           index = index,out_file_names=out_file_names)
+                           index = index,out_file_names=out_file_names,
+                           changePPerm = changePPerm)
 
 
     cat("After MCMC_Rate, writing tables should happen now")
@@ -664,7 +680,8 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
                                   nStepExch = nStepExch, pAug = pAug,
                                   pShort = pShort, pPerm = pPerm, k = k_perm,
                                   num_cores = num_cores, typeTemp = typeTemp ,
-                                  r = r, index = 2,out_file_names=out_file_names)
+                                  r = r, index = 2,out_file_names=out_file_names,
+                                  changePPerm = changePPerm)
         nmax <- nmax + ceiling(nmax / k)
 
         # write.table(seqsEMaux$acceptDF, file = paste("out_acceptDF.txt",sep=""), sep = "\t",
@@ -821,40 +838,44 @@ MCEMalgorithmRatePT <- function(nmax, net0, net1, theta0, beta0,
 
 #' Ascent-Based Markov-Chain Expectation-Maximization algorithm with MCMC and rate
 #'
-#' @description This algorithm allows for an implementation of the ABMCEM algorithm with and without constant rates.
-#'              For the MCMC steps, three types of steps are done: shortening, augmenting and permutation of the sequence.
+#' @description This algorithm allows for an implementation of the ABMCEM algorithm with constant rates.
+#'              For the MCMC steps, three types of mutations are done: shortening, augmenting and permutation of the sequence.
 #'              \eqn{pShort + pAug + pPerm = 1}
 #'
-#' @param nmax0 initial value of number of permuations for step 0
+#' @param nmax initial value of number of permuations for step 0
 #' @param net0 initial network
 #' @param net1 final network
 #' @param theta0 initial values for rate parameters
 #' @param beta0 initial values for effect parameters
 #' @param formula formula of the choice model
-#' @param formulaRate formula of the rate model. Default value is `NULL`. Leave default for constant rate models (faster algorithm)
-#' @param initTime initial time. If formulaRate is not `NULL`, this parameter cannot be null.
-#' @param endTime end time. If formulaRate is not `NULL`, this parameter cannot be null.
-#' @param num_cores number of cores for paralelization
+#' @param initTime initial time.
+#' @param endTime end time.
 #' @param errType2 value of power wanted. Default 0.8
 #' @param alpha value for lower bound computation. Default 0.9
 #' @param gamma value for stopping rule. Default 0.9
 #' @param thr threshold for algorithm stop
-#' @param maxIter maximum number of iterations for MCMC
-#' @param thin number of MCMC steps beween samples
-#' @param pShort probability of shortening the sequence (MCMC)
-#' @param pAug probability of augmenting the sequence (MCMC)
-#' @param pPerm probability of permuting two elements of the sequence (MCMC)
+#' @param maxIter maximum number of iterations for Parallel Tempering
+#' @param thin number of mutations steps between samples
+#' @param pShort probability of shortening the sequence, Parallel Tempering
+#' @param pAug probability of augmenting the sequence, Parallel Tempering
+#' @param pPerm probability of permuting two elements of the sequence, Parallel Tempering
+#' @param k_perm number of permutations after an augmentation, shortening or permutation mutation.
+#' @param burnInIter1 burn-in iterations in first iteration of the ABMCEM algorithm.
+#' @param burnInIter2 burn-in iterations after first iteration of the ABMCEM algorithm.
+#' @param out_file_names names for saving tables with acceptance of mutations, and
+#'        loglikelihoods and score vectors. Do NOT add .txt extension.
+#' @param changepPerm allows for adaptative permutation mutation probability.
 #'
 #'
 #' @return list of
 #' \item{logLik}{log likelihood of the sequences at the last step}
-#' \item{beta}{estimation of effect parameters}
-#' \item{se}{estimation of standard errors}
+#' \item{beta}{estimation of choice parameters}
+#' \item{stdErrorsChoice}{estimation of standard errors, choice model}
+#' \item{theta}{estimation of rate parameters}
+#' \item{stdErrorsRate}{estimation of standard errors, rate model}
 #' \item{index}{number of iterations until convergence of EM algorithm}
 #' \item{diff}{value of stopping rule at last iteration}
-#' \item{permut}{last set of permutations}
-#' \item{betaCreaDF}{last data frame of goldfish estimators}
-#' \item{betaDelDF}{last data frame of goldfish estimators}
+#'
 #' @export
 #'
 #' @references
@@ -886,7 +907,8 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
                               k_perm=5, burnInIter1 = 10000,
                               burnInIter2 = 1000,
                               out_file_names = c("out_PT_acceptDF",
-                                                 "out_PT_mcmcDiagDF")) {
+                                                 "out_PT_mcmcDiagDF"),
+                              changePPerm = FALSE) {
 
 
   actDfnodes <- defineNodes(data.frame(label = colnames(net0)))
@@ -964,7 +986,8 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
                         burnIn = TRUE, burnInIter = burnInIter,
                         maxIter = 100000, thin = thin,
                         pAug = pAug, pShort = pShort,pPerm = pPerm, k = k_perm,
-                        index = index,out_file_names=out_file_names
+                        index = index,out_file_names=out_file_names,
+                        changePPerm = changePPerm
     )
 
 
@@ -1063,7 +1086,8 @@ MCEMalgorithmRateMCMC <- function(nmax, net0, net1, theta0, beta0,
                   burnIn = FALSE, burnInIter = 0,
                   maxIter = 100000, thin = thin,
                   pAug = pAug, pShort = pShort,pPerm = pPerm, k = k_perm,
-                  index = 2,out_file_names=out_file_names
+                  index = 2,out_file_names=out_file_names,
+                  changePPerm = changePPerm
         )
 
         nmax <- nmax + ceiling(nmax / k)
