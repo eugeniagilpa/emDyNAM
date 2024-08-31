@@ -31,7 +31,8 @@ PT_Rate_MCMC(
   typeTemp = "sequential",
   r = 1/2,
   index = 1,
-  out_file_names = c("out_PT_acceptDF", "out_PT_mcmcDiagDF", "out_PT_acceptSwitch")
+  out_file_names = c("out_PT_acceptDF", "out_PT_mcmcDiagDF", "out_PT_acceptSwitch"),
+  changePPerm = FALSE
 )
 }
 \arguments{

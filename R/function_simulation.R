@@ -437,9 +437,3 @@ simulationDyNAM = function(nSimCrea,nSimDel,parmsChoiceCrea,parmsChoiceDel,
 
 }
 
-
-
-
-
-
-
