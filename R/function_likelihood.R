@@ -3,7 +3,7 @@
 #' log-likelihood computation
 #'
 #' @param listExpandedDF list returned from function GatherPreprocessingDF
-#' @param beta list of choice parameters with elements Crea and Del
+#' @param beta list of choice parameters with elements Crea and Del.
 #'
 #' @return loglikelihood (creation + deletion of events models)
 #' @export
