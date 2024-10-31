@@ -14,7 +14,7 @@ logLikelihood(
 )
 }
 \arguments{
-\item{beta}{list of choice parameters with elements Crea and Del}
+\item{beta}{list of choice parameters with elements Crea and Del.}
 
 \item{listExpandedDF}{list returned from function GatherPreprocessingDF}
 }

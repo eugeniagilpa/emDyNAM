@@ -9,7 +9,7 @@ License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
     license
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2
 Depends: 
     goldfish,
     RSiena,
@@ -26,3 +26,9 @@ Depends:
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+Imports:
+    Rcpp (>= 1.0.5),
+    RcppArmadillo (>= 0.10.1.2.0)
+LinkingTo: 
+    Rcpp,
+    RcppArmadillo

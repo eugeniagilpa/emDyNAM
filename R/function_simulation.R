@@ -16,16 +16,6 @@
 #' @return List with results of estimation given by goldfish, initial and final
 #'          networks (adjacency matrix), sequence of events (eventsMod)
 #'
-#' @example library(RSiena)
-#' parmsChoiceCrea = c(0.2,0.2,0.6,0.6)
-#' parmsChoiceDel = c(-0.6,-0.6,-2,-2)
-#' nSimCrea = 50
-#' nSimDel = 50
-#' simulation = simulationDyNAM(nSimCrea = nSimCrea,
-#'                              nSimDel = nSimDel,
-#'                              parmsChoiceCrea = parmsChoiceCrea,
-#'                              parmsChoiceDel = parmsChoiceDel,
-#'                              endTime = 1, rep = FALSE, init_matrix = s501)
 #'
 #' @export
 #'
