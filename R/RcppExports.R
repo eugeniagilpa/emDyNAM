@@ -5,3 +5,7 @@ timesTwo <- function(x) {
     .Call(`_emDyNAM_timesTwo`, x)
 }
 
+subsetDataFrameTwoConditions <- function(df, columnName1, value1, columnName2, value2) {
+    .Call(`_emDyNAM_subsetDataFrameTwoConditions`, df, columnName1, value1, columnName2, value2)
+}
+

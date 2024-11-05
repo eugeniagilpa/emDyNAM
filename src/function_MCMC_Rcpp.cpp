@@ -94,8 +94,6 @@ DataFrame getAuxDfECpp(List auxDf, int sender, int receiver) {
   return auxDfE;
 }
 
-#include <Rcpp.h>
-using namespace Rcpp;
 
 // [[Rcpp::export]]
 DataFrame subsetDataFrameTwoConditions(DataFrame df, String columnName1, int value1, String columnName2, int value2) {
@@ -158,7 +156,29 @@ DataFrame subsetDataFrameTwoConditions(DataFrame df, String columnName1, int val
 }
 
 // [[Rcpp::export]]
-List getKelMeMatrix(DataFrame seq, IntegerVector actDfnodesLab) {
+IntegerVector tableRcpp(IntegerVector x) {
+  // Create a map to store counts of unique values
+  std::map<int, int> countMap;
+
+  for (int i = 0; i < x.size(); ++i) {
+    countMap[x[i]]++;
+  }
+
+  // Convert the map to vectors for the DataFrame
+  IntegerVector values;
+  IntegerVector counts;
+
+  for (std::map<int, int>::iterator it = countMap.begin(); it != countMap.end(); ++it) {
+    values.push_back(it->first);
+    counts.push_back(it->second);
+  }
+
+  // Create and return the DataFrame
+  return counts;
+}
+
+// [[Rcpp::export]]
+List getKelMeMatrixCpp(DataFrame seq, IntegerVector actDfnodesLab) {
   if (!seq.containsElementNamed("row")) {
     seq.push_back(seq.nrows(), "row");
   }
@@ -167,23 +187,25 @@ List getKelMeMatrix(DataFrame seq, IntegerVector actDfnodesLab) {
   for (int x : actDfnodesLab) {
     List innerList(actDfnodesLab.size());
     for (int i : actDfnodesLab) {
-      DataFrame subsetSeq = subset(seq, seq["sender"] == x & seq["receiver"] == i);
+      DataFrame subsetSeq = subsetDataFrameTwoConditions(seq, "sender", x, "receiver", i);
       innerList[i] = subsetSeq;
     }
     auxDf[x] = innerList;
   }
 
   for (int i = 0; i < actDfnodesLab.size(); ++i) {
+    List auxDfInnerList = auxDf[i];
     for (int j = 0; j < actDfnodesLab.size(); ++j) {
-      DataFrame df = auxDf[i][j];
+      DataFrame df = as<DataFrame>(auxDfInnerList[j]);
       if (df.nrows() > 0) {
         df["row"] = as<IntegerVector>(df["row"]);
         IntegerVector rowDiff = diff(as<IntegerVector>(df["row"]));
         rowDiff.push_front(0);
         df["rowDiff"] = rowDiff;
-        auxDf[i][j] = df;
+        auxDfInnerList[j] = df;
       }
     }
+    auxDf[i] = auxDfInnerList;
   }
 
   NumericMatrix Kel_g1(actDfnodesLab.size(), actDfnodesLab.size());
@@ -191,8 +213,8 @@ List getKelMeMatrix(DataFrame seq, IntegerVector actDfnodesLab) {
 
   for (int i = 0; i < Kel_g1.nrow(); ++i) {
     for (int j = 0; j < Kel_g1.ncol(); ++j) {
-      DataFrame auxDfE = getAuxDfE(auxDf, i, j);
-      IntegerVector runTable = table(auxDfE["run"]);
+      DataFrame auxDfE = getAuxDfECpp(auxDf, i, j);
+      IntegerVector runTable = tableRcpp(auxDfE["run"]);
       Kel_ge1(i, j) = runTable.size();
       Kel_g1(i, j) = sum(runTable > 1);
     }
