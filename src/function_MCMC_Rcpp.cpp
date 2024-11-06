@@ -1,5 +1,4 @@
 // [[Rcpp::depends(RcppArmadillo)]]
-#include <Rcpp.h>
 #include <RcppArmadillo.h>
 #include <RcppArmadilloExtensions/sample.h>
 #include <string>
@@ -297,7 +296,8 @@ List stepAugment(DataFrame seq, CharacterVector tieNames,
   int receiver = e_split[1];
 
   double p = (m - me(sender, receiver) + 1) / gammaEplus(sender, receiver);
-  String typeA = as<String>(Rcpp::RcppArmadillo::sample(2, 1, false, NumericVector::create(p, 1 - p))(0) == 0 ? "same" : "diff");
+  int typeA = Rcpp::RcppArmadillo::sample(2, 1, false,
+                            NumericVector::create(p, 1 - p));
   IntegerVector indexSR = which(seq["sender"] == sender & seq["receiver"] == receiver);
 
   List newseq;
