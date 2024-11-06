@@ -1,9 +1,14 @@
 // [[Rcpp::depends(RcppArmadillo)]]
+#include <Rcpp.h>
 #include <RcppArmadillo.h>
+#include <RcppArmadilloExtensions/sample.h>
 #include <string>
 #include <iostream>
+#include <vector>
+#include<string.h>
+#include <sstream>
 using namespace Rcpp;
-
+using namespace std;
 
 // [[Rcpp::export]]
 double getpDoAugmentCpp(NumericMatrix gammaEplus, double gammaPlus, double p,
@@ -96,7 +101,9 @@ DataFrame getAuxDfECpp(List auxDf, int sender, int receiver) {
 
 
 // [[Rcpp::export]]
-DataFrame subsetDataFrameTwoConditions(DataFrame df, String columnName1, int value1, String columnName2, int value2) {
+DataFrame subsetDataFrameTwoConditions(DataFrame df, String columnName1,
+                                       int value1, String columnName2,
+                                       int value2) {
   // Extract the columns to be used for the condition
   IntegerVector column1 = df[columnName1];
   IntegerVector column2 = df[columnName2];
@@ -155,6 +162,27 @@ DataFrame subsetDataFrameTwoConditions(DataFrame df, String columnName1, int val
   return DataFrame(newDfList);
 }
 
+
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+NumericMatrix transposeRcpp(const NumericMatrix& mat) {
+  int rows = mat.nrow();
+  int cols = mat.ncol();
+  NumericMatrix transposed(cols, rows);
+
+  for (int i = 0; i < rows; ++i) {
+    for (int j = 0; j < cols; ++j) {
+      transposed(j, i) = mat(i, j);
+    }
+  }
+
+  return transposed;
+}
+
+
+
 // [[Rcpp::export]]
 IntegerVector tableRcpp(IntegerVector x) {
   // Create a map to store counts of unique values
@@ -187,7 +215,8 @@ List getKelMeMatrixCpp(DataFrame seq, IntegerVector actDfnodesLab) {
   for (int x : actDfnodesLab) {
     List innerList(actDfnodesLab.size());
     for (int i : actDfnodesLab) {
-      DataFrame subsetSeq = subsetDataFrameTwoConditions(seq, "sender", x, "receiver", i);
+      DataFrame subsetSeq = subsetDataFrameTwoConditions(seq, "sender", x,
+                                                         "receiver", i);
       innerList[i] = subsetSeq;
     }
     auxDf[x] = innerList;
@@ -220,51 +249,82 @@ List getKelMeMatrixCpp(DataFrame seq, IntegerVector actDfnodesLab) {
     }
   }
 
-  NumericMatrix me = transpose(sapply(auxDf, [](List x) { return sapply(x, nrows); }));
+  int n = auxDf.size();
+  NumericMatrix meAux(n, n);
 
-  return List::create(Named("Kel_g1") = Kel_g1, Named("Kel_ge1") = Kel_ge1, Named("me") = me, Named("auxDf") = auxDf);
+  for (int i = 0; i < n; ++i) {
+    for (int j = 0; j < n; ++j) {
+      List innerList = auxDf[i];
+      DataFrame df = as<DataFrame>(innerList[j]);
+      meAux(i, j) = df.nrows();
+    }
+  }
+  NumericMatrix me = transposeRcpp(meAux);
+
+  return List::create(Named("Kel_g1") = Kel_g1, Named("Kel_ge1") = Kel_ge1,
+                      Named("me") = me, Named("auxDf") = auxDf);
 }
 
-//
-//
-// // [[Rcpp::export]]
-// List stepAugment(DataFrame seq, CharacterVector tieNames, NumericMatrix gammaEplus, double gammaPlus,
-//                  double m, NumericMatrix me, NumericMatrix net0, double pAug) {
-//   // Choose element to be inserted
-//   String e = as<String>(tieNames[Rcpp::RcppArmadillo::sample(tieNames.size(), 1, false, gammaEplus / gammaPlus)(0)]);
-//   IntegerVector e_split = as<IntegerVector>(strsplit(e, "-"));
-//   int sender = e_split[0];
-//   int receiver = e_split[1];
-//
-//   double p = (m - me(sender, receiver) + 1) / gammaEplus(sender, receiver);
-//   String typeA = as<String>(Rcpp::RcppArmadillo::sample(2, 1, false, NumericVector::create(p, 1 - p))(0) == 0 ? "same" : "diff");
-//   IntegerVector indexSR = which(seq["sender"] == sender & seq["receiver"] == receiver);
-//
-//   List newseq;
-//   double pDoStep;
-//   if (typeA == "same") {
-//     int place;
-//     if (indexSR.size() < 1) {
-//       place = Rcpp::RcppArmadillo::sample(m + 1, 1, false)(0);
-//     } else {
-//       place = Rcpp::RcppArmadillo::sample(seq(m + 1)[seq(m + 1) != indexSR], 1, false)(0);
-//     }
-//
-//     // Create new sequence
-//     // ... (Handle insertion logic similar to R)
-//
-//     pDoStep = getpDoAugment(gammaEplus, gammaPlus, p, m, me, sender, receiver, typeA, indexSR, pAug);
-//   } else if (typeA == "diff") {
-//     // Handle "diff" case
-//     // ... (Handle insertion logic similar to R)
-//
-//     pDoStep = getpDoAugment(gammaEplus, gammaPlus, p, m, me, sender, receiver, typeA, indexSR, pAug);
-//   }
-//
-//   return List::create(Named("newseq") = newseq, Named("sender") = sender, Named("receiver") = receiver,
-//                             Named("place") = place, Named("typeA") = typeA, Named("pDoStep") = pDoStep);
-// }
-//
+
+
+// [[Rcpp::export]]
+CharacterVector strsplit_cpp(String input, String delimiter) {
+
+  CharacterVector inputVec = CharacterVector::create(input);
+  std::string cppString = Rcpp::as<std::string>(inputVec[0]);
+  std::string cppDelimiter = Rcpp::as<std::string>(CharacterVector::create(delimiter)[0]);
+  vector<string> tokens;
+  stringstream ss(cppString);
+  string token;
+
+  while (getline(ss, token, cppDelimiter[0])){
+    tokens.push_back(token);
+  }
+
+  return wrap(tokens);
+}
+
+// [[Rcpp::export]]
+List stepAugment(DataFrame seq, CharacterVector tieNames,
+                 NumericMatrix gammaEplus, double gammaPlus,
+                 double m, NumericMatrix me, NumericMatrix net0,
+                 double pAug) {
+  // Choose element to be inserted
+  String e = as<String>(Rcpp::RcppArmadillo::sample(tieNames,1, false,
+                                                   gammaEplus /gammaPlus));
+  IntegerVector e_split = as<IntegerVector>(strsplit_cpp(e, "-"));
+  int sender = e_split[0];
+  int receiver = e_split[1];
+
+  double p = (m - me(sender, receiver) + 1) / gammaEplus(sender, receiver);
+  String typeA = as<String>(Rcpp::RcppArmadillo::sample(2, 1, false, NumericVector::create(p, 1 - p))(0) == 0 ? "same" : "diff");
+  IntegerVector indexSR = which(seq["sender"] == sender & seq["receiver"] == receiver);
+
+  List newseq;
+  double pDoStep;
+  if (typeA == "same") {
+    int place;
+    if (indexSR.size() < 1) {
+      place = Rcpp::RcppArmadillo::sample(m + 1, 1, false)(0);
+    } else {
+      place = Rcpp::RcppArmadillo::sample(seq(m + 1)[seq(m + 1) != indexSR], 1, false)(0);
+    }
+
+    // Create new sequence
+    // ... (Handle insertion logic similar to R)
+
+    pDoStep = getpDoAugment(gammaEplus, gammaPlus, p, m, me, sender, receiver, typeA, indexSR, pAug);
+  } else if (typeA == "diff") {
+    // Handle "diff" case
+    // ... (Handle insertion logic similar to R)
+
+    pDoStep = getpDoAugment(gammaEplus, gammaPlus, p, m, me, sender, receiver, typeA, indexSR, pAug);
+  }
+
+  return List::create(Named("newseq") = newseq, Named("sender") = sender, Named("receiver") = receiver,
+                            Named("place") = place, Named("typeA") = typeA, Named("pDoStep") = pDoStep);
+}
+
 //
 //
 // // [[Rcpp::export]]
